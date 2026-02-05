@@ -36,6 +36,9 @@ class UserCreateSerializer(serializers.ModelSerializer):
     def create(self, validated_data):
         password = validated_data.pop('password')
         user = User(**validated_data)
+        # Si on crée un admin via l'API, on lui donne aussi les droits staff
+        if user.role == 'admin':
+            user.is_staff = True
         user.set_password(password)
         user.save()
         return user
