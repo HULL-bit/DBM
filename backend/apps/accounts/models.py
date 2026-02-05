@@ -9,6 +9,11 @@ class CustomUser(AbstractUser):
         ('jewrin', 'Jewrin'),
     ]
 
+    SEXE_CHOICES = [
+        ('M', 'Masculin'),
+        ('F', 'Féminin'),
+    ]
+
     telephone = models.CharField(max_length=20, blank=True)
     adresse = models.TextField(blank=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='membre')
@@ -17,6 +22,10 @@ class CustomUser(AbstractUser):
     date_inscription = models.DateTimeField(auto_now_add=True)
     est_actif = models.BooleanField(default=True)
     numero_wave = models.CharField(max_length=50, blank=True)
+
+    # Informations personnelles
+    sexe = models.CharField(max_length=1, choices=SEXE_CHOICES, blank=True)
+    profession = models.CharField(max_length=100, blank=True)
 
     # Champs spécifiques Jewrin
     specialite = models.CharField(max_length=100, blank=True)

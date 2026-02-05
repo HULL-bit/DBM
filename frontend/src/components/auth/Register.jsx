@@ -7,7 +7,19 @@ import { useAuth } from '../../context/AuthContext'
 export default function Register() {
   const navigate = useNavigate()
   const { register } = useAuth()
-  const [form, setForm] = useState({ username: '', email: '', password: '', password_confirmation: '', first_name: '', last_name: '', telephone: '', adresse: '', role: 'membre' })
+  const [form, setForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+    first_name: '',
+    last_name: '',
+    telephone: '',
+    adresse: '',
+    role: 'membre',
+    sexe: '',
+    profession: '',
+  })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -15,6 +27,11 @@ export default function Register() {
     { value: 'admin', label: 'Administrateur' },
     { value: 'membre', label: 'Membre' },
     { value: 'jewrin', label: 'Jewrin' },
+  ]
+
+  const SEXES = [
+    { value: 'M', label: 'Masculin' },
+    { value: 'F', label: 'Féminin' },
   ]
 
   const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
@@ -78,6 +95,30 @@ export default function Register() {
             <TextField fullWidth name="last_name" label="Nom" value={form.last_name} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
             <TextField fullWidth name="telephone" label="Téléphone" value={form.telephone} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
             <TextField fullWidth name="adresse" label="Adresse" value={form.adresse} onChange={handleChange} margin="dense" multiline sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+            <TextField
+              fullWidth
+              name="sexe"
+              select
+              label="Sexe"
+              value={form.sexe}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            >
+              {SEXES.map((s) => (
+                <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              name="profession"
+              label="Profession"
+              value={form.profession}
+              onChange={handleChange}
+              margin="dense"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
             <TextField fullWidth name="role" select label="Rôle" value={form.role} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
               {ROLES.map((r) => (
                 <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>

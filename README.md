@@ -65,3 +65,4 @@ Le frontend est disponible sur http://localhost:5173 (proxy API vers le backend)
 ## Licence
 
 Projet Daara Barakatul Mahaahidi.
+

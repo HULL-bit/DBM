@@ -42,6 +42,8 @@ const initialForm = {
   telephone: '',
   adresse: '',
   numero_wave: '',
+  sexe: '',
+  profession: '',
 }
 
 export default function GestionMembres() {
@@ -79,6 +81,8 @@ export default function GestionMembres() {
       telephone: u.telephone || '',
       adresse: u.adresse || '',
       numero_wave: u.numero_wave || '',
+      sexe: u.sexe || '',
+      profession: u.profession || '',
     })
     setOpenForm(true)
   }
@@ -171,9 +175,11 @@ export default function GestionMembres() {
             <TableHead>
               <TableRow sx={{ bgcolor: `${COLORS.vert}12` }}>
                 <TableCell>Utilisateur</TableCell>
+                <TableCell>Sexe</TableCell>
                 <TableCell>Email</TableCell>
                 <TableCell>Rôle</TableCell>
                 <TableCell>Téléphone</TableCell>
+                <TableCell>Profession</TableCell>
                 <TableCell>Statut</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
@@ -187,12 +193,14 @@ export default function GestionMembres() {
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                         <Avatar sx={{ width: 32, height: 32, bgcolor: COLORS.or, color: COLORS.vert }}>{u.first_name?.[0]}{u.last_name?.[0]}</Avatar>
-                        {u.first_name} {u.last_name}
+                        {`${u.sexe === 'M' ? 'Señ ' : u.sexe === 'F' ? 'Soxna ' : ''}${u.first_name || ''} ${u.last_name || ''}`.trim()}
                       </Box>
                     </TableCell>
+                    <TableCell>{u.sexe === 'M' ? 'Masculin' : u.sexe === 'F' ? 'Féminin' : '—'}</TableCell>
                     <TableCell>{u.email}</TableCell>
                     <TableCell><Chip label={u.role_display || u.role} size="small" sx={{ bgcolor: `${COLORS.or}30` }} /></TableCell>
                     <TableCell>{u.telephone || '—'}</TableCell>
+                    <TableCell>{u.profession || '—'}</TableCell>
                     <TableCell><Chip label={u.est_actif ? 'Actif' : 'Inactif'} color={u.est_actif ? 'success' : 'default'} size="small" /></TableCell>
                     <TableCell align="right">
                       <IconButton size="small" onClick={() => handleOpenEdit(u)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
@@ -215,10 +223,22 @@ export default function GestionMembres() {
             <TextField label={editingId ? 'Nouveau mot de passe (laisser vide pour ne pas changer)' : 'Mot de passe'} type="password" value={form.password} onChange={(e) => setForm((f) => ({ ...f, password: e.target.value }))} required={!editingId} fullWidth />
             <TextField label="Prénom" value={form.first_name} onChange={(e) => setForm((f) => ({ ...f, first_name: e.target.value }))} fullWidth />
             <TextField label="Nom" value={form.last_name} onChange={(e) => setForm((f) => ({ ...f, last_name: e.target.value }))} fullWidth />
+            <TextField
+              select
+              label="Sexe"
+              value={form.sexe}
+              onChange={(e) => setForm((f) => ({ ...f, sexe: e.target.value }))}
+              fullWidth
+            >
+              <MenuItem value="">Non renseigné</MenuItem>
+              <MenuItem value="M">Masculin</MenuItem>
+              <MenuItem value="F">Féminin</MenuItem>
+            </TextField>
             <TextField select label="Rôle" value={form.role} onChange={(e) => setForm((f) => ({ ...f, role: e.target.value }))} fullWidth>
               {ROLES.map((r) => <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>)}
             </TextField>
             <TextField label="Téléphone" value={form.telephone} onChange={(e) => setForm((f) => ({ ...f, telephone: e.target.value }))} fullWidth />
+            <TextField label="Profession" value={form.profession} onChange={(e) => setForm((f) => ({ ...f, profession: e.target.value }))} fullWidth />
             <TextField label="Numéro Wave" value={form.numero_wave} onChange={(e) => setForm((f) => ({ ...f, numero_wave: e.target.value }))} fullWidth />
             <TextField label="Adresse" value={form.adresse} onChange={(e) => setForm((f) => ({ ...f, adresse: e.target.value }))} multiline rows={2} fullWidth />
           </Box>
