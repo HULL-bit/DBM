@@ -1,7 +1,9 @@
 import axios from 'axios'
 
 const api = axios.create({
-  baseURL: '/api',
+  // En prod, on pointe par défaut vers le backend Render.
+  // On peut surcharger avec VITE_API_BASE_URL si besoin.
+  baseURL: import.meta.env.VITE_API_BASE_URL || 'https://dbm-8ym4.onrender.com/api',
   headers: { 'Content-Type': 'application/json' },
 })
 
@@ -24,7 +26,10 @@ api.interceptors.response.use(
       const refresh = localStorage.getItem('refresh')
       if (refresh) {
         try {
-          const { data } = await axios.post('/api/auth/token/refresh/', { refresh })
+          const { data } = await axios.post(
+            (import.meta.env.VITE_API_BASE_URL || 'https://dbm-8ym4.onrender.com/api') + '/auth/token/refresh/',
+            { refresh },
+          )
           localStorage.setItem('access', data.access)
           original.headers.Authorization = `Bearer ${data.access}`
           return api(original)
