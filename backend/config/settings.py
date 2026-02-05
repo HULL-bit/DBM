@@ -66,12 +66,41 @@ TEMPLATES = [
 
 WSGI_APPLICATION = 'config.wsgi.application'
 
-DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+# Base locale (développement) : SQLite.
+# En production (Render, etc.), définir la variable d'environnement DATABASE_URL
+# avec une URL PostgreSQL, par ex :
+# postgresql://user:password@host:port/dbname
+#
+# Exemple concret Render pour ce projet :
+# postgresql://dbm_2tbv_user:Dha1WFC0tQpxsNAFvQxlMRbfKMy0QOyG@dpg-d625k22li9vc73c2bks0-a.oregon-postgres.render.com/dbm_2tbv
+DATABASE_URL = os.environ.get('DATABASE_URL')
+
+if DATABASE_URL:
+    import urllib.parse as urlparse
+
+    urlparse.uses_netloc.append('postgres')
+    url = urlparse.urlparse(DATABASE_URL)
+
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.postgresql',
+            'NAME': url.path[1:],
+            'USER': url.username,
+            'PASSWORD': url.password,
+            'HOST': url.hostname,
+            'PORT': url.port or 5432,
+            'OPTIONS': {
+                'sslmode': 'require',
+            },
+        }
     }
-}
+else:
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': BASE_DIR / 'db.sqlite3',
+        }
+    }
 
 AUTH_PASSWORD_VALIDATORS = [
     {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},

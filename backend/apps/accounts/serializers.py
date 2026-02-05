@@ -14,7 +14,7 @@ class UserSerializer(serializers.ModelSerializer):
             'id', 'username', 'email', 'first_name', 'last_name',
             'telephone', 'adresse', 'sexe', 'profession',
             'role', 'role_display', 'photo',
-            'date_inscription', 'est_actif', 'numero_wave',
+            'date_inscription', 'est_actif', 'numero_wave', 'numero_carte',
             'specialite', 'biographie',
             'cotisations_payees', 'chapitres_lus', 'evenements_participes',
         ]
@@ -29,7 +29,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         fields = [
             'username', 'email', 'password', 'first_name', 'last_name',
             'telephone', 'adresse', 'sexe', 'profession',
-            'role', 'numero_wave',
+            'role', 'numero_wave', 'numero_carte',
             'specialite', 'biographie',
         ]
 
@@ -51,7 +51,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             'telephone', 'adresse', 'sexe', 'profession',
             'role', 'role_display', 'photo',
             'photo_updated_at',
-            'date_inscription', 'est_actif', 'numero_wave',
+            'date_inscription', 'est_actif', 'numero_wave', 'numero_carte',
             'specialite', 'biographie',
             'cotisations_payees', 'chapitres_lus', 'evenements_participes',
         ]

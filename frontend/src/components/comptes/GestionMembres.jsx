@@ -44,6 +44,7 @@ const initialForm = {
   numero_wave: '',
   sexe: '',
   profession: '',
+  numero_carte: '',
 }
 
 export default function GestionMembres() {
@@ -55,6 +56,8 @@ export default function GestionMembres() {
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [search, setSearch] = useState('')
+  const [sexeFilter, setSexeFilter] = useState('')
 
   const loadList = () => {
     setLoading(true)
@@ -83,6 +86,7 @@ export default function GestionMembres() {
       numero_wave: u.numero_wave || '',
       sexe: u.sexe || '',
       profession: u.profession || '',
+      numero_carte: u.numero_carte || '',
     })
     setOpenForm(true)
   }
@@ -144,21 +148,59 @@ export default function GestionMembres() {
     }
   }
 
+  const filteredList = list.filter((u) => {
+    const q = search.trim().toLowerCase()
+    const matchesSearch = !q
+      || (u.first_name && u.first_name.toLowerCase().includes(q))
+      || (u.last_name && u.last_name.toLowerCase().includes(q))
+      || (u.username && u.username.toLowerCase().includes(q))
+      || (u.email && u.email.toLowerCase().includes(q))
+      || (u.telephone && u.telephone.toLowerCase().includes(q))
+      || (u.numero_carte && u.numero_carte.toLowerCase().includes(q))
+
+    const matchesSexe = !sexeFilter || u.sexe === sexeFilter
+
+    return matchesSearch && matchesSexe
+  })
+
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
-        <Box>
-          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }} gutterBottom>Gestion des membres</Typography>
-          <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>Ajouter, modifier ou supprimer des membres</Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
+          <Box>
+            <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }} gutterBottom>Gestion des membres</Typography>
+            <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>Ajouter, modifier ou supprimer des membres</Typography>
+          </Box>
+          <Button
+            variant="contained"
+            startIcon={<Add />}
+            onClick={handleOpenAdd}
+            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+          >
+            Ajouter un membre
+          </Button>
         </Box>
-        <Button
-          variant="contained"
-          startIcon={<Add />}
-          onClick={handleOpenAdd}
-          sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
-        >
-          Ajouter un membre
-        </Button>
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+          <TextField
+            label="Rechercher (nom, email, téléphone, carte)"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            size="small"
+            sx={{ minWidth: 220 }}
+          />
+          <TextField
+            select
+            label="Sexe"
+            value={sexeFilter}
+            onChange={(e) => setSexeFilter(e.target.value)}
+            size="small"
+            sx={{ minWidth: 160 }}
+          >
+            <MenuItem value="">Tous</MenuItem>
+            <MenuItem value="M">Masculin</MenuItem>
+            <MenuItem value="F">Féminin</MenuItem>
+          </TextField>
+        </Box>
       </Box>
 
       {message.text && (
@@ -180,15 +222,16 @@ export default function GestionMembres() {
                 <TableCell>Rôle</TableCell>
                 <TableCell>Téléphone</TableCell>
                 <TableCell>Profession</TableCell>
+                <TableCell>Numéro carte</TableCell>
                 <TableCell>Statut</TableCell>
                 <TableCell align="right">Actions</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
-              {list.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center">Aucun membre</TableCell></TableRow>
+              {filteredList.length === 0 ? (
+                <TableRow><TableCell colSpan={9} align="center">Aucun membre</TableCell></TableRow>
               ) : (
-                list.map((u) => (
+                filteredList.map((u) => (
                   <TableRow key={u.id}>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
@@ -201,6 +244,7 @@ export default function GestionMembres() {
                     <TableCell><Chip label={u.role_display || u.role} size="small" sx={{ bgcolor: `${COLORS.or}30` }} /></TableCell>
                     <TableCell>{u.telephone || '—'}</TableCell>
                     <TableCell>{u.profession || '—'}</TableCell>
+                    <TableCell>{u.numero_carte || '—'}</TableCell>
                     <TableCell><Chip label={u.est_actif ? 'Actif' : 'Inactif'} color={u.est_actif ? 'success' : 'default'} size="small" /></TableCell>
                     <TableCell align="right">
                       <IconButton size="small" onClick={() => handleOpenEdit(u)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
@@ -239,6 +283,7 @@ export default function GestionMembres() {
             </TextField>
             <TextField label="Téléphone" value={form.telephone} onChange={(e) => setForm((f) => ({ ...f, telephone: e.target.value }))} fullWidth />
             <TextField label="Profession" value={form.profession} onChange={(e) => setForm((f) => ({ ...f, profession: e.target.value }))} fullWidth />
+            <TextField label="Numéro de carte" value={form.numero_carte} onChange={(e) => setForm((f) => ({ ...f, numero_carte: e.target.value }))} fullWidth />
             <TextField label="Numéro Wave" value={form.numero_wave} onChange={(e) => setForm((f) => ({ ...f, numero_wave: e.target.value }))} fullWidth />
             <TextField label="Adresse" value={form.adresse} onChange={(e) => setForm((f) => ({ ...f, adresse: e.target.value }))} multiline rows={2} fullWidth />
           </Box>

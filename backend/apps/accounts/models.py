@@ -22,6 +22,7 @@ class CustomUser(AbstractUser):
     date_inscription = models.DateTimeField(auto_now_add=True)
     est_actif = models.BooleanField(default=True)
     numero_wave = models.CharField(max_length=50, blank=True)
+    numero_carte = models.CharField(max_length=50, blank=True)
 
     # Informations personnelles
     sexe = models.CharField(max_length=1, choices=SEXE_CHOICES, blank=True)
