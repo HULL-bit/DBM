@@ -10,6 +10,7 @@ from django.utils import timezone
 
 from .serializers import UserSerializer, UserCreateSerializer, UserMeSerializer, BadgeSerializer, AttributionBadgeSerializer
 from .models import AttributionBadge
+from .permissions import IsAdminRoleOrStaff
 
 User = get_user_model()
 
@@ -105,7 +106,8 @@ def change_password(request):
 class UserList(generics.ListAPIView):
     queryset = User.objects.filter(is_active=True).order_by('-date_inscription')
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated, IsAdminUser]
+    # Admin Django (is_staff) OU admin logique (role='admin')
+    permission_classes = [IsAuthenticated, IsAdminRoleOrStaff]
     filterset_fields = ['role', 'est_actif']
 
 
