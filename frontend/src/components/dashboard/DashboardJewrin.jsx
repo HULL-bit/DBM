@@ -1,3 +1,4 @@
+import { useNavigate } from 'react-router-dom'
 import { Box, Grid, Card, CardContent, Typography, Button } from '@mui/material'
 import { CheckCircle, MenuBook, Mosque, Add } from '@mui/icons-material'
 
@@ -27,6 +28,7 @@ const StatCard = ({ title, value, icon, color }) => (
 )
 
 export default function DashboardJewrin() {
+  const navigate = useNavigate()
   return (
     <Box>
       <Typography variant="h4" sx={{ color: COLORS.vert, fontFamily: '"Dancing Script", "Cormorant Garamond", serif', fontWeight: 700, mb: 0.5 }}>
@@ -50,9 +52,9 @@ export default function DashboardJewrin() {
         <CardContent sx={{ p: 2.5 }}>
           <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif' }} gutterBottom>Actions prioritaires</Typography>
           <Box display="flex" flexWrap="wrap" gap={1} mt={1}>
-            <Button variant="contained" size="small" startIcon={<CheckCircle />} sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)` }}>Valider les progressions</Button>
-            <Button variant="outlined" size="small" startIcon={<Add />} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Créer une activité religieuse</Button>
-            <Button variant="outlined" size="small" sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Publier un enseignement</Button>
+            <Button variant="contained" size="small" startIcon={<CheckCircle />} onClick={() => navigate('/culturelle/validations')} sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)` }}>Valider les progressions</Button>
+            <Button variant="outlined" size="small" startIcon={<Add />} onClick={() => navigate('/culturelle/activites-religieuses')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Créer une activité religieuse</Button>
+            <Button variant="outlined" size="small" startIcon={<MenuBook />} onClick={() => navigate('/culturelle/kamil')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Programme Kamil</Button>
           </Box>
         </CardContent>
       </Card>

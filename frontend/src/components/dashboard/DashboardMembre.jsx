@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Box, Grid, Card, CardContent, Typography, Button } from '@mui/material'
 import { AccountBalance, MenuBook, Event, Message } from '@mui/icons-material'
 import { useAuth } from '../../context/AuthContext'
@@ -30,6 +31,7 @@ const StatCard = ({ title, value, icon, color }) => (
 )
 
 export default function DashboardMembre() {
+  const navigate = useNavigate()
   const { user } = useAuth()
   const [cotisationStats, setCotisationStats] = useState(null)
 
@@ -76,10 +78,10 @@ export default function DashboardMembre() {
         <CardContent sx={{ p: 2.5 }}>
           <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif' }} gutterBottom>Mes actions rapides</Typography>
           <Box display="flex" flexWrap="wrap" gap={1} mt={1}>
-            <Button variant="contained" size="small" sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)` }}>Payer ma cotisation</Button>
-            <Button variant="outlined" size="small" sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Lire un chapitre Kamil</Button>
-            <Button variant="outlined" size="small" startIcon={<Event />} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Voir les événements</Button>
-            <Button variant="outlined" size="small" startIcon={<Message />} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Messagerie</Button>
+            <Button variant="contained" size="small" startIcon={<AccountBalance />} onClick={() => navigate('/finance/cotisations')} sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)` }}>Payer ma cotisation</Button>
+            <Button variant="outlined" size="small" startIcon={<MenuBook />} onClick={() => navigate('/culturelle/mes-progressions')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Mes JUKKI</Button>
+            <Button variant="outlined" size="small" startIcon={<Event />} onClick={() => navigate('/informations/evenements')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Voir les événements</Button>
+            <Button variant="outlined" size="small" startIcon={<Message />} onClick={() => navigate('/communication/messagerie')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Messagerie</Button>
           </Box>
         </CardContent>
       </Card>

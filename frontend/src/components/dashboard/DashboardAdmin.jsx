@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Box, Grid, Card, CardContent, Typography, Button } from '@mui/material'
 import { People, AccountBalance, Event, MenuBook, Add } from '@mui/icons-material'
 import api from '../../services/api'
@@ -32,6 +33,7 @@ const StatCard = ({ title, value, icon, color }) => (
 )
 
 export default function DashboardAdmin() {
+  const navigate = useNavigate()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
 
@@ -56,6 +58,7 @@ export default function DashboardAdmin() {
           <Button
             variant="contained"
             startIcon={<Add />}
+            onClick={() => navigate('/admin/membres')}
             sx={{
               background: 'linear-gradient(135deg, #2D5F3F 0%, #3A7750 100%)',
               borderRadius: 2,
@@ -67,6 +70,7 @@ export default function DashboardAdmin() {
           <Button
             variant="outlined"
             startIcon={<Event />}
+            onClick={() => navigate('/informations/evenements')}
             sx={{
               borderColor: COLORS.or,
               color: COLORS.noir,
@@ -116,9 +120,20 @@ export default function DashboardAdmin() {
           <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif', fontWeight: 600 }} gutterBottom>
             Actions rapides
           </Typography>
-          <Typography variant="body2" sx={{ color: COLORS.noir }}>
-            Gestion des membres, finances, événements et programme Kamil depuis le menu latéral.
-          </Typography>
+          <Box display="flex" flexWrap="wrap" gap={1} mt={1}>
+            <Button variant="contained" size="small" startIcon={<Add />} onClick={() => navigate('/admin/membres')} sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)` }}>
+              Gestion des membres
+            </Button>
+            <Button variant="outlined" size="small" startIcon={<AccountBalance />} onClick={() => navigate('/finance/cotisations')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>
+              Cotisations
+            </Button>
+            <Button variant="outlined" size="small" startIcon={<Event />} onClick={() => navigate('/informations/evenements')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>
+              Événements
+            </Button>
+            <Button variant="outlined" size="small" startIcon={<MenuBook />} onClick={() => navigate('/culturelle/kamil')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>
+              Programme Kamil
+            </Button>
+          </Box>
         </CardContent>
       </Card>
     </Box>
