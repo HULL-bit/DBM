@@ -22,26 +22,15 @@ import {
 import logo from '/logo.png'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
+import { getMediaUrl } from '../../services/media'
 
 // Couleurs logo : vert #2D5F3F, or #C9A961, beige #F4EAD5, noir #1A1A1A
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', beige: '#F4EAD5', noir: '#1A1A1A', blanc: '#FFFFFF' }
 
 function getPhotoUrl(photo, photoUpdatedAt) {
   if (!photo) return null
-  let base = photo
-  // Si c'est une URL absolue (http:// ou https://), extraire le chemin relatif pour le proxy
-  if (photo.startsWith('http://') || photo.startsWith('https://')) {
-    try {
-      const url = new URL(photo)
-      base = url.pathname  // ex: /media/photos_membres/image.jpg
-    } catch {
-      base = photo
-    }
-  } else if (!photo.startsWith('/')) {
-    // Chemin relatif sans /media/ -> ajouter le préfixe
-    base = `/media/${photo}`
-  }
-  return photoUpdatedAt ? `${base}?v=${photoUpdatedAt}` : base
+  const query = photoUpdatedAt ? `v=${photoUpdatedAt}` : ''
+  return getMediaUrl(photo, query)
 }
 
 export default function Header({ onMenuClick, sidebarCollapsed, sidebarWidth = 0, isMobile }) {

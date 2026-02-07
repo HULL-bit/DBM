@@ -28,8 +28,9 @@ import {
   ListItemIcon,
   ListItemText,
 } from '@mui/material'
-import { Add, Edit, Delete, LibraryBooks, Archive, Groups, Event, PhotoLibrary, Collections } from '@mui/icons-material'
+import { Add, Edit, Delete, LibraryBooks, Archive, Groups, Event, PhotoLibrary, Collections, EventAvailable, Person } from '@mui/icons-material'
 import api from '../../services/api'
+import { getMediaUrl } from '../../services/media'
 import { useAuth } from '../../context/AuthContext'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
@@ -86,6 +87,8 @@ export default function Conservatoire() {
   const [rapportExport, setRapportExport] = useState({ format: 'excel' })
   const [exportingRapport, setExportingRapport] = useState(false)
   const [openPresences, setOpenPresences] = useState(null)
+  const [statsMembres, setStatsMembres] = useState([])
+  const [expandedSeance, setExpandedSeance] = useState(null)
   const [presencesForm, setPresencesForm] = useState({})
   const [savingPresences, setSavingPresences] = useState(false)
   const [fileDoc, setFileDoc] = useState(null)
@@ -108,11 +111,13 @@ export default function Conservatoire() {
   const loadUsers = () => api.get('/auth/users/').then(({ data }) => setUsers((data.results || data).filter((u) => u.role === 'membre' || u.role === 'jewrin'))).catch(() => setUsers([]))
   const loadKourelDetail = (id) => api.get(`/conservatoire/kourels/${id}/`).then(({ data }) => data).catch(() => null)
 
+  const loadStatsMembres = () => api.get('/conservatoire/presences/stats_membres/').then(({ data }) => setStatsMembres(data || [])).catch(() => setStatsMembres([]))
   const loadAll = () => {
     setLoading(true)
     Promise.all([loadDocs(), loadArchives(), loadCategories(), loadKourels(), loadSeances(), loadAlbums()]).finally(() => setLoading(false))
   }
   useEffect(() => { loadAll() }, [])
+  useEffect(() => { if (tab === 4) loadStatsMembres() }, [tab])
   useEffect(() => { if (isAdmin) { loadCategories(); loadUsers() } }, [isAdmin])
 
   const handleSaveDoc = async () => {
@@ -482,7 +487,7 @@ export default function Conservatoire() {
     finally { setSaving(false) }
   }
 
-  const getImageUrl = (path) => (path ? `/media/${path}` : null)
+  const getImageUrl = (path) => getMediaUrl(path)
 
   return (
     <Box>
@@ -503,6 +508,7 @@ export default function Conservatoire() {
           <Tab icon={<Archive />} iconPosition="start" label={`Archives (${archives.length})`} />
           <Tab icon={<Groups />} iconPosition="start" label={`Kourels (${kourels.length})`} />
           <Tab icon={<Event />} iconPosition="start" label={`Séances (${seances.length})`} />
+          <Tab icon={<EventAvailable />} iconPosition="start" label="Présences" />
           <Tab icon={<PhotoLibrary />} iconPosition="start" label={`Galerie (${albums.length})`} />
         </Tabs>
 
@@ -662,6 +668,120 @@ export default function Conservatoire() {
                 </Table>
               </TableContainer>
             )}
+          </Box>
+        ) : tab === 4 ? ( /* Présences */
+          <Box sx={{ p: 2 }}>
+            <Typography variant="h6" sx={{ color: COLORS.vert, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <EventAvailable /> Gestion des présences
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Par séance ou prestation : nombre de présents/absents et qui sont-ils. Par membre : % de présence globale.
+            </Typography>
+
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: COLORS.vertFonce, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Event /> Par séance ou prestation
+              </Typography>
+              {seances.length === 0 ? (
+                <Typography color="text.secondary">Aucune séance. Créez des séances et marquez les présences pour voir les statistiques.</Typography>
+              ) : (
+                <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.or}` }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: `${COLORS.vert}12` }}>
+                        <TableCell><strong>Date / Titre</strong></TableCell>
+                        <TableCell><strong>Type</strong></TableCell>
+                        <TableCell><strong>Kourel</strong></TableCell>
+                        <TableCell><strong>Présents</strong></TableCell>
+                        <TableCell><strong>Absents</strong></TableCell>
+                        <TableCell><strong>Détail</strong></TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {seances.map((s) => {
+                        const presences = s.presences || []
+                        const nbPresents = presences.filter((p) => p.statut === 'present').length
+                        const nbAbsents = presences.filter((p) => p.statut === 'absent_non_justifie' || p.statut === 'absent_justifie').length
+                        const presents = presences.filter((p) => p.statut === 'present').map((p) => p.membre_nom || `#${p.membre}`).join(', ') || '—'
+                        const absents = presences.filter((p) => p.statut !== 'present').map((p) => `${p.membre_nom || p.membre} (${p.statut_display || p.statut})`).join(', ') || '—'
+                        const isExpanded = expandedSeance === s.id
+                        return (
+                          <>
+                            <TableRow key={s.id} sx={{ cursor: 'pointer', '&:hover': { bgcolor: `${COLORS.or}15` } }} onClick={() => setExpandedSeance(isExpanded ? null : s.id)}>
+                              <TableCell>
+                                {s.date_heure ? new Date(s.date_heure).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'} — {s.titre}
+                              </TableCell>
+                              <TableCell>{s.type_display || s.type_seance}</TableCell>
+                              <TableCell>{s.kourel_nom || '—'}</TableCell>
+                              <TableCell><Chip label={nbPresents} color="success" size="small" /></TableCell>
+                              <TableCell><Chip label={nbAbsents} color={nbAbsents > 0 ? 'error' : 'default'} size="small" /></TableCell>
+                              <TableCell>{isExpanded ? '▲ Réduire' : '▼ Voir qui'}</TableCell>
+                            </TableRow>
+                            {isExpanded && (
+                              <TableRow key={`${s.id}-detail`}>
+                                <TableCell colSpan={6} sx={{ bgcolor: `${COLORS.or}25`, py: 2, borderBottom: 1, borderColor: 'divider' }}>
+                                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
+                                    <Box>
+                                      <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.vert }}>Présents :</Typography>
+                                      <Typography variant="body2" sx={{ mt: 0.5 }}>{presents || '—'}</Typography>
+                                    </Box>
+                                    <Box>
+                                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#c62828' }}>Absents :</Typography>
+                                      <Typography variant="body2" sx={{ mt: 0.5 }}>{absents || '—'}</Typography>
+                                    </Box>
+                                  </Box>
+                                </TableCell>
+                              </TableRow>
+                            )}
+                          </>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Box>
+
+            <Box>
+              <Typography variant="subtitle1" sx={{ fontWeight: 600, color: COLORS.vertFonce, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                <Person /> % de présence globale par membre
+              </Typography>
+              {statsMembres.length === 0 ? (
+                <Typography color="text.secondary">Aucune donnée de présence. Marquez les présences aux séances pour calculer les statistiques.</Typography>
+              ) : (
+                <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.vert}` }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow sx={{ bgcolor: `${COLORS.vert}12` }}>
+                        <TableCell><strong>Membre</strong></TableCell>
+                        <TableCell><strong>% Présence</strong></TableCell>
+                        <TableCell><strong>Présents</strong></TableCell>
+                        <TableCell><strong>Absents</strong></TableCell>
+                        <TableCell><strong>Total séances</strong></TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {statsMembres.map((m) => (
+                        <TableRow key={m.membre_id}>
+                          <TableCell>{m.membre_nom || `#${m.membre_id}`}</TableCell>
+                          <TableCell>
+                            <Chip
+                              label={`${m.pourcentage} %`}
+                              size="small"
+                              color={m.pourcentage >= 80 ? 'success' : m.pourcentage >= 50 ? 'warning' : 'error'}
+                              sx={{ fontWeight: 600 }}
+                            />
+                          </TableCell>
+                          <TableCell>{m.nb_presents}</TableCell>
+                          <TableCell>{m.nb_absents}</TableCell>
+                          <TableCell>{m.nb_total}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </Box>
           </Box>
         ) : ( /* Galerie */
           <Box sx={{ p: 2 }}>

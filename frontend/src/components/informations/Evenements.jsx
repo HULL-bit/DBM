@@ -21,6 +21,7 @@ import {
 } from '@mui/material'
 import { Add, Edit, Delete, Event as EventIcon } from '@mui/icons-material'
 import api from '../../services/api'
+import { getMediaUrl } from '../../services/media'
 import { useAuth } from '../../context/AuthContext'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
@@ -163,7 +164,7 @@ export default function Evenements() {
             list.map((evt) => (
               <Grid item xs={12} sm={6} md={4} key={evt.id}>
                 <Card sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
-                  {evt.image && <CardMedia component="img" height="140" image={evt.image.startsWith('http') ? evt.image : `/media/${evt.image}`} alt={evt.titre} />}
+                  {evt.image && <CardMedia component="img" height="140" image={getMediaUrl(evt.image) || evt.image} alt={evt.titre} />}
                   <CardContent>
                     <Chip label={evt.type_evenement_display || evt.type_evenement} size="small" sx={{ mb: 1, bgcolor: `${COLORS.or}30` }} />
                     <Typography variant="h6">{evt.titre}</Typography>

@@ -268,3 +268,34 @@ class PresenceSeanceViewSet(viewsets.ModelViewSet):
             return [IsAdminUser()]
         return [IsAuthenticated()]
 
+    @action(detail=False, methods=['get'])
+    def stats_membres(self, request):
+        """Pour chaque membre ayant des présences : nb_presents, nb_absents, nb_total, pourcentage."""
+        from django.db.models import Count, Q
+        qs = PresenceSeance.objects.values('membre').annotate(
+            nb_total=Count('id'),
+            nb_presents=Count('id', filter=Q(statut='present')),
+            nb_absents=Count('id', filter=Q(statut__in=['absent_non_justifie', 'absent_justifie'])),
+        )
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        result = []
+        for row in qs:
+            user = User.objects.filter(id=row['membre']).first()
+            if not user:
+                continue
+            nb_total = row['nb_total'] or 0
+            nb_presents = row['nb_presents'] or 0
+            nb_absents = row['nb_absents'] or 0
+            pourcentage = round((nb_presents / nb_total * 100), 1) if nb_total > 0 else 0
+            result.append({
+                'membre_id': row['membre'],
+                'membre_nom': user.get_full_name() or user.username,
+                'nb_presents': nb_presents,
+                'nb_absents': nb_absents,
+                'nb_total': nb_total,
+                'pourcentage': pourcentage,
+            })
+        result.sort(key=lambda x: -x['pourcentage'])
+        return Response(result)
+

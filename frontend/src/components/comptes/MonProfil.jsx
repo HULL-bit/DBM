@@ -17,25 +17,14 @@ import {
 import { Visibility, VisibilityOff, PhotoCamera, Save } from '@mui/icons-material'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
+import { getMediaUrl } from '../../services/media'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', beige: '#F4EAD5', vertFonce: '#1e4029' }
 
 function getPhotoUrl(photo, photoUpdatedAt) {
   if (!photo) return null
-  let base = photo
-  // Si c'est une URL absolue (http:// ou https://), extraire le chemin relatif pour le proxy
-  if (photo.startsWith('http://') || photo.startsWith('https://')) {
-    try {
-      const url = new URL(photo)
-      base = url.pathname  // ex: /media/photos_membres/image.jpg
-    } catch {
-      base = photo
-    }
-  } else if (!photo.startsWith('/')) {
-    // Chemin relatif sans /media/ -> ajouter le préfixe
-    base = `/media/${photo}`
-  }
-  return photoUpdatedAt ? `${base}?v=${photoUpdatedAt}` : base
+  const query = photoUpdatedAt ? `v=${photoUpdatedAt}` : ''
+  return getMediaUrl(photo, query)
 }
 
 export default function MonProfil() {
