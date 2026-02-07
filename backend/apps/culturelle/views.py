@@ -6,8 +6,8 @@ from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.db.models import Sum, Count
 
-from .models import Kamil, Chapitre, ProgressionLecture, ActiviteReligieuse, Enseignement, VersementKamil
-from .serializers import KamilSerializer, ChapitreSerializer, ProgressionLectureSerializer, ActiviteReligieuseSerializer, EnseignementSerializer, VersementKamilSerializer
+from .models import Kamil, Chapitre, Jukki, ProgressionLecture, ActiviteReligieuse, Enseignement, VersementKamil
+from .serializers import KamilSerializer, ChapitreSerializer, JukkiSerializer, ProgressionLectureSerializer, ActiviteReligieuseSerializer, EnseignementSerializer, VersementKamilSerializer
 
 User = get_user_model()
 
@@ -19,12 +19,34 @@ class KamilViewSet(viewsets.ModelViewSet):
     filterset_fields = ['statut']
 
     def get_queryset(self):
-        return Kamil.objects.all().order_by('-date_creation')
+        return Kamil.objects.all().prefetch_related('jukkis').order_by('-date_creation')
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        kamil = serializer.save(cree_par=self.request.user)
+        for i in range(1, 31):
+            Jukki.objects.create(kamil=kamil, numero=i)
+
+    @action(detail=True, methods=['patch'])
+    def assigner_jukkis(self, request, pk=None):
+        """Assigner les membres aux JUKKIs. Payload: { "assignations": { "1": membre_id, "2": membre_id, ... } }"""
+        kamil = self.get_object()
+        assignations = request.data.get('assignations', {})
+        for numero_str, membre_id in assignations.items():
+            try:
+                numero = int(numero_str)
+                if 1 <= numero <= 30:
+                    Jukki.objects.filter(kamil=kamil, numero=numero).update(
+                        membre_id=membre_id if membre_id else None
+                    )
+            except (ValueError, TypeError):
+                continue
+        kamil.refresh_from_db()
+        return Response(KamilSerializer(kamil).data)
 
 
 class ChapitreViewSet(viewsets.ModelViewSet):
@@ -37,6 +59,40 @@ class ChapitreViewSet(viewsets.ModelViewSet):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
             return [IsAdminUser()]
         return [IsAuthenticated()]
+
+
+class JukkiViewSet(viewsets.ReadOnlyModelViewSet):
+    queryset = Jukki.objects.all().select_related('kamil', 'membre').order_by('kamil', 'numero')
+    serializer_class = JukkiSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['kamil', 'membre', 'est_valide']
+
+    def get_queryset(self):
+        qs = Jukki.objects.all().select_related('kamil', 'membre').order_by('kamil', 'numero')
+        if not (self.request.user.is_staff or self.request.user.role in ['admin', 'jewrin']):
+            qs = qs.filter(membre=self.request.user)
+        return qs
+
+    @action(detail=True, methods=['post'])
+    def valider(self, request, pk=None):
+        """Le membre marque son JUKKI comme lu/validé."""
+        jukki = self.get_object()
+        if jukki.membre != request.user:
+            return Response({'detail': 'Non autorisé'}, status=status.HTTP_403_FORBIDDEN)
+        if jukki.est_valide:
+            return Response({'detail': 'Déjà validé.'}, status=status.HTTP_400_BAD_REQUEST)
+        from django.utils import timezone
+        jukki.est_valide = True
+        jukki.date_validation = timezone.now()
+        jukki.save(update_fields=['est_valide', 'date_validation'])
+        return Response(JukkiSerializer(jukki).data)
+
+    @action(detail=False, methods=['get'])
+    def mes_jukkis(self, request):
+        """JUKKIs assignés au membre connecté."""
+        qs = Jukki.objects.filter(membre=request.user).select_related('kamil').order_by('kamil', 'numero')
+        serializer = JukkiSerializer(qs, many=True)
+        return Response(serializer.data)
 
 
 class ProgressionLectureViewSet(viewsets.ModelViewSet):

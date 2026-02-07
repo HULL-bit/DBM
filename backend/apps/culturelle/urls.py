@@ -5,6 +5,7 @@ from . import views
 router = DefaultRouter()
 router.register(r'kamil', views.KamilViewSet)
 router.register(r'chapitres', views.ChapitreViewSet)
+router.register(r'jukkis', views.JukkiViewSet)
 router.register(r'progressions', views.ProgressionLectureViewSet)
 router.register(r'versements-kamil', views.VersementKamilViewSet)
 router.register(r'activites-religieuses', views.ActiviteReligieuseViewSet)

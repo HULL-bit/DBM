@@ -13,7 +13,6 @@ import LeveesFonds from './components/finance/LeveesFonds'
 import ProgrammeKamil from './components/culturelle/ProgrammeKamil'
 import MesProgressions from './components/culturelle/MesProgressions'
 import ValidationsKamil from './components/culturelle/ValidationsKamil'
-import ValidationsVersements from './components/culturelle/ValidationsVersements'
 import ActivitesReligieuses from './components/culturelle/ActivitesReligieuses'
 import Messagerie from './components/communication/Messagerie'
 import Notifications from './components/communication/Notifications'
@@ -60,7 +59,6 @@ function AppRoutes() {
         <Route path="culturelle/kamil" element={<ProgrammeKamil />} />
         <Route path="culturelle/mes-progressions" element={<MesProgressions />} />
         <Route path="culturelle/validations" element={<ValidationsKamil />} />
-        <Route path="culturelle/validations-versements" element={<ProtectedRoute roles={['admin', 'jewrin']}><ValidationsVersements /></ProtectedRoute>} />
         <Route path="culturelle/activites-religieuses" element={<ActivitesReligieuses />} />
         <Route path="communication/messagerie" element={<Messagerie />} />
         <Route path="communication/notifications" element={<Notifications />} />

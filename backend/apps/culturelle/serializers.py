@@ -1,5 +1,14 @@
 from rest_framework import serializers
-from .models import Kamil, Chapitre, ProgressionLecture, ActiviteReligieuse, Enseignement, VersementKamil
+from .models import Kamil, Chapitre, Jukki, ProgressionLecture, ActiviteReligieuse, Enseignement, VersementKamil
+
+
+class JukkiSerializer(serializers.ModelSerializer):
+    membre_nom = serializers.CharField(source='membre.get_full_name', read_only=True)
+    kamil_titre = serializers.CharField(source='kamil.titre', read_only=True)
+
+    class Meta:
+        model = Jukki
+        fields = '__all__'
 
 
 class ChapitreSerializer(serializers.ModelSerializer):
@@ -12,6 +21,7 @@ class KamilSerializer(serializers.ModelSerializer):
     statut_display = serializers.CharField(source='get_statut_display', read_only=True)
     semestre_display = serializers.CharField(source='get_semestre_display', read_only=True)
     chapitres = ChapitreSerializer(many=True, read_only=True)
+    jukkis = JukkiSerializer(many=True, read_only=True)
 
     class Meta:
         model = Kamil

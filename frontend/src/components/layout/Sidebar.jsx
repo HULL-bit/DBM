@@ -28,7 +28,6 @@ import {
   Groups as OrgIcon,
   People as PeopleIcon,
   Person as PersonIcon,
-  Payment as PaymentIcon,
 } from '@mui/icons-material'
 import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -71,8 +70,7 @@ const sectionsAdmin = [
     title: 'Culturelle',
     items: [
       { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon /> },
-      { label: 'Validations Kamil', path: '/culturelle/validations', icon: <ValidIcon /> },
-      { label: 'Validations Versements', path: '/culturelle/validations-versements', icon: <PaymentIcon /> },
+      { label: 'Vue admin JUKKI', path: '/culturelle/validations', icon: <ValidIcon /> },
       { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon /> },
     ],
   },
@@ -110,7 +108,7 @@ const sectionsMembre = [
     title: 'Culturelle',
     items: [
       { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon /> },
-      { label: 'Mes juzz & Versements', path: '/culturelle/mes-progressions', icon: <PaymentIcon /> },
+      { label: 'Mes JUKKI', path: '/culturelle/mes-progressions', icon: <KamilIcon /> },
       { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon /> },
     ],
   },
@@ -140,8 +138,7 @@ const sectionsJewrin = [
     title: 'Culturelle',
     items: [
       { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon /> },
-      { label: 'Validations Kamil', path: '/culturelle/validations', icon: <ValidIcon /> },
-      { label: 'Validations Versements', path: '/culturelle/validations-versements', icon: <PaymentIcon /> },
+      { label: 'Vue admin JUKKI', path: '/culturelle/validations', icon: <ValidIcon /> },
       { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon /> },
     ],
   },

@@ -32,6 +32,27 @@ class Kamil(models.Model):
         return self.titre
 
 
+class Jukki(models.Model):
+    """JUKKI 1 à 30 : un JUKKI = un membre assigné, un membre peut avoir plusieurs JUKKIs."""
+    kamil = models.ForeignKey(Kamil, on_delete=models.CASCADE, related_name='jukkis')
+    numero = models.IntegerField(help_text='1 à 30')
+    membre = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='jukkis_assignes'
+    )
+    est_valide = models.BooleanField(default=False)
+    date_validation = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        unique_together = ['kamil', 'numero']
+        verbose_name = 'JUKKI'
+        verbose_name_plural = 'JUKKIs'
+        ordering = ['kamil', 'numero']
+
+    def __str__(self):
+        return f"JUKKI {self.numero} — {self.kamil.titre}"
+
+
 class Chapitre(models.Model):
     kamil = models.ForeignKey(Kamil, on_delete=models.CASCADE, related_name='chapitres')
     numero = models.IntegerField()
