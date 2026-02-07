@@ -10,12 +10,13 @@ import {
   TableRow,
   Paper,
   Chip,
+  Button,
   TextField,
   MenuItem,
   Alert,
   CircularProgress,
 } from '@mui/material'
-import { CheckCircle } from '@mui/icons-material'
+import { CheckCircle, Replay } from '@mui/icons-material'
 import api from '../../services/api'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
@@ -25,6 +26,8 @@ export default function ValidationsKamil() {
   const [kamils, setKamils] = useState([])
   const [loading, setLoading] = useState(true)
   const [filterKamil, setFilterKamil] = useState('')
+  const [message, setMessage] = useState({ type: '', text: '' })
+  const [recommencerId, setRecommencerId] = useState(null)
 
   const loadJukkis = () => {
     setLoading(true)
@@ -36,6 +39,20 @@ export default function ValidationsKamil() {
   const loadKamils = () => api.get('/culturelle/kamil/').then(({ data }) => setKamils(data.results || data)).catch(() => setKamils([]))
 
   useEffect(() => { loadJukkis(); loadKamils() }, [])
+
+  const handleRecommencer = async (kamilId) => {
+    setRecommencerId(kamilId)
+    setMessage({ type: '', text: '' })
+    try {
+      await api.post(`/culturelle/kamil/${kamilId}/recommencer/`)
+      setMessage({ type: 'success', text: 'Kamil réinitialisé. Chaque membre devra revalider ses JUKKI.' })
+      loadJukkis()
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.detail || 'Erreur.' })
+    } finally {
+      setRecommencerId(null)
+    }
+  }
 
   const filtered = filterKamil
     ? jukkis.filter((j) => Number(j.kamil) === Number(filterKamil))
@@ -57,6 +74,12 @@ export default function ValidationsKamil() {
         Tous les JUKKI, le membre assigné et le statut de validation (lu/validé).
       </Typography>
 
+      {message.text && (
+        <Alert severity={message.type === 'error' ? 'error' : 'success'} sx={{ mb: 2 }} onClose={() => setMessage({ type: '', text: '' })}>
+          {message.text}
+        </Alert>
+      )}
+
       <TextField
         select
         size="small"
@@ -76,9 +99,23 @@ export default function ValidationsKamil() {
       ) : filtered.length === 0 ? (
         <Alert severity="info">Aucun JUKKI à afficher.</Alert>
       ) : (
-        Object.entries(byKamil).map(([kamilTitre, list]) => (
+        Object.entries(byKamil).map(([kamilTitre, list]) => {
+          const kamilId = list[0]?.kamil
+          return (
           <Box key={kamilTitre} sx={{ mb: 3 }}>
-            <Typography variant="h6" sx={{ color: COLORS.vert, mb: 1 }}>{kamilTitre}</Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
+              <Typography variant="h6" sx={{ color: COLORS.vert }}>{kamilTitre}</Typography>
+              <Button
+                variant="outlined"
+                size="small"
+                startIcon={recommencerId === kamilId ? <CircularProgress size={16} /> : <Replay />}
+                onClick={() => handleRecommencer(kamilId)}
+                disabled={!!recommencerId}
+                sx={{ borderColor: COLORS.vert, color: COLORS.vert, '&:hover': { borderColor: COLORS.vertFonce, bgcolor: `${COLORS.vert}15` } }}
+              >
+                Recommencer
+              </Button>
+            </Box>
             <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.or}` }}>
               <Table size="small">
                 <TableHead>
@@ -106,7 +143,8 @@ export default function ValidationsKamil() {
               </Table>
             </TableContainer>
           </Box>
-        ))
+          )
+        })
       )}
     </Box>
   )

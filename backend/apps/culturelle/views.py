@@ -48,6 +48,14 @@ class KamilViewSet(viewsets.ModelViewSet):
         kamil.refresh_from_db()
         return Response(KamilSerializer(kamil).data)
 
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    def recommencer(self, request, pk=None):
+        """Réinitialise tous les JUKKI du Kamil : chaque membre devra revalider."""
+        kamil = self.get_object()
+        Jukki.objects.filter(kamil=kamil).update(est_valide=False, date_validation=None)
+        kamil.refresh_from_db()
+        return Response(KamilSerializer(kamil).data)
+
 
 class ChapitreViewSet(viewsets.ModelViewSet):
     queryset = Chapitre.objects.all().order_by('kamil', 'numero')
