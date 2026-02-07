@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import React, { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
@@ -25,6 +25,7 @@ import {
   Tabs,
   Tab,
   Checkbox,
+  Chip,
   ListItemIcon,
   ListItemText,
 } from '@mui/material'
@@ -111,7 +112,7 @@ export default function Conservatoire() {
   const loadUsers = () => api.get('/auth/users/').then(({ data }) => setUsers((data.results || data).filter((u) => u.role === 'membre' || u.role === 'jewrin'))).catch(() => setUsers([]))
   const loadKourelDetail = (id) => api.get(`/conservatoire/kourels/${id}/`).then(({ data }) => data).catch(() => null)
 
-  const loadStatsMembres = () => api.get('/conservatoire/presences/stats_membres/').then(({ data }) => setStatsMembres(data || [])).catch(() => setStatsMembres([]))
+  const loadStatsMembres = () => api.get('/conservatoire/presences/stats_membres/').then(({ data }) => setStatsMembres(Array.isArray(data) ? data : (data?.results || []))).catch(() => setStatsMembres([]))
   const loadAll = () => {
     setLoading(true)
     Promise.all([loadDocs(), loadArchives(), loadCategories(), loadKourels(), loadSeances(), loadAlbums()]).finally(() => setLoading(false))
@@ -706,8 +707,8 @@ export default function Conservatoire() {
                         const absents = presences.filter((p) => p.statut !== 'present').map((p) => `${p.membre_nom || p.membre} (${p.statut_display || p.statut})`).join(', ') || '—'
                         const isExpanded = expandedSeance === s.id
                         return (
-                          <>
-                            <TableRow key={s.id} sx={{ cursor: 'pointer', '&:hover': { bgcolor: `${COLORS.or}15` } }} onClick={() => setExpandedSeance(isExpanded ? null : s.id)}>
+                          <React.Fragment key={s.id}>
+                            <TableRow sx={{ cursor: 'pointer', '&:hover': { bgcolor: `${COLORS.or}15` } }} onClick={() => setExpandedSeance(isExpanded ? null : s.id)}>
                               <TableCell>
                                 {s.date_heure ? new Date(s.date_heure).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'} — {s.titre}
                               </TableCell>
@@ -718,7 +719,7 @@ export default function Conservatoire() {
                               <TableCell>{isExpanded ? '▲ Réduire' : '▼ Voir qui'}</TableCell>
                             </TableRow>
                             {isExpanded && (
-                              <TableRow key={`${s.id}-detail`}>
+                              <TableRow>
                                 <TableCell colSpan={6} sx={{ bgcolor: `${COLORS.or}25`, py: 2, borderBottom: 1, borderColor: 'divider' }}>
                                   <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
                                     <Box>
@@ -733,7 +734,7 @@ export default function Conservatoire() {
                                 </TableCell>
                               </TableRow>
                             )}
-                          </>
+                          </React.Fragment>
                         )
                       })}
                     </TableBody>

@@ -135,8 +135,9 @@ def stats_admin(request):
     annee = now.year
     mois = now.month
 
-    membres_actifs = CustomUser.objects.filter(role='membre', est_actif=True).count()
-    total_membres = CustomUser.objects.filter(role='membre').count()
+    # Aligné sur Gestion des membres : tous les utilisateurs actifs
+    membres_actifs = CustomUser.objects.filter(is_active=True, est_actif=True).count()
+    total_membres = CustomUser.objects.filter(is_active=True).count()
     # Cotisations du mois courant
     cotisations_total_ce_mois = CotisationMensuelle.objects.filter(annee=annee, mois=mois).count()
     cotisations_payees_ce_mois = CotisationMensuelle.objects.filter(

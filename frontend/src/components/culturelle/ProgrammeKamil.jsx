@@ -60,7 +60,7 @@ export default function ProgrammeKamil() {
     Object.keys(byKamil).forEach((k) => byKamil[k].sort((a, b) => a.numero - b.numero))
     setJukkisByKamil(byKamil)
   }).catch(() => setJukkisByKamil({}))
-  const loadMembres = () => api.get('/auth/users/').then(({ data }) => setMembres((data.results || data).filter((u) => u.role === 'membre' || u.role === 'jewrin'))).catch(() => setMembres([]))
+  const loadMembres = () => api.get('/auth/users/').then(({ data }) => setMembres(data.results || data || [])).catch(() => setMembres([]))
 
   useEffect(() => {
     setLoading(true)
