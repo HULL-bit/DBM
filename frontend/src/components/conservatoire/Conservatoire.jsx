@@ -28,8 +28,9 @@ import {
   Chip,
   ListItemIcon,
   ListItemText,
+  InputAdornment,
 } from '@mui/material'
-import { Add, Edit, Delete, LibraryBooks, Archive, Groups, Event, PhotoLibrary, Collections, EventAvailable, Person } from '@mui/icons-material'
+import { Add, Edit, Delete, LibraryBooks, Archive, Groups, Event, PhotoLibrary, Collections, EventAvailable, Person, Search } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
 import { useAuth } from '../../context/AuthContext'
@@ -90,6 +91,7 @@ export default function Conservatoire() {
   const [openPresences, setOpenPresences] = useState(null)
   const [statsMembres, setStatsMembres] = useState([])
   const [expandedSeance, setExpandedSeance] = useState(null)
+  const [filterPresences, setFilterPresences] = useState({ search: '', dateDebut: '', dateFin: '', kourel: '', typeSeance: '', membre: '' })
   const [presencesForm, setPresencesForm] = useState({})
   const [savingPresences, setSavingPresences] = useState(false)
   const [fileDoc, setFileDoc] = useState(null)
@@ -675,17 +677,104 @@ export default function Conservatoire() {
             <Typography variant="h6" sx={{ color: COLORS.vert, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
               <EventAvailable /> Gestion des présences
             </Typography>
-            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
               Par séance ou prestation : nombre de présents/absents et qui sont-ils. Par membre : % de présence globale.
             </Typography>
+
+            <Paper variant="outlined" sx={{ p: 2, mb: 3, bgcolor: `${COLORS.or}10` }}>
+              <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce, mb: 1.5 }}>Filtrer</Typography>
+              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, alignItems: 'center' }}>
+                <TextField
+                  size="small"
+                  placeholder="Rechercher (titre, kourel, membre...)"
+                  value={filterPresences.search}
+                  onChange={(e) => setFilterPresences((f) => ({ ...f, search: e.target.value }))}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <Search sx={{ color: COLORS.vert, fontSize: 20 }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{ minWidth: 260, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+                />
+                <TextField
+                  size="small"
+                  type="date"
+                  label="Date début"
+                  value={filterPresences.dateDebut}
+                  onChange={(e) => setFilterPresences((f) => ({ ...f, dateDebut: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ minWidth: 140 }}
+                />
+                <TextField
+                  size="small"
+                  type="date"
+                  label="Date fin"
+                  value={filterPresences.dateFin}
+                  onChange={(e) => setFilterPresences((f) => ({ ...f, dateFin: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                  sx={{ minWidth: 140 }}
+                />
+                <TextField
+                  size="small"
+                  select
+                  label="Kourel"
+                  value={filterPresences.kourel}
+                  onChange={(e) => setFilterPresences((f) => ({ ...f, kourel: e.target.value }))}
+                  sx={{ minWidth: 160 }}
+                >
+                  <MenuItem value="">Tous</MenuItem>
+                  {kourels.map((k) => (
+                    <MenuItem key={k.id} value={k.id}>{k.nom}</MenuItem>
+                  ))}
+                </TextField>
+                <TextField
+                  size="small"
+                  select
+                  label="Type"
+                  value={filterPresences.typeSeance}
+                  onChange={(e) => setFilterPresences((f) => ({ ...f, typeSeance: e.target.value }))}
+                  sx={{ minWidth: 140 }}
+                >
+                  <MenuItem value="">Tous</MenuItem>
+                  <MenuItem value="repetition">Répétition</MenuItem>
+                  <MenuItem value="prestation">Prestation</MenuItem>
+                </TextField>
+                <TextField
+                  size="small"
+                  placeholder="Filtrer par membre"
+                  value={filterPresences.membre}
+                  onChange={(e) => setFilterPresences((f) => ({ ...f, membre: e.target.value }))}
+                  sx={{ minWidth: 180 }}
+                />
+                <Button size="small" variant="outlined" onClick={() => setFilterPresences({ search: '', dateDebut: '', dateFin: '', kourel: '', typeSeance: '', membre: '' })} sx={{ borderColor: COLORS.vert, color: COLORS.vert }}>
+                  Réinitialiser
+                </Button>
+              </Box>
+            </Paper>
 
             <Box sx={{ mb: 4 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: COLORS.vertFonce, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Event /> Par séance ou prestation
               </Typography>
-              {seances.length === 0 ? (
-                <Typography color="text.secondary">Aucune séance. Créez des séances et marquez les présences pour voir les statistiques.</Typography>
-              ) : (
+              {(() => {
+                const q = (filterPresences.search || '').trim().toLowerCase()
+                let filteredSeances = seances.filter((s) => {
+                  const matchSearch = !q ||
+                    (s.titre && s.titre.toLowerCase().includes(q)) ||
+                    (s.kourel_nom && s.kourel_nom.toLowerCase().includes(q)) ||
+                    ((s.presences || []).some((p) => (p.membre_nom || '').toLowerCase().includes(q)))
+                  const matchDateDebut = !filterPresences.dateDebut || (s.date_heure && s.date_heure.slice(0, 10) >= filterPresences.dateDebut)
+                  const matchDateFin = !filterPresences.dateFin || (s.date_heure && s.date_heure.slice(0, 10) <= filterPresences.dateFin)
+                  const matchKourel = !filterPresences.kourel || Number(s.kourel) === Number(filterPresences.kourel)
+                  const matchType = !filterPresences.typeSeance || s.type_seance === filterPresences.typeSeance
+                  const matchMembre = !filterPresences.membre || ((s.presences || []).some((p) => (p.membre_nom || '').toLowerCase().includes((filterPresences.membre || '').toLowerCase())))
+                  return matchSearch && matchDateDebut && matchDateFin && matchKourel && matchType && matchMembre
+                })
+                return filteredSeances.length === 0 ? (
+                  <Typography color="text.secondary">{seances.length === 0 ? 'Aucune séance.' : 'Aucune séance ne correspond aux filtres.'}</Typography>
+                ) : (
                 <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.or}` }}>
                   <Table size="small">
                     <TableHead>
@@ -699,7 +788,7 @@ export default function Conservatoire() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {seances.map((s) => {
+                      {filteredSeances.map((s) => {
                         const presences = s.presences || []
                         const nbPresents = presences.filter((p) => p.statut === 'present').length
                         const nbAbsents = presences.filter((p) => p.statut === 'absent_non_justifie' || p.statut === 'absent_justifie').length
@@ -740,15 +829,19 @@ export default function Conservatoire() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-              )}
+                )
+              })()}
             </Box>
 
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 600, color: COLORS.vertFonce, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
                 <Person /> % de présence globale par membre
               </Typography>
-              {statsMembres.length === 0 ? (
-                <Typography color="text.secondary">Aucune donnée de présence. Marquez les présences aux séances pour calculer les statistiques.</Typography>
+              {(() => {
+                const qM = (filterPresences.search || filterPresences.membre || '').trim().toLowerCase()
+                const filteredStats = statsMembres.filter((m) => !qM || (m.membre_nom || '').toLowerCase().includes(qM))
+                return filteredStats.length === 0 ? (
+                <Typography color="text.secondary">{statsMembres.length === 0 ? 'Aucune donnée de présence.' : 'Aucun membre ne correspond aux filtres.'}</Typography>
               ) : (
                 <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.vert}` }}>
                   <Table size="small">
@@ -762,7 +855,7 @@ export default function Conservatoire() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {statsMembres.map((m) => (
+                      {filteredStats.map((m) => (
                         <TableRow key={m.membre_id}>
                           <TableCell>{m.membre_nom || `#${m.membre_id}`}</TableCell>
                           <TableCell>
@@ -781,7 +874,8 @@ export default function Conservatoire() {
                     </TableBody>
                   </Table>
                 </TableContainer>
-              )}
+              )
+              })()}
             </Box>
           </Box>
         ) : ( /* Galerie */
