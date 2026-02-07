@@ -344,8 +344,30 @@ export default function Cotisations() {
                     </TableCell>
                     {isAdmin ? (
                       <TableCell align="right">
-                        <IconButton size="small" onClick={() => handleOpenEdit(c)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                        <IconButton size="small" onClick={() => setOpenDelete(c)} color="error"><Delete /></IconButton>
+                        {/* Si la cotisation concerne l'admin lui-même, afficher le bouton Payer comme pour un membre */}
+                        {Number(c.membre) === Number(user?.id) ? (
+                          <>
+                            {(c.statut === 'en_attente' || c.statut === 'retard') && (
+                              <Button
+                                size="small"
+                                variant="contained"
+                                startIcon={<Payment />}
+                                onClick={() => handleOpenPayer(c)}
+                                sx={{ mr: 1, bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+                              >
+                                Payer
+                              </Button>
+                            )}
+                            {c.statut === 'payee' && <Chip label="Payée" color="success" size="small" sx={{ mr: 1 }} />}
+                            <IconButton size="small" onClick={() => handleOpenEdit(c)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
+                            <IconButton size="small" onClick={() => setOpenDelete(c)} color="error"><Delete /></IconButton>
+                          </>
+                        ) : (
+                          <>
+                            <IconButton size="small" onClick={() => handleOpenEdit(c)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
+                            <IconButton size="small" onClick={() => setOpenDelete(c)} color="error"><Delete /></IconButton>
+                          </>
+                        )}
                       </TableCell>
                     ) : (
                       <TableCell align="right">
