@@ -137,6 +137,53 @@ class LeveeFondsViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(cree_par=self.request.user)
 
+    @action(detail=True, methods=['post'])
+    def participer(self, request, pk=None):
+        """Permet à un membre (y compris admin) de participer à une levée de fonds."""
+        levee_fonds = self.get_object()
+        if levee_fonds.statut != 'active':
+            return Response({'detail': 'Cette levée de fonds n\'est plus active.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        montant = request.data.get('montant')
+        reference_wave = request.data.get('reference_wave', '').strip()
+        description = request.data.get('description', f'Participation à {levee_fonds.titre}')
+        
+        if not montant:
+            return Response({'detail': 'Montant requis.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        try:
+            montant_decimal = Decimal(str(montant))
+            if montant_decimal <= 0:
+                return Response({'detail': 'Le montant doit être positif.'}, status=status.HTTP_400_BAD_REQUEST)
+        except (ValueError, TypeError):
+            return Response({'detail': 'Montant invalide.'}, status=status.HTTP_400_BAD_REQUEST)
+        
+        # Générer une référence interne unique
+        import uuid
+        reference_interne = f"LF-{levee_fonds.id}-{uuid.uuid4().hex[:8].upper()}"
+        
+        # Créer la transaction
+        transaction = Transaction.objects.create(
+            membre=request.user,
+            type_transaction='levee_fonds',
+            montant=montant_decimal,
+            description=description,
+            reference_wave=reference_wave,
+            reference_interne=reference_interne,
+            levee_fonds=levee_fonds,
+            statut='en_attente',  # L'admin devra valider
+        )
+        
+        # Si l'utilisateur est admin, on valide automatiquement
+        if request.user.is_staff or request.user.role == 'admin':
+            transaction.statut = 'validee'
+            transaction.save(update_fields=['statut'])
+            # Mettre à jour le montant collecté
+            levee_fonds.montant_collecte += montant_decimal
+            levee_fonds.save(update_fields=['montant_collecte'])
+        
+        return Response(TransactionSerializer(transaction).data, status=status.HTTP_201_CREATED)
+
 
 class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = Transaction.objects.all().order_by('-date_transaction')

@@ -102,6 +102,22 @@ class JukkiViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = JukkiSerializer(qs, many=True)
         return Response(serializer.data)
 
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdminUser])
+    def changer_statut(self, request, pk=None):
+        """Admin change le statut de validation d'un JUKKI."""
+        jukki = self.get_object()
+        est_valide = request.data.get('est_valide')
+        if est_valide is None:
+            return Response({'detail': 'est_valide requis'}, status=status.HTTP_400_BAD_REQUEST)
+        from django.utils import timezone
+        jukki.est_valide = bool(est_valide)
+        if est_valide:
+            jukki.date_validation = timezone.now()
+        else:
+            jukki.date_validation = None
+        jukki.save(update_fields=['est_valide', 'date_validation'])
+        return Response(JukkiSerializer(jukki).data)
+
 
 class ProgressionLectureViewSet(viewsets.ModelViewSet):
     queryset = ProgressionLecture.objects.all().order_by('membre', 'kamil', 'chapitre__numero')

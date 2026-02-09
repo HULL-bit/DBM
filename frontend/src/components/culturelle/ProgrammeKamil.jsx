@@ -23,7 +23,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material'
-import { Add, Assignment } from '@mui/icons-material'
+import { Add, Assignment, Delete } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -40,6 +40,7 @@ export default function ProgrammeKamil() {
   const [message, setMessage] = useState({ type: '', text: '' })
   const [openCreate, setOpenCreate] = useState(false)
   const [openAssign, setOpenAssign] = useState(null)
+  const [openDelete, setOpenDelete] = useState(null)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     titre: '',
@@ -143,6 +144,24 @@ export default function ProgrammeKamil() {
     }
   }
 
+  const handleDelete = async () => {
+    if (!openDelete) return
+    setSaving(true)
+    setMessage({ type: '', text: '' })
+    try {
+      await api.delete(`/culturelle/kamil/${openDelete.id}/`)
+      setMessage({ type: 'success', text: 'Programme Kamil supprimé.' })
+      setOpenDelete(null)
+      loadKamils()
+      loadJukkis()
+    } catch (err) {
+      const d = err.response?.data?.detail || err.response?.data
+      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   if (loading) return <Typography>Chargement...</Typography>
 
   return (
@@ -188,16 +207,28 @@ export default function ProgrammeKamil() {
                       {k.date_debut ? new Date(k.date_debut).toLocaleDateString('fr-FR') : '—'} → {k.date_fin ? new Date(k.date_fin).toLocaleDateString('fr-FR') : '—'}
                     </Typography>
                   </Box>
-                  {canAssignJukki && (
-                    <Button
-                      size="small"
-                      startIcon={<Assignment />}
-                      onClick={() => handleAssignOpen(k)}
-                      sx={{ mt: 1, color: COLORS.vert }}
-                    >
-                      Assigner les JUKKI aux membres
-                    </Button>
-                  )}
+                  <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                    {canAssignJukki && (
+                      <Button
+                        size="small"
+                        startIcon={<Assignment />}
+                        onClick={() => handleAssignOpen(k)}
+                        sx={{ color: COLORS.vert }}
+                      >
+                        Assigner les JUKKI aux membres
+                      </Button>
+                    )}
+                    {canCreateProgramme && (
+                      <Button
+                        size="small"
+                        startIcon={<Delete />}
+                        onClick={() => setOpenDelete(k)}
+                        sx={{ color: 'error.main' }}
+                      >
+                        Supprimer
+                      </Button>
+                    )}
+                  </Box>
                 </CardContent>
               </Card>
             </Grid>
@@ -273,6 +304,23 @@ export default function ProgrammeKamil() {
           <Button onClick={() => setOpenAssign(null)}>Fermer</Button>
           <Button variant="contained" onClick={handleAssignSubmit} disabled={saving} startIcon={saving ? <CircularProgress size={20} color="inherit" /> : null} sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
             Enregistrer les assignations
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!openDelete} onClose={() => setOpenDelete(null)}>
+        <DialogTitle>Supprimer ce programme Kamil ?</DialogTitle>
+        <DialogContent>
+          {openDelete && (
+            <Typography>
+              Êtes-vous sûr de vouloir supprimer le programme &quot;{openDelete.titre}&quot; ? Cette action supprimera également tous les JUKKI associés et ne peut pas être annulée.
+            </Typography>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDelete(null)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleDelete} disabled={saving}>
+            {saving ? <CircularProgress size={24} /> : 'Supprimer'}
           </Button>
         </DialogActions>
       </Dialog>

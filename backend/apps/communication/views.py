@@ -34,6 +34,7 @@ class MessageViewSet(viewsets.ModelViewSet):
             expediteur = request.user
             sujet = request.data.get('sujet', '')
             contenu = request.data.get('contenu', '')
+            fichier_joint = request.FILES.get('fichier_joint')
             from apps.accounts.models import CustomUser
             created = []
             for uid in destinataires:
@@ -44,6 +45,7 @@ class MessageViewSet(viewsets.ModelViewSet):
                         destinataire=user,
                         sujet=sujet,
                         contenu=contenu,
+                        fichier_joint=fichier_joint,
                     )
                     created.append(MessageSerializer(msg).data)
             if not created:

@@ -24,6 +24,7 @@ import {
 } from '@mui/material'
 import { Add, Edit, Delete } from '@mui/icons-material'
 import api from '../../services/api'
+import { getMediaUrl } from '../../services/media'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 const ROLES = [
@@ -235,7 +236,12 @@ export default function GestionMembres() {
                   <TableRow key={u.id}>
                     <TableCell>
                       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                        <Avatar sx={{ width: 32, height: 32, bgcolor: COLORS.or, color: COLORS.vert }}>{u.first_name?.[0]}{u.last_name?.[0]}</Avatar>
+                        <Avatar 
+                          src={getMediaUrl(u.photo, u.photo_updated_at ? `v=${u.photo_updated_at}` : '')}
+                          sx={{ width: 32, height: 32, bgcolor: COLORS.or, color: COLORS.vert }}
+                        >
+                          {u.first_name?.[0]}{u.last_name?.[0]}
+                        </Avatar>
                         {`${u.sexe === 'M' ? 'Señ ' : u.sexe === 'F' ? 'Soxna ' : ''}${u.first_name || ''} ${u.last_name || ''}`.trim()}
                       </Box>
                     </TableCell>

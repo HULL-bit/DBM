@@ -25,7 +25,7 @@ import {
   Paper,
   Chip,
 } from '@mui/material'
-import { Add, Edit, Delete } from '@mui/icons-material'
+import { Add, Edit, Delete, Payment } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -44,8 +44,10 @@ export default function LeveesFonds() {
   const [message, setMessage] = useState({ type: '', text: '' })
   const [openForm, setOpenForm] = useState(false)
   const [openDelete, setOpenDelete] = useState(null)
+  const [openParticipate, setOpenParticipate] = useState(null)
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
+  const [participateForm, setParticipateForm] = useState({ montant: '', reference_wave: '', description: '' })
   const [form, setForm] = useState({
     titre: '',
     description: '',
@@ -146,6 +148,36 @@ export default function LeveesFonds() {
     }
   }
 
+  const handleOpenParticipate = (lf) => {
+    setOpenParticipate(lf)
+    setParticipateForm({ montant: '', reference_wave: '', description: '' })
+  }
+
+  const handleParticipate = async () => {
+    if (!openParticipate || !participateForm.montant) {
+      setMessage({ type: 'error', text: 'Montant requis.' })
+      return
+    }
+    setSaving(true)
+    setMessage({ type: '', text: '' })
+    try {
+      await api.post(`/finance/levees-fonds/${openParticipate.id}/participer/`, {
+        montant: Number(participateForm.montant),
+        reference_wave: participateForm.reference_wave || '',
+        description: participateForm.description || `Participation à ${openParticipate.titre}`,
+      })
+      setMessage({ type: 'success', text: 'Participation enregistrée. ' + (user?.role === 'admin' ? 'Montant ajouté automatiquement.' : 'En attente de validation.') })
+      setOpenParticipate(null)
+      setParticipateForm({ montant: '', reference_wave: '', description: '' })
+      loadList()
+    } catch (err) {
+      const d = err.response?.data?.detail || err.response?.data
+      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Statistiques globales des levées de fonds
   const totalObjectif = list.reduce((sum, lf) => sum + Number(lf.montant_objectif || 0), 0)
   const totalCollecte = list.reduce((sum, lf) => sum + Number(lf.montant_collecte || 0), 0)
@@ -206,55 +238,82 @@ export default function LeveesFonds() {
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
       ) : isAdmin ? (
-        <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.or}` }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ bgcolor: `${COLORS.vert}12` }}>
-                <TableCell>Titre</TableCell>
-                <TableCell>Objectif (FCFA)</TableCell>
-                <TableCell>Collecté</TableCell>
-                <TableCell>Dates</TableCell>
-                <TableCell>Statut</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {list.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center">Aucune levée de fonds</TableCell></TableRow>
-              ) : (
-                list.map((lf) => (
-                  <TableRow key={lf.id}>
-                    <TableCell>{lf.titre}</TableCell>
-                    <TableCell>{Number(lf.montant_objectif).toLocaleString('fr-FR')}</TableCell>
-                    <TableCell>{Number(lf.montant_collecte || 0).toLocaleString('fr-FR')}</TableCell>
-                    <TableCell>{lf.date_debut?.slice(0, 10)} — {lf.date_fin?.slice(0, 10)}</TableCell>
-                    <TableCell><Chip label={lf.statut_display || lf.statut} size="small" color={lf.statut === 'active' ? 'success' : 'default'} /></TableCell>
-                    <TableCell align="right">
-                      <IconButton size="small" onClick={() => handleOpenEdit(lf)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                      <IconButton size="small" onClick={() => setOpenDelete(lf)} color="error"><Delete /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
-      ) : (
         <Grid container spacing={2}>
           {list.length === 0 ? (
-            <Grid item xs={12}><Typography color="text.secondary">Aucune levée de fonds active.</Typography></Grid>
+            <Grid item xs={12}><Typography color="text.secondary">Aucune levée de fonds</Typography></Grid>
           ) : (
             list.map((lf) => (
               <Grid item xs={12} md={6} key={lf.id}>
                 <Card sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
                   <CardContent>
-                    <Typography variant="h6">{lf.titre}</Typography>
-                    <Typography variant="body2" color="text.secondary">{lf.description}</Typography>
-                    <Box sx={{ mt: 2 }}>
-                      <Typography variant="body2">{Number(lf.montant_collecte || 0).toLocaleString('fr-FR')} / {Number(lf.montant_objectif).toLocaleString('fr-FR')} FCFA</Typography>
+                    <Typography variant="h6" sx={{ mb: 1 }}>{lf.titre}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{lf.description}</Typography>
+                    <Box sx={{ mt: 2, mb: 2 }}>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        {Number(lf.montant_collecte || 0).toLocaleString('fr-FR')} / {Number(lf.montant_objectif).toLocaleString('fr-FR')} FCFA
+                      </Typography>
                       <LinearProgress variant="determinate" value={lf.pourcentage_atteint || 0} sx={{ mt: 1, height: 8, borderRadius: 1 }} color="primary" />
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        {Math.round(lf.pourcentage_atteint || 0)}% atteint
+                      </Typography>
                     </Box>
-                    <Chip size="small" label={lf.statut_display || lf.statut} sx={{ mt: 1 }} />
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mt: 2 }}>
+                      <Chip size="small" label={lf.statut_display || lf.statut} color={lf.statut === 'active' ? 'success' : 'default'} />
+                      <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                        {lf.date_debut?.slice(0, 10)} — {lf.date_fin?.slice(0, 10)}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<Payment />}
+                        onClick={() => handleOpenParticipate(lf)}
+                        sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+                      >
+                        BARKELOU
+                      </Button>
+                      <IconButton size="small" onClick={() => handleOpenEdit(lf)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
+                      <IconButton size="small" onClick={() => setOpenDelete(lf)} color="error"><Delete /></IconButton>
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            ))
+          )}
+        </Grid>
+      ) : (
+        <Grid container spacing={2}>
+          {list.length === 0 ? (
+            <Grid item xs={12}><Typography color="text.secondary">Aucune levée de fonds active.</Typography></Grid>
+          ) : (
+            list.filter((lf) => lf.statut === 'active').map((lf) => (
+              <Grid item xs={12} md={6} key={lf.id}>
+                <Card sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
+                  <CardContent>
+                    <Typography variant="h6" sx={{ mb: 1 }}>{lf.titre}</Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>{lf.description}</Typography>
+                    <Box sx={{ mt: 2, mb: 2 }}>
+                      <Typography variant="body2" sx={{ mb: 1 }}>
+                        {Number(lf.montant_collecte || 0).toLocaleString('fr-FR')} / {Number(lf.montant_objectif).toLocaleString('fr-FR')} FCFA
+                      </Typography>
+                      <LinearProgress variant="determinate" value={lf.pourcentage_atteint || 0} sx={{ mt: 1, height: 8, borderRadius: 1 }} color="primary" />
+                      <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block' }}>
+                        {Math.round(lf.pourcentage_atteint || 0)}% atteint
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mt: 2 }}>
+                      <Chip size="small" label={lf.statut_display || lf.statut} color="success" />
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<Payment />}
+                        onClick={() => handleOpenParticipate(lf)}
+                        sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+                      >
+                        BARKELOU
+                      </Button>
+                    </Box>
                   </CardContent>
                 </Card>
               </Grid>
@@ -289,6 +348,68 @@ export default function LeveesFonds() {
         <DialogActions>
           <Button onClick={() => setOpenDelete(null)}>Annuler</Button>
           <Button variant="contained" color="error" onClick={handleDelete} disabled={saving}>{saving ? <CircularProgress size={24} /> : 'Supprimer'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!openParticipate} onClose={() => setOpenParticipate(null)} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { mx: { xs: 1, sm: 2 } } }}>
+        <DialogTitle>BARKELOU</DialogTitle>
+        <DialogContent>
+          {openParticipate && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                {openParticipate.titre}
+              </Typography>
+              <TextField
+                fullWidth
+                type="number"
+                label="Montant (FCFA)"
+                value={participateForm.montant}
+                onChange={(e) => setParticipateForm((f) => ({ ...f, montant: e.target.value }))}
+                inputProps={{ min: 1 }}
+                required
+              />
+              <TextField
+                fullWidth
+                label="Référence Wave (optionnel)"
+                value={participateForm.reference_wave}
+                onChange={(e) => setParticipateForm((f) => ({ ...f, reference_wave: e.target.value }))}
+                placeholder="Numéro de transaction Wave"
+              />
+              <TextField
+                fullWidth
+                label="Description (optionnel)"
+                value={participateForm.description}
+                onChange={(e) => setParticipateForm((f) => ({ ...f, description: e.target.value }))}
+                multiline
+                rows={2}
+              />
+              {openParticipate.lien_paiement_wave && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  Vous pouvez aussi utiliser le lien de paiement direct :{' '}
+                  <Button
+                    size="small"
+                    href={openParticipate.lien_paiement_wave}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    sx={{ textTransform: 'none' }}
+                  >
+                    Barkelou
+                  </Button>
+                </Alert>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenParticipate(null)}>Annuler</Button>
+          <Button
+            variant="contained"
+            onClick={handleParticipate}
+            disabled={saving || !participateForm.montant}
+            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+          >
+            {saving ? <CircularProgress size={24} /> : 'Enregistrer la participation'}
+          </Button>
         </DialogActions>
       </Dialog>
     </Box>

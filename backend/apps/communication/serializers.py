@@ -5,6 +5,10 @@ from .models import Message, CategorieForum, SujetForum, ReponseForum, Notificat
 class MessageSerializer(serializers.ModelSerializer):
     expediteur_nom = serializers.CharField(source='expediteur.get_full_name', read_only=True)
     destinataire_nom = serializers.CharField(source='destinataire.get_full_name', read_only=True)
+    expediteur_photo = serializers.ImageField(source='expediteur.photo', read_only=True)
+    expediteur_photo_updated_at = serializers.DateTimeField(source='expediteur.photo_updated_at', read_only=True)
+    destinataire_photo = serializers.ImageField(source='destinataire.photo', read_only=True)
+    destinataire_photo_updated_at = serializers.DateTimeField(source='destinataire.photo_updated_at', read_only=True)
 
     class Meta:
         model = Message

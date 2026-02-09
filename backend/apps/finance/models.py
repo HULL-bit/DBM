@@ -111,6 +111,44 @@ class Transaction(models.Model):
     def __str__(self):
         return f"{self.reference_interne} - {self.membre.get_full_name()} - {self.montant} FCFA"
 
+    def save(self, *args, **kwargs):
+        # Si la transaction est validée et liée à une levée de fonds, mettre à jour le montant collecté
+        is_new = self.pk is None
+        old_statut = None
+        old_montant = None
+        
+        if not is_new:  # Si c'est une mise à jour
+            try:
+                old_transaction = Transaction.objects.get(pk=self.pk)
+                old_statut = old_transaction.statut
+                old_montant = old_transaction.montant
+            except Transaction.DoesNotExist:
+                pass
+        
+        # Sauvegarder d'abord pour avoir le pk si c'est une nouvelle transaction
+        super().save(*args, **kwargs)
+        
+        # Mettre à jour le montant collecté si nécessaire
+        if self.levee_fonds:
+            if is_new and self.statut == 'validee':
+                # Nouvelle transaction créée directement avec statut validé
+                self.levee_fonds.montant_collecte += self.montant
+                self.levee_fonds.save(update_fields=['montant_collecte'])
+            elif not is_new and old_statut:
+                if old_statut != 'validee' and self.statut == 'validee':
+                    # Transaction vient d'être validée
+                    self.levee_fonds.montant_collecte += self.montant
+                    self.levee_fonds.save(update_fields=['montant_collecte'])
+                elif old_statut == 'validee' and self.statut != 'validee':
+                    # Transaction vient d'être invalidée
+                    self.levee_fonds.montant_collecte -= old_montant
+                    self.levee_fonds.save(update_fields=['montant_collecte'])
+                elif old_statut == 'validee' and self.statut == 'validee' and old_montant != self.montant:
+                    # Montant modifié sur une transaction déjà validée
+                    diff = self.montant - old_montant
+                    self.levee_fonds.montant_collecte += diff
+                    self.levee_fonds.save(update_fields=['montant_collecte'])
+
 
 class Don(models.Model):
     donateur = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='dons')

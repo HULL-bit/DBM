@@ -23,9 +23,10 @@ import {
   Checkbox,
   ListItemIcon,
 } from '@mui/material'
-import { Add, Send, Inbox, Outbox } from '@mui/icons-material'
+import { Add, Send, Inbox, Outbox, AttachFile, Image as ImageIcon } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import { getMediaUrl } from '../../services/media'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
@@ -38,8 +39,9 @@ export default function Messagerie() {
   const [openCompose, setOpenCompose] = useState(false)
   const [saving, setSaving] = useState(false)
   const [tab, setTab] = useState(0)
-  const [form, setForm] = useState({ destinataires: [], sujet: '', contenu: '' })
+  const [form, setForm] = useState({ destinataires: [], sujet: '', contenu: '', fichier: null })
   const [selectedMessage, setSelectedMessage] = useState(null)
+  const [filePreview, setFilePreview] = useState(null)
 
   const loadMessages = () => {
     setLoading(true)
@@ -63,15 +65,29 @@ export default function Messagerie() {
     setSaving(true)
     setMessage({ type: '', text: '' })
     try {
-      const { data } = await api.post('/communication/messages/', {
-        destinataires: dest.map((id) => Number(id)),
-        sujet: form.sujet,
-        contenu: form.contenu,
-      })
-      const count = data?.count
-      setMessage({ type: 'success', text: count ? `${count} messages envoyés.` : 'Message envoyé.' })
+      if (form.fichier) {
+        const fd = new FormData()
+        dest.forEach((id) => fd.append('destinataires', Number(id)))
+        fd.append('sujet', form.sujet)
+        fd.append('contenu', form.contenu)
+        fd.append('fichier_joint', form.fichier)
+        const { data } = await api.post('/communication/messages/', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        const count = data?.count
+        setMessage({ type: 'success', text: count ? `${count} messages envoyés.` : 'Message envoyé.' })
+      } else {
+        const { data } = await api.post('/communication/messages/', {
+          destinataires: dest.map((id) => Number(id)),
+          sujet: form.sujet,
+          contenu: form.contenu,
+        })
+        const count = data?.count
+        setMessage({ type: 'success', text: count ? `${count} messages envoyés.` : 'Message envoyé.' })
+      }
       setOpenCompose(false)
-      setForm({ destinataires: [], sujet: '', contenu: '' })
+      setForm({ destinataires: [], sujet: '', contenu: '', fichier: null })
+      setFilePreview(null)
       loadMessages()
     } catch (err) {
       const d = err.response?.data?.detail || err.response?.data
@@ -79,6 +95,18 @@ export default function Messagerie() {
     } finally {
       setSaving(false)
     }
+  }
+
+  const handleFileChange = (e) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setMessage({ type: 'error', text: 'Seules les images sont autorisées.' })
+      return
+    }
+    setForm((f) => ({ ...f, fichier: file }))
+    setFilePreview(URL.createObjectURL(file))
+    setMessage({ type: '', text: '' })
   }
 
   const handleOpenMessage = async (m) => {
@@ -101,7 +129,7 @@ export default function Messagerie() {
           <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }} gutterBottom>Messagerie</Typography>
           <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>Messages internes</Typography>
         </Box>
-        <Button variant="contained" startIcon={<Add />} onClick={() => { setOpenCompose(true); setForm({ destinataires: [], sujet: '', contenu: '' }) }} sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
+        <Button variant="contained" startIcon={<Add />} onClick={() => { setOpenCompose(true); setForm({ destinataires: [], sujet: '', contenu: '', fichier: null }); setFilePreview(null) }} sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
           Nouveau message
         </Button>
       </Box>
@@ -130,7 +158,12 @@ export default function Messagerie() {
                 sx={{ alignItems: 'flex-start' }}
               >
                 <ListItemAvatar>
-                  <Avatar sx={{ bgcolor: COLORS.or, color: COLORS.vert }}>{tab === 0 ? (m.expediteur_nom || '?')[0] : (m.destinataire_nom || '?')[0]}</Avatar>
+                  <Avatar 
+                    src={tab === 0 ? getMediaUrl(m.expediteur_photo, m.expediteur_photo_updated_at ? `v=${m.expediteur_photo_updated_at}` : '') : getMediaUrl(m.destinataire_photo, m.destinataire_photo_updated_at ? `v=${m.destinataire_photo_updated_at}` : '')}
+                    sx={{ bgcolor: COLORS.or, color: COLORS.vert }}
+                  >
+                    {tab === 0 ? (m.expediteur_nom || '?')[0] : (m.destinataire_nom || '?')[0]}
+                  </Avatar>
                 </ListItemAvatar>
                 <ListItemText
                   primary={
@@ -170,6 +203,26 @@ export default function Messagerie() {
               <Typography variant="body1" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
                 {selectedMessage.contenu}
               </Typography>
+              {selectedMessage.fichier_joint && (
+                <Box sx={{ mt: 2 }}>
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Fichier joint :
+                  </Typography>
+                  {selectedMessage.fichier_joint.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? (
+                    <Box component="img" src={getMediaUrl(selectedMessage.fichier_joint)} alt="Pièce jointe" sx={{ maxWidth: '100%', maxHeight: 400, borderRadius: 1 }} />
+                  ) : (
+                    <Button
+                      startIcon={<AttachFile />}
+                      href={getMediaUrl(selectedMessage.fichier_joint)}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{ color: COLORS.vert }}
+                    >
+                      Voir le fichier
+                    </Button>
+                  )}
+                </Box>
+              )}
             </Box>
           )}
         </DialogContent>
@@ -209,6 +262,25 @@ export default function Messagerie() {
             </TextField>
             <TextField fullWidth label="Sujet" value={form.sujet} onChange={(e) => setForm((f) => ({ ...f, sujet: e.target.value }))} required />
             <TextField fullWidth label="Message" value={form.contenu} onChange={(e) => setForm((f) => ({ ...f, contenu: e.target.value }))} multiline rows={5} required />
+            <Box>
+              <Button
+                component="label"
+                variant="outlined"
+                startIcon={<ImageIcon />}
+                sx={{ mb: 1, borderColor: COLORS.vert, color: COLORS.vert, '&:hover': { borderColor: COLORS.vertFonce } }}
+              >
+                Ajouter une photo
+                <input type="file" accept="image/*" hidden onChange={handleFileChange} />
+              </Button>
+              {filePreview && (
+                <Box sx={{ mt: 1 }}>
+                  <Box component="img" src={filePreview} alt="Aperçu" sx={{ maxWidth: 200, maxHeight: 200, borderRadius: 1 }} />
+                  <Button size="small" onClick={() => { setForm((f) => ({ ...f, fichier: null })); setFilePreview(null) }} sx={{ ml: 1, color: 'error.main' }}>
+                    Supprimer
+                  </Button>
+                </Box>
+              )}
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>

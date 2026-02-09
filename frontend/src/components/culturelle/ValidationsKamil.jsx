@@ -15,8 +15,15 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
+  IconButton,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Switch,
+  FormControlLabel,
 } from '@mui/material'
-import { CheckCircle, Replay } from '@mui/icons-material'
+import { CheckCircle, Replay, Edit } from '@mui/icons-material'
 import api from '../../services/api'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
@@ -28,11 +35,17 @@ export default function ValidationsKamil() {
   const [filterKamil, setFilterKamil] = useState('')
   const [message, setMessage] = useState({ type: '', text: '' })
   const [recommencerId, setRecommencerId] = useState(null)
+  const [openStatusDialog, setOpenStatusDialog] = useState(null)
+  const [statusForm, setStatusForm] = useState({ est_valide: false })
+  const [saving, setSaving] = useState(false)
 
   const loadJukkis = () => {
     setLoading(true)
     api.get('/culturelle/jukkis/')
-      .then(({ data }) => setJukkis(data.results || data))
+      .then(({ data }) => {
+        const list = data.results || data
+        setJukkis(list)
+      })
       .catch(() => setJukkis([]))
       .finally(() => setLoading(false))
   }
@@ -54,6 +67,29 @@ export default function ValidationsKamil() {
     }
   }
 
+  const handleOpenStatusDialog = (jukki) => {
+    setOpenStatusDialog(jukki)
+    setStatusForm({ est_valide: jukki.est_valide || false })
+  }
+
+  const handleChangeStatus = async () => {
+    if (!openStatusDialog) return
+    setSaving(true)
+    setMessage({ type: '', text: '' })
+    try {
+      await api.patch(`/culturelle/jukkis/${openStatusDialog.id}/changer_statut/`, {
+        est_valide: statusForm.est_valide,
+      })
+      setMessage({ type: 'success', text: 'Statut du JUKKI modifié.' })
+      setOpenStatusDialog(null)
+      loadJukkis()
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.detail || 'Erreur.' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   const filtered = filterKamil
     ? jukkis.filter((j) => Number(j.kamil) === Number(filterKamil))
     : jukkis
@@ -64,6 +100,38 @@ export default function ValidationsKamil() {
     byKamil[k].push(j)
   })
   Object.keys(byKamil).forEach((k) => byKamil[k].sort((a, b) => a.numero - b.numero))
+  
+  // Pour chaque Kamil filtré, s'assurer qu'on affiche tous les 30 JUKKI
+  // Si un Kamil est filtré, on vérifie qu'on a bien les 30 JUKKI
+  const kamilsToShow = filterKamil 
+    ? kamils.filter((k) => Number(k.id) === Number(filterKamil))
+    : kamils
+  
+  kamilsToShow.forEach((kamil) => {
+    const kamilId = kamil.id
+    const kamilTitre = kamil.titre
+    if (!byKamil[kamilTitre]) {
+      byKamil[kamilTitre] = []
+    }
+    // Vérifier qu'on a bien les 30 JUKKI (ils devraient tous exister car créés à la création du Kamil)
+    const existingNumbers = new Set(byKamil[kamilTitre].map((j) => j.numero))
+    // Si certains JUKKI manquent dans la réponse API, on les ajoute comme non assignés
+    for (let num = 1; num <= 30; num++) {
+      if (!existingNumbers.has(num)) {
+        byKamil[kamilTitre].push({
+          id: `missing-${kamilId}-${num}`,
+          kamil: kamilId,
+          kamil_titre: kamilTitre,
+          numero: num,
+          membre: null,
+          membre_nom: null,
+          est_valide: false,
+          date_validation: null,
+        })
+      }
+    }
+    byKamil[kamilTitre].sort((a, b) => a.numero - b.numero)
+  })
 
   return (
     <Box>
@@ -131,11 +199,21 @@ export default function ValidationsKamil() {
                       <TableCell><strong>JUKKI {j.numero}</strong></TableCell>
                       <TableCell>{j.membre_nom || '—'}</TableCell>
                       <TableCell>
-                        {j.est_valide ? (
-                          <Chip label="Validé" color="success" size="small" icon={<CheckCircle />} />
-                        ) : (
-                          <Chip label="Non validé" color="default" size="small" />
-                        )}
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                          {j.est_valide ? (
+                            <Chip label="Validé" color="success" size="small" icon={<CheckCircle />} />
+                          ) : (
+                            <Chip label="Non validé" color="default" size="small" />
+                          )}
+                          <IconButton
+                            size="small"
+                            onClick={() => handleOpenStatusDialog(j)}
+                            sx={{ color: COLORS.vert }}
+                            disabled={j.id?.toString().startsWith('missing-')}
+                          >
+                            <Edit fontSize="small" />
+                          </IconButton>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))}
@@ -146,6 +224,43 @@ export default function ValidationsKamil() {
           )
         })
       )}
+
+      <Dialog open={!!openStatusDialog} onClose={() => setOpenStatusDialog(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Modifier le statut du JUKKI {openStatusDialog?.numero}</DialogTitle>
+        <DialogContent>
+          {openStatusDialog && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                Programme : {openStatusDialog.kamil_titre}
+              </Typography>
+              <Typography variant="body2" color="text.secondary">
+                Membre assigné : {openStatusDialog.membre_nom || 'Aucun'}
+              </Typography>
+              <FormControlLabel
+                control={
+                  <Switch
+                    checked={statusForm.est_valide}
+                    onChange={(e) => setStatusForm({ est_valide: e.target.checked })}
+                    color="primary"
+                  />
+                }
+                label={statusForm.est_valide ? 'Validé' : 'Non validé'}
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenStatusDialog(null)}>Annuler</Button>
+          <Button
+            variant="contained"
+            onClick={handleChangeStatus}
+            disabled={saving}
+            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+          >
+            {saving ? <CircularProgress size={24} /> : 'Enregistrer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }
