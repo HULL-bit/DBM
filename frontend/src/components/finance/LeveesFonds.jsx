@@ -45,9 +45,12 @@ export default function LeveesFonds() {
   const [openForm, setOpenForm] = useState(false)
   const [openDelete, setOpenDelete] = useState(null)
   const [openParticipate, setOpenParticipate] = useState(null)
+  const [openConfirmPayment, setOpenConfirmPayment] = useState(null)
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [participateForm, setParticipateForm] = useState({ montant: '', reference_wave: '', description: '' })
+  const [confirmForm, setConfirmForm] = useState({ reference_interne: '', reference_wave: '' })
+  const [pendingTransaction, setPendingTransaction] = useState(null)
   const [form, setForm] = useState({
     titre: '',
     description: '',
@@ -148,9 +151,21 @@ export default function LeveesFonds() {
     }
   }
 
+  const handleBarkelou = async (lf) => {
+    if (!lf.lien_paiement_wave) {
+      setMessage({ type: 'error', text: 'Lien de paiement Wave non configuré pour cette levée de fonds.' })
+      return
+    }
+    // Ouvrir le dialog pour entrer le montant avant d'ouvrir Wave
+    setOpenParticipate(lf)
+    setParticipateForm({ montant: '', description: '' })
+    setPendingTransaction(null)
+  }
+
   const handleOpenParticipate = (lf) => {
     setOpenParticipate(lf)
-    setParticipateForm({ montant: '', reference_wave: '', description: '' })
+    setParticipateForm({ montant: '', description: '' })
+    setPendingTransaction(null)
   }
 
   const handleParticipate = async () => {
@@ -158,21 +173,63 @@ export default function LeveesFonds() {
       setMessage({ type: 'error', text: 'Montant requis.' })
       return
     }
+    if (!openParticipate.lien_paiement_wave) {
+      setMessage({ type: 'error', text: 'Lien de paiement Wave non configuré pour cette levée de fonds.' })
+      return
+    }
     setSaving(true)
     setMessage({ type: '', text: '' })
     try {
-      await api.post(`/finance/levees-fonds/${openParticipate.id}/participer/`, {
+      const { data } = await api.post(`/finance/levees-fonds/${openParticipate.id}/participer/`, {
         montant: Number(participateForm.montant),
-        reference_wave: participateForm.reference_wave || '',
         description: participateForm.description || `Participation à ${openParticipate.titre}`,
       })
-      setMessage({ type: 'success', text: 'Participation enregistrée. ' + (user?.role === 'admin' ? 'Montant ajouté automatiquement.' : 'En attente de validation.') })
+      // Sauvegarder la transaction en attente
+      setPendingTransaction({
+        reference_interne: data.reference_transaction,
+        levee_fonds_id: openParticipate.id,
+        montant: participateForm.montant,
+      })
+      // Ouvrir Wave dans un nouvel onglet
+      window.open(data.lien_wave, '_blank', 'noopener,noreferrer')
+      // Fermer le dialog de participation et ouvrir celui de confirmation
       setOpenParticipate(null)
-      setParticipateForm({ montant: '', reference_wave: '', description: '' })
-      loadList()
+      setOpenConfirmPayment(openParticipate)
+      setConfirmForm({ reference_interne: data.reference_transaction, reference_wave: '' })
+      setMessage({ type: 'info', text: 'Transaction créée. Veuillez effectuer le paiement sur Wave, puis confirmez avec votre référence Wave.' })
     } catch (err) {
       const d = err.response?.data?.detail || err.response?.data
       setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleOpenConfirmPayment = (lf) => {
+    setOpenConfirmPayment(lf)
+    setConfirmForm({ reference_interne: '', reference_wave: '' })
+  }
+
+  const handleConfirmPayment = async () => {
+    if (!openConfirmPayment || !confirmForm.reference_wave) {
+      setMessage({ type: 'error', text: 'Référence Wave requise pour confirmer le paiement.' })
+      return
+    }
+    setSaving(true)
+    setMessage({ type: '', text: '' })
+    try {
+      await api.post(`/finance/levees-fonds/${openConfirmPayment.id}/confirmer_paiement/`, {
+        reference_interne: confirmForm.reference_interne,
+        reference_wave: confirmForm.reference_wave.trim(),
+      })
+      setMessage({ type: 'success', text: 'Paiement confirmé ! Votre participation a été enregistrée.' })
+      setOpenConfirmPayment(null)
+      setConfirmForm({ reference_interne: '', reference_wave: '' })
+      setPendingTransaction(null)
+      loadList()
+    } catch (err) {
+      const d = err.response?.data?.detail || err.response?.data
+      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur lors de la confirmation du paiement.') })
     } finally {
       setSaving(false)
     }
@@ -200,7 +257,13 @@ export default function LeveesFonds() {
       </Box>
 
       {message.text && (
-        <Alert severity={message.type === 'error' ? 'error' : 'success'} sx={{ mb: 2 }} onClose={() => setMessage({ type: '', text: '' })}>{message.text}</Alert>
+        <Alert 
+          severity={message.type === 'error' ? 'error' : message.type === 'info' ? 'info' : 'success'} 
+          sx={{ mb: 2 }} 
+          onClose={() => setMessage({ type: '', text: '' })}
+        >
+          {message.text}
+        </Alert>
       )}
 
       {!loading && list.length > 0 && (
@@ -264,19 +327,24 @@ export default function LeveesFonds() {
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
+                      {lf.lien_paiement_wave ? (
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<Payment />}
+                          onClick={() => handleBarkelou(lf)}
+                          sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+                        >
+                          BARKELOU
+                        </Button>
+                      ) : null}
                       <Button
-                        variant="contained"
+                        variant="outlined"
                         size="small"
-                        startIcon={<Payment />}
-                        onClick={() => {
-                          if (lf.lien_paiement_wave) {
-                            window.open(lf.lien_paiement_wave, '_blank', 'noopener,noreferrer')
-                          }
-                          handleOpenParticipate(lf)
-                        }}
-                        sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+                        onClick={() => handleOpenConfirmPayment(lf)}
+                        sx={{ borderColor: COLORS.or, color: COLORS.or, '&:hover': { borderColor: COLORS.or, bgcolor: `${COLORS.or}15` } }}
                       >
-                        BARKELOU
+                        Confirmer paiement
                       </Button>
                       <IconButton size="small" onClick={() => handleOpenEdit(lf)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
                       <IconButton size="small" onClick={() => setOpenDelete(lf)} color="error"><Delete /></IconButton>
@@ -309,19 +377,24 @@ export default function LeveesFonds() {
                     </Box>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mt: 2 }}>
                       <Chip size="small" label={lf.statut_display || lf.statut} color="success" />
+                      {lf.lien_paiement_wave ? (
+                        <Button
+                          variant="contained"
+                          size="small"
+                          startIcon={<Payment />}
+                          onClick={() => handleBarkelou(lf)}
+                          sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+                        >
+                          BARKELOU
+                        </Button>
+                      ) : null}
                       <Button
-                        variant="contained"
+                        variant="outlined"
                         size="small"
-                        startIcon={<Payment />}
-                        onClick={() => {
-                          if (lf.lien_paiement_wave) {
-                            window.open(lf.lien_paiement_wave, '_blank', 'noopener,noreferrer')
-                          }
-                          handleOpenParticipate(lf)
-                        }}
-                        sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+                        onClick={() => handleOpenConfirmPayment(lf)}
+                        sx={{ borderColor: COLORS.or, color: COLORS.or, '&:hover': { borderColor: COLORS.or, bgcolor: `${COLORS.or}15` } }}
                       >
-                        BARKELOU
+                        Confirmer paiement
                       </Button>
                     </Box>
                   </CardContent>
@@ -369,6 +442,11 @@ export default function LeveesFonds() {
               <Typography variant="body2" color="text.secondary">
                 {openParticipate.titre}
               </Typography>
+              {!openParticipate.lien_paiement_wave && (
+                <Alert severity="warning" sx={{ mt: 1 }}>
+                  Le lien de paiement Wave n'est pas configuré pour cette levée de fonds.
+                </Alert>
+              )}
               <TextField
                 fullWidth
                 type="number"
@@ -380,33 +458,16 @@ export default function LeveesFonds() {
               />
               <TextField
                 fullWidth
-                label="Référence Wave (optionnel)"
-                value={participateForm.reference_wave}
-                onChange={(e) => setParticipateForm((f) => ({ ...f, reference_wave: e.target.value }))}
-                placeholder="Numéro de transaction Wave"
-              />
-              <TextField
-                fullWidth
                 label="Description (optionnel)"
                 value={participateForm.description}
                 onChange={(e) => setParticipateForm((f) => ({ ...f, description: e.target.value }))}
                 multiline
                 rows={2}
               />
-              {openParticipate.lien_paiement_wave && (
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  Vous pouvez aussi utiliser le lien de paiement direct :{' '}
-                  <Button
-                    size="small"
-                    href={openParticipate.lien_paiement_wave}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    sx={{ textTransform: 'none' }}
-                  >
-                    Barkelou
-                  </Button>
-                </Alert>
-              )}
+              <Alert severity="info" sx={{ mt: 1 }}>
+                Après avoir cliqué sur "BARKELOU", une transaction sera créée et vous serez redirigé vers Wave pour effectuer le paiement. 
+                Revenez ensuite ici et cliquez sur "Confirmer paiement" pour entrer votre référence Wave.
+              </Alert>
             </Box>
           )}
         </DialogContent>
@@ -415,10 +476,77 @@ export default function LeveesFonds() {
           <Button
             variant="contained"
             onClick={handleParticipate}
-            disabled={saving || !participateForm.montant}
+            disabled={saving || !participateForm.montant || !openParticipate?.lien_paiement_wave}
             sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
           >
-            {saving ? <CircularProgress size={24} /> : 'Enregistrer la participation'}
+            {saving ? <CircularProgress size={24} /> : 'BARKELOU'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!openConfirmPayment} onClose={() => { setOpenConfirmPayment(null); setConfirmForm({ reference_interne: '', reference_wave: '' }) }} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { mx: { xs: 1, sm: 2 } } }}>
+        <DialogTitle>Confirmer votre paiement</DialogTitle>
+        <DialogContent>
+          {openConfirmPayment && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+              <Typography variant="body2" color="text.secondary">
+                {openConfirmPayment.titre}
+              </Typography>
+              {pendingTransaction && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  Montant : {Number(pendingTransaction.montant).toLocaleString('fr-FR')} FCFA
+                  <br />
+                  Référence transaction : <strong>{pendingTransaction.reference_interne}</strong>
+                </Alert>
+              )}
+              {!pendingTransaction && (
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  Si vous avez déjà effectué un paiement sur Wave, entrez votre référence de transaction Wave pour confirmer.
+                </Alert>
+              )}
+              {pendingTransaction && (
+                <TextField
+                  fullWidth
+                  label="Référence transaction (auto-rempli)"
+                  value={confirmForm.reference_interne}
+                  disabled
+                  sx={{ mt: 1 }}
+                />
+              )}
+              <TextField
+                fullWidth
+                label="Référence Wave *"
+                value={confirmForm.reference_wave}
+                onChange={(e) => setConfirmForm((f) => ({ ...f, reference_wave: e.target.value }))}
+                placeholder="Entrez la référence de votre transaction Wave"
+                required
+                helperText="Cette référence vous a été fournie par Wave après le paiement"
+              />
+              {!pendingTransaction && (
+                <TextField
+                  fullWidth
+                  label="Référence transaction (optionnel)"
+                  value={confirmForm.reference_interne}
+                  onChange={(e) => setConfirmForm((f) => ({ ...f, reference_interne: e.target.value }))}
+                  placeholder="Si vous avez la référence de transaction"
+                  helperText="Si vous ne l'avez pas, laissez vide"
+                />
+              )}
+              <Alert severity="warning" sx={{ mt: 1 }}>
+                ⚠️ Votre participation ne sera comptabilisée qu'après confirmation avec la référence Wave.
+              </Alert>
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => { setOpenConfirmPayment(null); setConfirmForm({ reference_interne: '', reference_wave: '' }); setPendingTransaction(null) }}>Annuler</Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmPayment}
+            disabled={saving || !confirmForm.reference_wave}
+            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+          >
+            {saving ? <CircularProgress size={24} /> : 'Confirmer le paiement'}
           </Button>
         </DialogActions>
       </Dialog>
