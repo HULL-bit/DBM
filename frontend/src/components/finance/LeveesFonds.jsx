@@ -268,7 +268,12 @@ export default function LeveesFonds() {
                         variant="contained"
                         size="small"
                         startIcon={<Payment />}
-                        onClick={() => handleOpenParticipate(lf)}
+                        onClick={() => {
+                          if (lf.lien_paiement_wave) {
+                            window.open(lf.lien_paiement_wave, '_blank', 'noopener,noreferrer')
+                          }
+                          handleOpenParticipate(lf)
+                        }}
                         sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
                       >
                         BARKELOU
@@ -308,7 +313,12 @@ export default function LeveesFonds() {
                         variant="contained"
                         size="small"
                         startIcon={<Payment />}
-                        onClick={() => handleOpenParticipate(lf)}
+                        onClick={() => {
+                          if (lf.lien_paiement_wave) {
+                            window.open(lf.lien_paiement_wave, '_blank', 'noopener,noreferrer')
+                          }
+                          handleOpenParticipate(lf)
+                        }}
                         sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
                       >
                         BARKELOU

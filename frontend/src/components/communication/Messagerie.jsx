@@ -67,7 +67,7 @@ export default function Messagerie() {
     try {
       if (form.fichier) {
         const fd = new FormData()
-        dest.forEach((id) => fd.append('destinataires', Number(id)))
+        dest.forEach((id) => fd.append('destinataires', String(id)))
         fd.append('sujet', form.sujet)
         fd.append('contenu', form.contenu)
         fd.append('fichier_joint', form.fichier)

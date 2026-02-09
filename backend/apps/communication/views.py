@@ -29,32 +29,78 @@ class MessageViewSet(viewsets.ModelViewSet):
         ])
 
     def create(self, request, *args, **kwargs):
+        # Gérer les destinataires depuis request.data (peut être une liste ou une valeur multiple depuis FormData)
         destinataires = request.data.get('destinataires')
-        if isinstance(destinataires, list) and len(destinataires) > 0:
-            expediteur = request.user
-            sujet = request.data.get('sujet', '')
-            contenu = request.data.get('contenu', '')
-            fichier_joint = request.FILES.get('fichier_joint')
-            from apps.accounts.models import CustomUser
-            created = []
-            for uid in destinataires:
-                user = CustomUser.objects.filter(id=uid).first()
-                if user and user.id != expediteur.id:
-                    msg = Message.objects.create(
-                        expediteur=expediteur,
-                        destinataire=user,
-                        sujet=sujet,
-                        contenu=contenu,
-                        fichier_joint=fichier_joint,
-                    )
-                    created.append(MessageSerializer(msg).data)
-            if not created:
-                return Response(
-                    {'detail': 'Aucun destinataire valide.'},
-                    status=status.HTTP_400_BAD_REQUEST
+        if not destinataires:
+            return Response(
+                {'detail': 'Destinataires requis.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Si c'est une liste depuis JSON, utiliser directement
+        # Si c'est depuis FormData, getlist() retourne une liste
+        if not isinstance(destinataires, list):
+            # Si c'est une valeur unique depuis FormData
+            if hasattr(request.data, 'getlist'):
+                destinataires = request.data.getlist('destinataires')
+            else:
+                destinataires = [destinataires]
+        
+        if len(destinataires) == 0:
+            return Response(
+                {'detail': 'Au moins un destinataire requis.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        expediteur = request.user
+        sujet = request.data.get('sujet', '')
+        contenu = request.data.get('contenu', '')
+        fichier_joint = request.FILES.get('fichier_joint')
+        
+        from apps.accounts.models import CustomUser
+        import os
+        from django.core.files.base import ContentFile
+        
+        # Si un fichier est fourni, lire son contenu une seule fois
+        contenu_fichier = None
+        nom_original = None
+        if fichier_joint:
+            fichier_joint.seek(0)
+            contenu_fichier = fichier_joint.read()
+            nom_original = fichier_joint.name
+        
+        created = []
+        for uid in destinataires:
+            try:
+                uid_int = int(uid)
+            except (ValueError, TypeError):
+                continue
+            
+            user = CustomUser.objects.filter(id=uid_int).first()
+            if user and user.id != expediteur.id:
+                # Si un fichier est fourni, créer une copie pour chaque message
+                fichier_copie = None
+                if contenu_fichier and nom_original:
+                    # Créer un nouveau fichier avec un nom unique
+                    nom_base, extension = os.path.splitext(nom_original)
+                    nouveau_nom = f"{nom_base}_{uid_int}{extension}"
+                    fichier_copie = ContentFile(contenu_fichier, name=nouveau_nom)
+                
+                msg = Message.objects.create(
+                    expediteur=expediteur,
+                    destinataire=user,
+                    sujet=sujet,
+                    contenu=contenu,
+                    fichier_joint=fichier_copie,
                 )
-            return Response(created[0] if len(created) == 1 else {'detail': f'{len(created)} messages envoyés.', 'count': len(created)}, status=status.HTTP_201_CREATED)
-        return super().create(request, *args, **kwargs)
+                created.append(MessageSerializer(msg).data)
+        
+        if not created:
+            return Response(
+                {'detail': 'Aucun destinataire valide.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(created[0] if len(created) == 1 else {'detail': f'{len(created)} messages envoyés.', 'count': len(created)}, status=status.HTTP_201_CREATED)
 
     def perform_create(self, serializer):
         serializer.save(expediteur=self.request.user)
