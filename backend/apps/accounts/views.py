@@ -120,6 +120,14 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method in ['PUT', 'PATCH', 'DELETE']:
             return [IsAdminUser()]
         return [IsAuthenticated()]
+    
+    def partial_update(self, request, *args, **kwargs):
+        """Override pour s'assurer que la catégorie est bien sauvegardée"""
+        instance = self.get_object()
+        serializer = self.get_serializer(instance, data=request.data, partial=True)
+        serializer.is_valid(raise_exception=True)
+        self.perform_update(serializer)
+        return Response(serializer.data)
 
 
 @api_view(['GET'])

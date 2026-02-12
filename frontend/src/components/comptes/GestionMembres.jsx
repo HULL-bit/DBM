@@ -163,9 +163,17 @@ export default function GestionMembres() {
         console.log('Envoi PATCH avec categorie:', categorieValide, 'payload complet:', payload)
         const response = await api.patch(`/auth/users/${editingId}/`, payload)
         console.log('Réponse backend - categorie retournée:', response.data?.categorie)
+        
+        // Mettre à jour directement dans la liste si la réponse contient les données
+        if (response.data) {
+          setList(prevList => 
+            prevList.map(u => u.id === editingId ? { ...u, ...response.data } : u)
+          )
+        }
+        
         setMessage({ type: 'success', text: 'Membre modifié.' })
-        // Attendre un peu pour que la base de données soit à jour
-        await new Promise(resolve => setTimeout(resolve, 500))
+        // Attendre un peu avant de recharger pour être sûr
+        await new Promise(resolve => setTimeout(resolve, 300))
       } else {
         const payload = { ...form, categorie: categorieValide }
         await api.post('/auth/register/', payload)

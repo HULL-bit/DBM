@@ -10,18 +10,12 @@ class UserSerializer(serializers.ModelSerializer):
 
     def validate_categorie(self, value):
         """Normaliser et valider la catégorie"""
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"validate_categorie appelé avec value: {value} (type: {type(value)})")
-        
         # Si None ou chaîne vide, utiliser le défaut
         if value is None or (isinstance(value, str) and not value.strip()):
-            logger.info("Valeur vide, retourne 'professionnel'")
-            return 'professionnel'  # Utiliser le défaut explicitement
+            return 'professionnel'
         
         # Normaliser la valeur
         value_normalized = str(value).strip().lower()
-        logger.info(f"Valeur normalisée: {value_normalized}")
         
         # Gérer les variations d'orthographe
         if value_normalized == 'professionel':
@@ -30,11 +24,9 @@ class UserSerializer(serializers.ModelSerializer):
         # Vérifier que c'est une valeur valide et la retourner telle quelle
         valid_categories = ['eleve', 'etudiant', 'professionnel']
         if value_normalized in valid_categories:
-            logger.info(f"Valeur valide, retourne: {value_normalized}")
             return value_normalized
         
         # Si invalide, utiliser le défaut
-        logger.info(f"Valeur invalide, retourne 'professionnel'")
         return 'professionnel'
 
     class Meta:
@@ -55,18 +47,12 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
     def validate_categorie(self, value):
         """Normaliser et valider la catégorie"""
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"validate_categorie appelé avec value: {value} (type: {type(value)})")
-        
         # Si None ou chaîne vide, utiliser le défaut
         if value is None or (isinstance(value, str) and not value.strip()):
-            logger.info("Valeur vide, retourne 'professionnel'")
-            return 'professionnel'  # Utiliser le défaut explicitement
+            return 'professionnel'
         
         # Normaliser la valeur
         value_normalized = str(value).strip().lower()
-        logger.info(f"Valeur normalisée: {value_normalized}")
         
         # Gérer les variations d'orthographe
         if value_normalized == 'professionel':
@@ -75,11 +61,9 @@ class UserCreateSerializer(serializers.ModelSerializer):
         # Vérifier que c'est une valeur valide et la retourner telle quelle
         valid_categories = ['eleve', 'etudiant', 'professionnel']
         if value_normalized in valid_categories:
-            logger.info(f"Valeur valide, retourne: {value_normalized}")
             return value_normalized
         
         # Si invalide, utiliser le défaut
-        logger.info(f"Valeur invalide, retourne 'professionnel'")
         return 'professionnel'
 
     class Meta:
@@ -104,35 +88,45 @@ class UserCreateSerializer(serializers.ModelSerializer):
 
 class UserMeSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='get_role_display', read_only=True)
+    categorie = serializers.CharField(required=False, allow_blank=True, allow_null=True, read_only=False)
 
     def validate_categorie(self, value):
         """Normaliser et valider la catégorie"""
-        import logging
-        logger = logging.getLogger(__name__)
-        logger.info(f"validate_categorie appelé avec value: {value} (type: {type(value)})")
-        
-        # Si None ou chaîne vide, utiliser le défaut
         if value is None or (isinstance(value, str) and not value.strip()):
-            logger.info("Valeur vide, retourne 'professionnel'")
-            return 'professionnel'  # Utiliser le défaut explicitement
-        
-        # Normaliser la valeur
+            return 'professionnel'
         value_normalized = str(value).strip().lower()
-        logger.info(f"Valeur normalisée: {value_normalized}")
-        
-        # Gérer les variations d'orthographe
         if value_normalized == 'professionel':
             value_normalized = 'professionnel'
-        
-        # Vérifier que c'est une valeur valide et la retourner telle quelle
         valid_categories = ['eleve', 'etudiant', 'professionnel']
         if value_normalized in valid_categories:
-            logger.info(f"Valeur valide, retourne: {value_normalized}")
             return value_normalized
-        
-        # Si invalide, utiliser le défaut
-        logger.info(f"Valeur invalide, retourne 'professionnel'")
         return 'professionnel'
+    
+    def to_representation(self, instance):
+        """Override pour gérer les cas où categorie pourrait ne pas exister dans la DB"""
+        try:
+            data = super().to_representation(instance)
+        except Exception as e:
+            # Si erreur lors de la sérialisation (ex: champ categorie n'existe pas), 
+            # construire les données manuellement
+            data = {}
+            for field_name in self.Meta.fields:
+                if field_name == 'categorie':
+                    data['categorie'] = 'professionnel'
+                elif field_name == 'role_display':
+                    data['role_display'] = instance.get_role_display() if hasattr(instance, 'get_role_display') else ''
+                else:
+                    try:
+                        data[field_name] = getattr(instance, field_name, None)
+                    except:
+                        pass
+            return data
+        
+        # S'assurer que categorie a toujours une valeur valide
+        categorie_value = data.get('categorie')
+        if not categorie_value or categorie_value not in ['eleve', 'etudiant', 'professionnel']:
+            data['categorie'] = 'professionnel'
+        return data
 
     class Meta:
         model = User
