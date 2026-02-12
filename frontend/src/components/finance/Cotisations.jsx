@@ -30,7 +30,8 @@ const WAVE_PAYMENT_URL = 'https://pay.wave.com/m/M_sn_A4og8Zu7m589/c/sn/'
 const STATUTS = [
   { value: 'en_attente', label: 'En attente' },
   { value: 'payee', label: 'Payée' },
-  { value: 'retard', label: 'En retard' },
+  // On affiche "En cours" pour les cotisations en retard / non terminées
+  { value: 'retard', label: 'En cours' },
   { value: 'annulee', label: 'Annulée' },
 ]
 const MODES_PAIEMENT = [
@@ -43,6 +44,10 @@ const TYPES_COTISATION = [
   { value: 'assignation', label: 'Assignation' },
 ]
 const MOIS = Array.from({ length: 12 }, (_, i) => ({ value: i + 1, label: ['Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin', 'Juil', 'Août', 'Sep', 'Oct', 'Nov', 'Déc'][i] }))
+const MOIS_LABELS = MOIS.reduce((acc, m) => {
+  acc[m.value] = m.label
+  return acc
+}, {})
 
 export default function Cotisations() {
   const { user } = useAuth()
@@ -72,6 +77,9 @@ export default function Cotisations() {
   const [openRapportExport, setOpenRapportExport] = useState(false)
   const [rapportExport, setRapportExport] = useState({ format: 'excel', annee: '', mois: '' })
   const [exportingRapport, setExportingRapport] = useState(false)
+  const [formErrors, setFormErrors] = useState({})
+  const [typeFilter, setTypeFilter] = useState('')
+  const [objetAssignationFilter, setObjetAssignationFilter] = useState('')
 
   const loadList = () => {
     setLoading(true)
@@ -97,6 +105,7 @@ export default function Cotisations() {
       mode_paiement: 'wave',
       notes: '',
     })
+    setFormErrors({})
     setOpenForm(true)
   }
 
@@ -114,20 +123,22 @@ export default function Cotisations() {
       mode_paiement: c.mode_paiement || 'wave',
       notes: c.notes || '',
     })
+    setFormErrors({})
     setOpenForm(true)
   }
 
   const handleSave = async () => {
-    if (!form.membre && !editingId) {
-      setMessage({ type: 'error', text: 'Sélectionnez un membre.' })
-      return
-    }
-    if (!form.mois || !form.annee || !form.date_echeance) {
-      setMessage({ type: 'error', text: 'Mois, année et date d\'échéance requis.' })
-      return
-    }
+    const errors = {}
+    if (!form.membre && !editingId) errors.membre = 'Sélectionnez un membre.'
+    if (!form.mois) errors.mois = 'Mois requis.'
+    if (!form.annee) errors.annee = 'Année requise.'
+    if (!form.date_echeance) errors.date_echeance = 'Date d\'échéance requise.'
     if (form.type_cotisation === 'assignation' && !String(form.objet_assignation || '').trim()) {
-      setMessage({ type: 'error', text: 'Veuillez préciser l\'objet de l\'assignation (ex : Magal, Gamou, …).' })
+      errors.objet_assignation = 'Objet de l\'assignation requis (ex : Magal, Gamou, …).'
+    }
+    setFormErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
     setSaving(true)
@@ -204,7 +215,7 @@ export default function Cotisations() {
     }
   }
 
-  const statutColor = (s) => (s === 'payee' ? 'success' : s === 'retard' ? 'error' : 'warning')
+  const statutColor = (s) => (s === 'payee' ? 'success' : s === 'retard' ? 'warning' : 'default')
 
   const handleExportRapport = async () => {
     const { format, annee, mois } = rapportExport
@@ -214,6 +225,8 @@ export default function Cotisations() {
       const params = { format }
       if (annee) params.annee = annee
       if (mois) params.mois = mois
+      if (typeFilter) params.type_cotisation = typeFilter
+      if (objetAssignationFilter) params.objet_assignation = objetAssignationFilter
       const { data } = await api.get('/finance/export-rapport-cotisations/', {
         params,
         responseType: 'blob',
@@ -246,6 +259,69 @@ export default function Cotisations() {
   const nbPayees = list.filter((c) => c.statut === 'payee').length
   const pourcentageAssignationsPayees = list.length > 0 ? Math.round((nbPayees / list.length) * 100) : 0
 
+  // Statistiques séparées Mensualités / Assignations
+  const mensualites = list.filter((c) => c.type_cotisation === 'mensualite')
+  const assignations = list.filter((c) => c.type_cotisation === 'assignation')
+
+  const totalMensualites = mensualites.reduce((sum, c) => sum + Number(c.montant || 0), 0)
+  const totalMensualitesPayees = mensualites
+    .filter((c) => c.statut === 'payee')
+    .reduce((sum, c) => sum + Number(c.montant || 0), 0)
+  const pourcentageMensualites = totalMensualites > 0 ? Math.round((totalMensualitesPayees / totalMensualites) * 100) : 0
+
+  const totalAssignationsMontant = assignations.reduce((sum, c) => sum + Number(c.montant || 0), 0)
+  const totalAssignationsPayees = assignations
+    .filter((c) => c.statut === 'payee')
+    .reduce((sum, c) => sum + Number(c.montant || 0), 0)
+  const pourcentageAssignationsMontant =
+    totalAssignationsMontant > 0 ? Math.round((totalAssignationsPayees / totalAssignationsMontant) * 100) : 0
+
+  const filteredList = list.filter((c) => {
+    const typeOk = !typeFilter || c.type_cotisation === typeFilter
+    const objetOk =
+      !objetAssignationFilter ||
+      (c.type_cotisation === 'assignation' &&
+        (c.objet_assignation || '').toLowerCase() === objetAssignationFilter.toLowerCase())
+    return typeOk && objetOk
+  })
+
+  // Détails assignations par objet (MAGAL, GAMOU, etc.) selon les filtres
+  const assignationsFiltrees = filteredList.filter((c) => c.type_cotisation === 'assignation')
+  const assignationSums = assignationsFiltrees.reduce((acc, c) => {
+    const brut = (c.objet_assignation || '').toString().trim().toUpperCase()
+    const key =
+      brut === 'MAGAL' ||
+      brut === 'GAMOU' ||
+      brut === 'KAZU RAJABB' ||
+      brut === 'KOOR' ||
+      brut === 'SOCIAL' ||
+      brut === 'XELCOM'
+        ? brut
+        : 'AUTRES'
+    const current = acc[key] || 0
+    acc[key] = current + Number(c.montant || 0)
+    return acc
+  }, {})
+
+  // Détails mensualités par mois (toutes années) selon les filtres
+  const mensualitesFiltrees = filteredList.filter((c) => c.type_cotisation === 'mensualite')
+  const mensualitesParMois = Object.values(
+    mensualitesFiltrees.reduce((acc, c) => {
+      const mois = Number(c.mois)
+      const annee = Number(c.annee)
+      const key = `${annee}-${mois}`
+      if (!acc[key]) {
+        acc[key] = {
+          annee,
+          mois,
+          total: 0,
+        }
+      }
+      acc[key].total += Number(c.montant || 0)
+      return acc
+    }, {}),
+  ).sort((a, b) => (a.annee === b.annee ? a.mois - b.mois : a.annee - b.annee))
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
@@ -266,35 +342,153 @@ export default function Cotisations() {
       </Box>
 
       {!loading && list.length > 0 && (
-        <Box sx={{ mb: 3, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
-          <Paper sx={{ p: 2, borderLeft: `4px solid ${COLORS.vert}`, borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce }}>Montant total assigné</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.vert }}>
-              {totalMontant.toLocaleString('fr-FR')} FCFA
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {list.length} cotisation(s)
-            </Typography>
-          </Paper>
-          <Paper sx={{ p: 2, borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce }}>Montant payé</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.or }}>
-              {totalPayee.toLocaleString('fr-FR')} FCFA
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {pourcentageGlobal}% des montants assignés · {pourcentageAssignationsPayees}% des assignations payées
-            </Typography>
-          </Paper>
-          <Paper sx={{ p: 2, borderLeft: '4px solid #c62828', borderRadius: 2 }}>
-            <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce }}>Reste à payer</Typography>
-            <Typography variant="h6" sx={{ fontWeight: 700, color: '#c62828' }}>
-              {resteGlobal.toLocaleString('fr-FR')} FCFA
-            </Typography>
-            <Typography variant="caption" color="text.secondary">
-              {nbEnAttente} en attente · {nbRetard} en retard · {nbPayees} payée(s)
-            </Typography>
-          </Paper>
-        </Box>
+        <>
+          <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
+            <TextField
+              select
+              size="small"
+              label="Type"
+              value={typeFilter}
+              onChange={(e) => setTypeFilter(e.target.value)}
+              sx={{ minWidth: 180 }}
+            >
+              <MenuItem value="">Tous</MenuItem>
+              <MenuItem value="mensualite">Mensualité</MenuItem>
+              <MenuItem value="assignation">Assignation</MenuItem>
+            </TextField>
+            <TextField
+              select
+              size="small"
+              label="Assignation (Magal, Gamou, ...)"
+              value={objetAssignationFilter}
+              onChange={(e) => setObjetAssignationFilter(e.target.value)}
+              sx={{ minWidth: 220 }}
+            >
+              <MenuItem value="">Toutes</MenuItem>
+              <MenuItem value="MAGAL">MAGAL</MenuItem>
+              <MenuItem value="GAMOU">GAMOU</MenuItem>
+              <MenuItem value="KAZU RAJABB">KAZU RAJABB</MenuItem>
+              <MenuItem value="KOOR">KOOR</MenuItem>
+              <MenuItem value="SOCIAL">SOCIAL</MenuItem>
+              <MenuItem value="XELCOM">XELCOM</MenuItem>
+              <MenuItem value="AUTRES">AUTRES</MenuItem>
+            </TextField>
+          </Box>
+          <Box sx={{ mb: 3, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
+            <Paper sx={{ p: 2, borderLeft: `4px solid ${COLORS.vert}`, borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce }}>Montant total (toutes cotisations)</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.vert }}>
+                {totalMontant.toLocaleString('fr-FR')} FCFA
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {list.length} cotisation(s)
+              </Typography>
+            </Paper>
+            <Paper sx={{ p: 2, borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce }}>Mensualités</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.or }}>
+                {totalMensualitesPayees.toLocaleString('fr-FR')} / {totalMensualites.toLocaleString('fr-FR')} FCFA
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {pourcentageMensualites}% des mensualités payées
+              </Typography>
+            </Paper>
+            <Paper sx={{ p: 2, borderLeft: '4px solid #c62828', borderRadius: 2 }}>
+              <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce }}>Assignations</Typography>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: '#c62828' }}>
+                {totalAssignationsPayees.toLocaleString('fr-FR')} / {totalAssignationsMontant.toLocaleString('fr-FR')} FCFA
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {pourcentageAssignationsMontant}% des assignations payées
+              </Typography>
+            </Paper>
+          </Box>
+          {/* Cartes détaillées basées sur les filtres actuels */}
+          <Box sx={{ mb: 3, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '2fr 3fr' }, gap: 2 }}>
+            <Paper sx={{ p: 2, borderRadius: 2, borderLeft: `4px solid ${COLORS.or}` }}>
+              <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce, mb: 1 }}>
+                Détail des assignations (filtre actuel)
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Somme totale par type d’assignation (MAGAL, GAMOU, …) en fonction des filtres ci-dessus.
+              </Typography>
+              {assignationsFiltrees.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Aucune assignation pour ce filtre.
+                </Typography>
+              ) : (
+                // On affiche uniquement les types réellement présents dans les données filtrées,
+                // dans un ordre lisible (MAGAL, GAMOU, ... AUTRES)
+                ['MAGAL', 'GAMOU', 'KAZU RAJABB', 'KOOR', 'SOCIAL', 'XELCOM', 'AUTRES']
+                  .filter((label) => assignationSums[label] > 0)
+                  .map((label) => {
+                    const montant = assignationSums[label] || 0
+                    return (
+                      <Box
+                        key={label}
+                        sx={{
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          fontSize: '0.95rem',
+                          py: 0.5,
+                          px: 0.5,
+                          borderRadius: 1,
+                          '&:nth-of-type(odd)': { bgcolor: `${COLORS.vert}05` },
+                        }}
+                      >
+                        <Box sx={{ fontWeight: 700, color: COLORS.vertFonce, letterSpacing: '0.04em' }}>
+                          {label}
+                        </Box>
+                        <Box
+                          sx={{
+                            fontFamily: '"Cormorant Garamond", serif',
+                            fontWeight: 700,
+                            fontSize: '1.05rem',
+                            color: COLORS.or,
+                          }}
+                        >
+                          {montant.toLocaleString('fr-FR')} FCFA
+                        </Box>
+                      </Box>
+                    )
+                  })
+              )}
+            </Paper>
+            <Paper sx={{ p: 2, borderRadius: 2, borderLeft: `4px solid ${COLORS.vert}` }}>
+              <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce, mb: 1 }}>
+                Mensualités par mois (filtre actuel)
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                Montant total des mensualités pour chaque mois/année sur les cotisations filtrées.
+              </Typography>
+              {mensualitesParMois.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">
+                  Aucune mensualité pour ce filtre.
+                </Typography>
+              ) : (
+                mensualitesParMois.map((m) => (
+                  <Box
+                    key={`${m.annee}-${m.mois}`}
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      fontSize: '0.9rem',
+                      py: 0.25,
+                    }}
+                  >
+                    <Box sx={{ fontWeight: 600, color: COLORS.vertFonce }}>
+                      {MOIS_LABELS[m.mois]} {m.annee}
+                    </Box>
+                    <Box sx={{ fontFamily: '"Cormorant Garamond", serif', fontWeight: 600 }}>
+                      {m.total.toLocaleString('fr-FR')} FCFA
+                    </Box>
+                  </Box>
+                ))
+              )}
+            </Paper>
+          </Box>
+        </>
       )}
 
       {message.text && (
@@ -321,10 +515,10 @@ export default function Cotisations() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {list.length === 0 ? (
+              {filteredList.length === 0 ? (
                 <TableRow><TableCell colSpan={isAdmin ? 9 : 8} align="center">Aucune cotisation</TableCell></TableRow>
               ) : (
-                list.map((c) => (
+                filteredList.map((c) => (
                   <TableRow key={c.id}>
                     {isAdmin && <TableCell>{c.membre_nom || c.membre || `#${c.membre}`}</TableCell>}
                     <TableCell>{c.type_cotisation === 'assignation' ? 'Assignation' : 'Mensualité'}</TableCell>
@@ -402,9 +596,14 @@ export default function Cotisations() {
                 select
                 label="Membre"
                 value={form.membre}
-                onChange={(e) => setForm((f) => ({ ...f, membre: e.target.value }))}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, membre: e.target.value }))
+                  setFormErrors((fe) => ({ ...fe, membre: undefined }))
+                }}
                 required
                 fullWidth
+                error={!!formErrors.membre}
+                helperText={formErrors.membre || ''}
               >
                 {users.map((u) => <MenuItem key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.email})</MenuItem>)}
               </TextField>
@@ -424,11 +623,25 @@ export default function Cotisations() {
             </TextField>
             {form.type_cotisation === 'assignation' && (
               <TextField
-                label="Objet de l'assignation (ex : Magal, Gamou …)"
+                select
+                label="Objet de l'assignation"
                 value={form.objet_assignation}
-                onChange={(e) => setForm((f) => ({ ...f, objet_assignation: e.target.value }))}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, objet_assignation: e.target.value }))
+                  setFormErrors((fe) => ({ ...fe, objet_assignation: undefined }))
+                }}
                 fullWidth
-              />
+                error={!!formErrors.objet_assignation}
+                helperText={formErrors.objet_assignation || 'MAGAL, GAMOU, KAZU RAJABB, KOOR, SOCIAL, XELCOM ou AUTRES'}
+              >
+                <MenuItem value="MAGAL">MAGAL</MenuItem>
+                <MenuItem value="GAMOU">GAMOU</MenuItem>
+                <MenuItem value="KAZU RAJABB">KAZU RAJABB</MenuItem>
+                <MenuItem value="KOOR">KOOR</MenuItem>
+                <MenuItem value="SOCIAL">SOCIAL</MenuItem>
+                <MenuItem value="XELCOM">XELCOM</MenuItem>
+                <MenuItem value="AUTRES">AUTRES</MenuItem>
+              </TextField>
             )}
             <TextField
               select
@@ -459,11 +672,47 @@ export default function Cotisations() {
               multiline
               rows={2}
             />
-            <TextField select label="Mois" value={form.mois} onChange={(e) => setForm((f) => ({ ...f, mois: Number(e.target.value) }))} fullWidth>
+            <TextField
+              select
+              label="Mois"
+              value={form.mois}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, mois: Number(e.target.value) }))
+                setFormErrors((fe) => ({ ...fe, mois: undefined }))
+              }}
+              fullWidth
+              error={!!formErrors.mois}
+              helperText={formErrors.mois || ''}
+            >
               {MOIS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
             </TextField>
-            <TextField label="Année" type="number" value={form.annee} onChange={(e) => setForm((f) => ({ ...f, annee: Number(e.target.value) }))} fullWidth inputProps={{ min: 2020, max: 2030 }} />
-            <TextField label="Date échéance" type="date" value={form.date_echeance} onChange={(e) => setForm((f) => ({ ...f, date_echeance: e.target.value }))} required fullWidth InputLabelProps={{ shrink: true }} />
+            <TextField
+              label="Année"
+              type="number"
+              value={form.annee}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, annee: Number(e.target.value) }))
+                setFormErrors((fe) => ({ ...fe, annee: undefined }))
+              }}
+              fullWidth
+              inputProps={{ min: 2020, max: 2030 }}
+              error={!!formErrors.annee}
+              helperText={formErrors.annee || ''}
+            />
+            <TextField
+              label="Date échéance"
+              type="date"
+              value={form.date_echeance}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, date_echeance: e.target.value }))
+                setFormErrors((fe) => ({ ...fe, date_echeance: undefined }))
+              }}
+              required
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              error={!!formErrors.date_echeance}
+              helperText={formErrors.date_echeance || ''}
+            />
             <TextField select label="Statut" value={form.statut} onChange={(e) => setForm((f) => ({ ...f, statut: e.target.value }))} fullWidth>
               {STATUTS.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
             </TextField>

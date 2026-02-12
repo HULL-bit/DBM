@@ -14,6 +14,12 @@ class CustomUser(AbstractUser):
         ('F', 'Féminin'),
     ]
 
+    CATEGORIE_CHOICES = [
+        ('eleve', 'Élève'),
+        ('etudiant', 'Étudiant'),
+        ('professionnel', 'Professionnel'),
+    ]
+
     telephone = models.CharField(max_length=20, blank=True)
     adresse = models.TextField(blank=True)
     role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='membre')
@@ -27,6 +33,7 @@ class CustomUser(AbstractUser):
     # Informations personnelles
     sexe = models.CharField(max_length=1, choices=SEXE_CHOICES, blank=True)
     profession = models.CharField(max_length=100, blank=True)
+    categorie = models.CharField(max_length=20, choices=CATEGORIE_CHOICES, default='professionnel')
 
     # Champs spécifiques Jewrin
     specialite = models.CharField(max_length=100, blank=True)

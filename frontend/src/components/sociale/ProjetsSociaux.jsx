@@ -73,6 +73,7 @@ export default function ProjetsSociaux() {
     statut: 'planifie',
   })
   const [assignMontants, setAssignMontants] = useState({})
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const loadList = () => {
     setLoading(true)
@@ -118,6 +119,7 @@ export default function ProjetsSociaux() {
       date_fin: '',
       statut: 'planifie',
     })
+    setFieldErrors({})
     setOpenForm(true)
   }
 
@@ -136,6 +138,7 @@ export default function ProjetsSociaux() {
       date_fin: p.date_fin ? p.date_fin.slice(0, 10) : '',
       statut: p.statut || 'planifie',
     })
+    setFieldErrors({})
     setOpenForm(true)
   }
 
@@ -147,8 +150,13 @@ export default function ProjetsSociaux() {
   }
 
   const handleSave = async () => {
-    if (!form.titre || !form.date_debut || !form.budget_previsionnel) {
-      setMessage({ type: 'error', text: 'Titre, date de début et budget prévisionnel requis.' })
+    const errors = {}
+    if (!form.titre) errors.titre = 'Titre requis.'
+    if (!form.date_debut) errors.date_debut = 'Date de début requise.'
+    if (!form.budget_previsionnel) errors.budget_previsionnel = 'Budget prévisionnel requis.'
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
     setSaving(true)
@@ -178,8 +186,19 @@ export default function ProjetsSociaux() {
       setOpenForm(false)
       setEditingId(null)
     } catch (err) {
-      const d = err.response?.data?.detail || err.response?.data
-      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      const data = err.response?.data
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiFieldErrors = {}
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) apiFieldErrors[key] = String(value[0])
+          else if (typeof value === 'string') apiFieldErrors[key] = value
+        })
+        setFieldErrors((prev) => ({ ...prev, ...apiFieldErrors }))
+        setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
+      } else {
+        const d = err.response?.data?.detail || data
+        setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      }
     } finally {
       setSaving(false)
     }
@@ -317,7 +336,20 @@ export default function ProjetsSociaux() {
         <DialogTitle>{editingId ? 'Modifier le projet social' : 'Ajouter un projet social'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ pt: 1 }}>
-            <Grid item xs={12}><TextField fullWidth label="Titre" value={form.titre} onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))} required /></Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Titre"
+                value={form.titre}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, titre: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, titre: undefined }))
+                }}
+                required
+                error={!!fieldErrors.titre}
+                helperText={fieldErrors.titre || ''}
+              />
+            </Grid>
             <Grid item xs={12}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} multiline rows={2} /></Grid>
             <Grid item xs={12}>
               <TextField select fullWidth label="Membre concerné (optionnel)" value={form.membre_concerne} onChange={(e) => setForm((f) => ({ ...f, membre_concerne: e.target.value }))}>
@@ -329,8 +361,38 @@ export default function ProjetsSociaux() {
             <Grid item xs={12}><TextField select fullWidth label="Type sociale" value={form.categorie} onChange={(e) => setForm((f) => ({ ...f, categorie: e.target.value }))}>{CATEGORIES.map((c) => <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12}><TextField fullWidth label="Objectifs du projet" value={form.objectifs} onChange={(e) => setForm((f) => ({ ...f, objectifs: e.target.value }))} multiline rows={2} /></Grid>
             <Grid item xs={12}><TextField fullWidth label="Lieu" value={form.lieu} onChange={(e) => setForm((f) => ({ ...f, lieu: e.target.value }))} placeholder="Ex: Daara, Mbacké" /></Grid>
-            <Grid item xs={12}><TextField fullWidth type="number" label="Budget prévisionnel (FCFA)" value={form.budget_previsionnel} onChange={(e) => setForm((f) => ({ ...f, budget_previsionnel: e.target.value }))} inputProps={{ min: 0 }} required /></Grid>
-            <Grid item xs={6}><TextField fullWidth type="date" label="Date début" value={form.date_debut} onChange={(e) => setForm((f) => ({ ...f, date_debut: e.target.value }))} InputLabelProps={{ shrink: true }} required /></Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Budget prévisionnel (FCFA)"
+                value={form.budget_previsionnel}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, budget_previsionnel: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, budget_previsionnel: undefined }))
+                }}
+                inputProps={{ min: 0 }}
+                required
+                error={!!fieldErrors.budget_previsionnel}
+                helperText={fieldErrors.budget_previsionnel || ''}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Date début"
+                value={form.date_debut}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, date_debut: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, date_debut: undefined }))
+                }}
+                InputLabelProps={{ shrink: true }}
+                required
+                error={!!fieldErrors.date_debut}
+                helperText={fieldErrors.date_debut || ''}
+              />
+            </Grid>
             <Grid item xs={6}><TextField fullWidth type="date" label="Date fin" value={form.date_fin} onChange={(e) => setForm((f) => ({ ...f, date_fin: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
             <Grid item xs={12}><TextField select fullWidth label="Statut" value={form.statut} onChange={(e) => setForm((f) => ({ ...f, statut: e.target.value }))}>{STATUTS.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}</TextField></Grid>
           </Grid>

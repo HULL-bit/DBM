@@ -23,6 +23,16 @@ import Cours from './components/scientifique/Cours'
 import MonProfil from './components/comptes/MonProfil'
 import GestionMembres from './components/comptes/GestionMembres'
 
+const JEWRINE_ROLES = [
+  'jewrin',
+  'jewrine_conservatoire',
+  'jewrine_finance',
+  'jewrine_culturelle',
+  'jewrine_sociale',
+  'jewrine_communication',
+  'jewrine_organisation',
+]
+
 function ProtectedRoute({ children, roles }) {
   const { user, loading } = useAuth()
   if (loading) return null
@@ -33,7 +43,11 @@ function ProtectedRoute({ children, roles }) {
 
 function AppRoutes() {
   const { user } = useAuth()
-  const defaultDashboard = user?.role === 'admin' ? '/admin' : user?.role === 'jewrin' ? '/jewrin' : '/membre'
+  const isJewrine =
+    !!user?.role &&
+    (user.role === 'jewrin' ||
+      user.role.toLowerCase().startsWith('jewrine_'))
+  const defaultDashboard = user?.role === 'admin' ? '/admin' : isJewrine ? '/jewrin' : '/membre'
   return (
     <Routes>
       {/* Racine : par défaut on affiche l'accueil (ou redirection dashboard si connecté) */}
@@ -52,7 +66,7 @@ function AppRoutes() {
         <Route index element={<Navigate to={defaultDashboard} replace />} />
         <Route path="admin" element={<ProtectedRoute roles={['admin']}><DashboardAdmin /></ProtectedRoute>} />
         <Route path="membre" element={<ProtectedRoute roles={['membre']}><DashboardMembre /></ProtectedRoute>} />
-        <Route path="jewrin" element={<ProtectedRoute roles={['jewrin']}><DashboardJewrin /></ProtectedRoute>} />
+        <Route path="jewrin" element={<ProtectedRoute roles={JEWRINE_ROLES}><DashboardJewrin /></ProtectedRoute>} />
         <Route path="informations/evenements" element={<Evenements />} />
         <Route path="finance/cotisations" element={<Cotisations />} />
         <Route path="finance/levees-fonds" element={<LeveesFonds />} />

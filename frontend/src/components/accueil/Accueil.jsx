@@ -147,7 +147,14 @@ export default function Accueil() {
                 {navLinks.map(({ id, label }) => (
                   <Link
                     key={id}
-                    href={`#${id}`}
+                    component="button"
+                    type="button"
+                    onClick={() => {
+                      const el = document.getElementById(id)
+                      if (el) {
+                        el.scrollIntoView({ behavior: 'smooth', block: 'start' })
+                      }
+                    }}
                     sx={{
                       color: COLORS.vertFonce,
                       fontSize: '0.9rem',
@@ -158,6 +165,7 @@ export default function Accueil() {
                       fontWeight: 600,
                       transition: 'all 0.2s ease',
                       '&:hover': { color: COLORS.or, bgcolor: `${COLORS.or}20` },
+                      cursor: 'pointer',
                     }}
                   >
                     {label}
@@ -249,24 +257,26 @@ export default function Accueil() {
           >
             <Typography
               component="h1"
+              className="title-script"
               sx={{
                 color: COLORS.beigeClair,
-                fontFamily: '"Dancing Script", "Cormorant Garamond", serif',
-                fontWeight: 700,
                 textShadow: '0 2px 8px rgba(0,0,0,0.9), 0 0 20px rgba(0,0,0,0.5)',
-                fontSize: { xs: '2.5rem', sm: '3.5rem', md: '4.5rem', lg: '5.5rem' },
-                mb: 0.5,
-                lineHeight: 1.2,
+                fontSize: { xs: '3.4rem', sm: '4.2rem', md: '5.2rem', lg: '6.4rem' },
+                mb: 0.75,
+                lineHeight: 1.25,
+                letterSpacing: '0.14em',
+                textTransform: 'uppercase',
+                fontWeight: 700,
               }}
             >
-              DAARA BARAKATOUL MAHAHIDI
+              Daara Barakatul Mahaahidi
             </Typography>
             <Typography
               component="p"
               sx={{
                 color: COLORS.or,
                 fontFamily: '"Cormorant Garamond", serif',
-                fontWeight: 600,
+                fontWeight: 900,
                 textShadow: '0 2px 6px rgba(0,0,0,0.9)',
                 fontSize: { xs: '1.25rem', sm: '1.5rem', md: '1.75rem' },
                 mb: 1.5,
@@ -278,7 +288,7 @@ export default function Accueil() {
               variant="h6"
               sx={{
                 color: COLORS.or,
-                fontWeight: 700,
+                fontWeight: 800,
                 textShadow: '0 2px 6px rgba(0,0,0,0.9)',
                 fontSize: { xs: '1rem', sm: '1.25rem', md: '1.5rem' },
                 mb: 1,

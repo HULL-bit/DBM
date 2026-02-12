@@ -31,8 +31,12 @@ const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
 export default function ProgrammeKamil() {
   const { user } = useAuth()
+  const isJewrine =
+    !!user?.role &&
+    (user.role === 'jewrin' ||
+      user.role.toLowerCase().startsWith('jewrine_'))
   const canCreateProgramme = user?.role === 'admin'
-  const canAssignJukki = user?.role === 'admin' || user?.role === 'jewrin'
+  const canAssignJukki = canCreateProgramme || isJewrine
   const [kamils, setKamils] = useState([])
   const [jukkisByKamil, setJukkisByKamil] = useState({})
   const [membres, setMembres] = useState([])

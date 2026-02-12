@@ -58,6 +58,7 @@ export default function ActivitesReligieuses() {
     lieu: '',
     lien_visio: '',
   })
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const loadList = () => {
     setLoading(true)
@@ -84,6 +85,7 @@ export default function ActivitesReligieuses() {
       lieu: '',
       lien_visio: '',
     })
+    setFieldErrors({})
     setOpenForm(true)
   }
 
@@ -98,12 +100,18 @@ export default function ActivitesReligieuses() {
       lieu: a.lieu || '',
       lien_visio: a.lien_visio || '',
     })
+    setFieldErrors({})
     setOpenForm(true)
   }
 
   const handleSave = async () => {
-    if (!form.titre || !form.date_activite || !form.lieu) {
-      setMessage({ type: 'error', text: 'Titre, date et lieu requis.' })
+    const errors = {}
+    if (!form.titre) errors.titre = 'Titre requis.'
+    if (!form.date_activite) errors.date_activite = 'Date et heure requises.'
+    if (!form.lieu) errors.lieu = 'Lieu requis.'
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
     setSaving(true)
@@ -129,8 +137,19 @@ export default function ActivitesReligieuses() {
       setOpenForm(false)
       setEditingId(null)
     } catch (err) {
-      const d = err.response?.data?.detail || err.response?.data
-      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      const data = err.response?.data
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiFieldErrors = {}
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) apiFieldErrors[key] = String(value[0])
+          else if (typeof value === 'string') apiFieldErrors[key] = value
+        })
+        setFieldErrors((prev) => ({ ...prev, ...apiFieldErrors }))
+        setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
+      } else {
+        const d = err.response?.data?.detail || data
+        setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      }
     } finally {
       setSaving(false)
     }
@@ -231,12 +250,53 @@ export default function ActivitesReligieuses() {
         <DialogTitle>{editingId ? 'Modifier l\'activité' : 'Ajouter une activité religieuse'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ pt: 1 }}>
-            <Grid item xs={12}><TextField fullWidth label="Titre" value={form.titre} onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))} required /></Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Titre"
+                value={form.titre}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, titre: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, titre: undefined }))
+                }}
+                required
+                error={!!fieldErrors.titre}
+                helperText={fieldErrors.titre || ''}
+              />
+            </Grid>
             <Grid item xs={12}><TextField select fullWidth label="Type" value={form.type_activite} onChange={(e) => setForm((f) => ({ ...f, type_activite: e.target.value }))}>{TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} multiline rows={2} /></Grid>
-            <Grid item xs={6}><TextField fullWidth type="datetime-local" label="Date et heure" value={form.date_activite} onChange={(e) => setForm((f) => ({ ...f, date_activite: e.target.value }))} InputLabelProps={{ shrink: true }} required /></Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                type="datetime-local"
+                label="Date et heure"
+                value={form.date_activite}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, date_activite: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, date_activite: undefined }))
+                }}
+                InputLabelProps={{ shrink: true }}
+                required
+                error={!!fieldErrors.date_activite}
+                helperText={fieldErrors.date_activite || ''}
+              />
+            </Grid>
             <Grid item xs={6}><TextField fullWidth type="number" label="Durée (min)" value={form.duree} onChange={(e) => setForm((f) => ({ ...f, duree: e.target.value }))} inputProps={{ min: 1 }} /></Grid>
-            <Grid item xs={12}><TextField fullWidth label="Lieu" value={form.lieu} onChange={(e) => setForm((f) => ({ ...f, lieu: e.target.value }))} required /></Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Lieu"
+                value={form.lieu}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, lieu: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, lieu: undefined }))
+                }}
+                required
+                error={!!fieldErrors.lieu}
+                helperText={fieldErrors.lieu || ''}
+              />
+            </Grid>
             <Grid item xs={12}><TextField fullWidth label="Lien visio" value={form.lien_visio} onChange={(e) => setForm((f) => ({ ...f, lien_visio: e.target.value }))} /></Grid>
           </Grid>
         </DialogContent>

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useMemo } from 'react'
 import {
   Box,
   Typography,
@@ -492,6 +492,94 @@ export default function Conservatoire() {
 
   const getImageUrl = (path) => getMediaUrl(path)
 
+  // Statistiques de présence par membre, séparées répétitions / prestations et global
+  const enrichedStatsMembres = useMemo(() => {
+    const byId = {}
+
+    // Point de départ : stats globales renvoyées par l'API
+    statsMembres.forEach((m) => {
+      byId[m.membre_id] = {
+        ...m,
+        rep_presents: 0,
+        rep_absents: 0,
+        rep_total: 0,
+        rep_pourcentage: 0,
+        prest_presents: 0,
+        prest_absents: 0,
+        prest_total: 0,
+        prest_pourcentage: 0,
+      }
+    })
+
+    // Compléter avec les séances + présences pour séparer répétitions / prestations
+    seances.forEach((s) => {
+      const type = s.type_seance // 'repetition' ou 'prestation'
+      const presences = s.presences || []
+      presences.forEach((p) => {
+        const id = p.membre
+        if (!byId[id]) {
+          byId[id] = {
+            membre_id: id,
+            membre_nom: p.membre_nom || `#${id}`,
+            nb_presents: 0,
+            nb_absents: 0,
+            nb_total: 0,
+            pourcentage: 0,
+            rep_presents: 0,
+            rep_absents: 0,
+            rep_total: 0,
+            rep_pourcentage: 0,
+            prest_presents: 0,
+            prest_absents: 0,
+            prest_total: 0,
+            prest_pourcentage: 0,
+          }
+        }
+        const entry = byId[id]
+        const isPresent = p.statut === 'present'
+        const isAbsent = p.statut === 'absent_non_justifie' || p.statut === 'absent_justifie'
+
+        if (isPresent) entry.nb_presents += 1
+        if (isAbsent) entry.nb_absents += 1
+        if (isPresent || isAbsent) entry.nb_total += 1
+
+        if (type === 'repetition') {
+          if (isPresent) entry.rep_presents += 1
+          if (isAbsent) entry.rep_absents += 1
+          if (isPresent || isAbsent) entry.rep_total += 1
+        } else if (type === 'prestation') {
+          if (isPresent) entry.prest_presents += 1
+          if (isAbsent) entry.prest_absents += 1
+          if (isPresent || isAbsent) entry.prest_total += 1
+        }
+      })
+    })
+
+    return Object.values(byId).map((m) => {
+      const total = m.nb_total || (m.nb_presents + m.nb_absents)
+      const pourcentage =
+        total > 0 ? Math.round((m.nb_presents / total) * 100) : (m.pourcentage || 0)
+
+      const repTotal = m.rep_total || (m.rep_presents + m.rep_absents)
+      const repPourcentage =
+        repTotal > 0 ? Math.round((m.rep_presents / repTotal) * 100) : 0
+
+      const prestTotal = m.prest_total || (m.prest_presents + m.prest_absents)
+      const prestPourcentage =
+        prestTotal > 0 ? Math.round((m.prest_presents / prestTotal) * 100) : 0
+
+      return {
+        ...m,
+        nb_total: total,
+        pourcentage,
+        rep_total: repTotal,
+        rep_pourcentage: repPourcentage,
+        prest_total: prestTotal,
+        prest_pourcentage: prestPourcentage,
+      }
+    })
+  }, [statsMembres, seances])
+
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
@@ -839,19 +927,18 @@ export default function Conservatoire() {
               </Typography>
               {(() => {
                 const qM = (filterPresences.search || filterPresences.membre || '').trim().toLowerCase()
-                const filteredStats = statsMembres.filter((m) => !qM || (m.membre_nom || '').toLowerCase().includes(qM))
+                const filteredStats = enrichedStatsMembres.filter((m) => !qM || (m.membre_nom || '').toLowerCase().includes(qM))
                 return filteredStats.length === 0 ? (
-                <Typography color="text.secondary">{statsMembres.length === 0 ? 'Aucune donnée de présence.' : 'Aucun membre ne correspond aux filtres.'}</Typography>
+                <Typography color="text.secondary">{enrichedStatsMembres.length === 0 ? 'Aucune donnée de présence.' : 'Aucun membre ne correspond aux filtres.'}</Typography>
               ) : (
                 <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.vert}` }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: `${COLORS.vert}12` }}>
                         <TableCell><strong>Membre</strong></TableCell>
-                        <TableCell><strong>% Présence</strong></TableCell>
-                        <TableCell><strong>Présents</strong></TableCell>
-                        <TableCell><strong>Absents</strong></TableCell>
-                        <TableCell><strong>Total séances</strong></TableCell>
+                        <TableCell><strong>Répétitions</strong></TableCell>
+                        <TableCell><strong>Prestations</strong></TableCell>
+                        <TableCell><strong>Global</strong></TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -859,16 +946,41 @@ export default function Conservatoire() {
                         <TableRow key={m.membre_id}>
                           <TableCell>{m.membre_nom || `#${m.membre_id}`}</TableCell>
                           <TableCell>
-                            <Chip
-                              label={`${m.pourcentage} %`}
-                              size="small"
-                              color={m.pourcentage >= 80 ? 'success' : m.pourcentage >= 50 ? 'warning' : 'error'}
-                              sx={{ fontWeight: 600 }}
-                            />
+                            {m.rep_total > 0 ? (
+                              <Chip
+                                label={`${m.rep_pourcentage} % (${m.rep_presents}/${m.rep_absents})`}
+                                size="small"
+                                color={m.rep_pourcentage >= 80 ? 'success' : m.rep_pourcentage >= 50 ? 'warning' : 'error'}
+                                sx={{ fontWeight: 600 }}
+                              />
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">—</Typography>
+                            )}
                           </TableCell>
-                          <TableCell>{m.nb_presents}</TableCell>
-                          <TableCell>{m.nb_absents}</TableCell>
-                          <TableCell>{m.nb_total}</TableCell>
+                          <TableCell>
+                            {m.prest_total > 0 ? (
+                              <Chip
+                                label={`${m.prest_pourcentage} % (${m.prest_presents}/${m.prest_absents})`}
+                                size="small"
+                                color={m.prest_pourcentage >= 80 ? 'success' : m.prest_pourcentage >= 50 ? 'warning' : 'error'}
+                                sx={{ fontWeight: 600 }}
+                              />
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">—</Typography>
+                            )}
+                          </TableCell>
+                          <TableCell>
+                            {m.nb_total > 0 ? (
+                              <Chip
+                                label={`${m.pourcentage} % (${m.nb_presents}/${m.nb_absents})`}
+                                size="small"
+                                color={m.pourcentage >= 80 ? 'success' : m.pourcentage >= 50 ? 'warning' : 'error'}
+                                sx={{ fontWeight: 600 }}
+                              />
+                            ) : (
+                              <Typography variant="caption" color="text.secondary">—</Typography>
+                            )}
+                          </TableCell>
                         </TableRow>
                       ))}
                     </TableBody>

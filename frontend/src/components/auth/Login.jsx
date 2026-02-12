@@ -18,7 +18,11 @@ export default function Login() {
     setLoading(true)
     try {
       const user = await login(username, password)
-      const dest = user?.role === 'admin' ? '/admin' : user?.role === 'jewrin' ? '/jewrin' : '/membre'
+      const isJewrine =
+        !!user?.role &&
+        (user.role === 'jewrin' ||
+          user.role.toLowerCase().startsWith('jewrine_'))
+      const dest = user?.role === 'admin' ? '/admin' : isJewrine ? '/jewrin' : '/membre'
       navigate(dest)
     } catch (err) {
       setError(err.response?.data?.detail || 'Identifiants incorrects')

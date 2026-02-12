@@ -63,6 +63,7 @@ export default function Cours() {
     domaine: '',
     prerequis: '',
   })
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const loadList = () => {
     setLoading(true)
@@ -86,6 +87,7 @@ export default function Cours() {
       domaine: '',
       prerequis: '',
     })
+    setFieldErrors({})
     setOpenForm(true)
   }
 
@@ -102,12 +104,18 @@ export default function Cours() {
       domaine: c.domaine || '',
       prerequis: c.prerequis || '',
     })
+    setFieldErrors({})
     setOpenForm(true)
   }
 
   const handleSave = async () => {
-    if (!form.titre || !form.code || !form.duree) {
-      setMessage({ type: 'error', text: 'Titre, code et durée requis.' })
+    const errors = {}
+    if (!form.titre) errors.titre = 'Titre requis.'
+    if (!form.code) errors.code = 'Code requis.'
+    if (!form.duree) errors.duree = 'Durée requise.'
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
     setSaving(true)
@@ -135,8 +143,19 @@ export default function Cours() {
       setOpenForm(false)
       setEditingId(null)
     } catch (err) {
-      const d = err.response?.data?.detail || err.response?.data
-      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      const data = err.response?.data
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiFieldErrors = {}
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) apiFieldErrors[key] = String(value[0])
+          else if (typeof value === 'string') apiFieldErrors[key] = value
+        })
+        setFieldErrors((prev) => ({ ...prev, ...apiFieldErrors }))
+        setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
+      } else {
+        const d = err.response?.data?.detail || data
+        setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      }
     } finally {
       setSaving(false)
     }
@@ -237,9 +256,50 @@ export default function Cours() {
         <DialogTitle>{editingId ? 'Modifier le cours' : 'Ajouter un cours'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ pt: 1 }}>
-            <Grid item xs={12}><TextField fullWidth label="Titre" value={form.titre} onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))} required /></Grid>
-            <Grid item xs={6}><TextField fullWidth label="Code" value={form.code} onChange={(e) => setForm((f) => ({ ...f, code: e.target.value }))} required /></Grid>
-            <Grid item xs={6}><TextField fullWidth type="number" label="Durée (heures)" value={form.duree} onChange={(e) => setForm((f) => ({ ...f, duree: e.target.value }))} inputProps={{ min: 1 }} required /></Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Titre"
+                value={form.titre}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, titre: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, titre: undefined }))
+                }}
+                required
+                error={!!fieldErrors.titre}
+                helperText={fieldErrors.titre || ''}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                label="Code"
+                value={form.code}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, code: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, code: undefined }))
+                }}
+                required
+                error={!!fieldErrors.code}
+                helperText={fieldErrors.code || ''}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Durée (heures)"
+                value={form.duree}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, duree: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, duree: undefined }))
+                }}
+                inputProps={{ min: 1 }}
+                required
+                error={!!fieldErrors.duree}
+                helperText={fieldErrors.duree || ''}
+              />
+            </Grid>
             <Grid item xs={12}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} multiline rows={2} /></Grid>
             <Grid item xs={12}><TextField fullWidth label="Objectifs" value={form.objectifs} onChange={(e) => setForm((f) => ({ ...f, objectifs: e.target.value }))} multiline rows={2} /></Grid>
             <Grid item xs={6}><TextField select fullWidth label="Niveau" value={form.niveau} onChange={(e) => setForm((f) => ({ ...f, niveau: e.target.value }))}>{NIVEAUX.map((n) => <MenuItem key={n.value} value={n.value}>{n.label}</MenuItem>)}</TextField></Grid>

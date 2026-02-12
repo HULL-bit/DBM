@@ -42,6 +42,7 @@ export default function Messagerie() {
   const [form, setForm] = useState({ destinataires: [], sujet: '', contenu: '', fichier: null })
   const [selectedMessage, setSelectedMessage] = useState(null)
   const [filePreview, setFilePreview] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const loadMessages = () => {
     setLoading(true)
@@ -58,8 +59,13 @@ export default function Messagerie() {
 
   const handleSend = async () => {
     const dest = Array.isArray(form.destinataires) ? form.destinataires : []
-    if (dest.length === 0 || !form.sujet || !form.contenu) {
-      setMessage({ type: 'error', text: 'Au moins un destinataire, sujet et contenu requis.' })
+    const errors = {}
+    if (dest.length === 0) errors.destinataires = 'Sélectionnez au moins un destinataire.'
+    if (!form.sujet) errors.sujet = 'Sujet requis.'
+    if (!form.contenu) errors.contenu = 'Message requis.'
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
     setSaving(true)
@@ -90,8 +96,19 @@ export default function Messagerie() {
       setFilePreview(null)
       loadMessages()
     } catch (err) {
-      const d = err.response?.data?.detail || err.response?.data
-      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      const data = err.response?.data
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiFieldErrors = {}
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) apiFieldErrors[key] = String(value[0])
+          else if (typeof value === 'string') apiFieldErrors[key] = value
+        })
+        setFieldErrors((prev) => ({ ...prev, ...apiFieldErrors }))
+        setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
+      } else {
+        const d = err.response?.data?.detail || data
+        setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      }
     } finally {
       setSaving(false)
     }
@@ -248,8 +265,12 @@ export default function Messagerie() {
               fullWidth
               label="Destinataire(s)"
               value={form.destinataires}
-              onChange={(e) => setForm((f) => ({ ...f, destinataires: e.target.value }))}
-              helperText={users.length === 0 ? 'Aucun autre membre à afficher.' : `${form.destinataires.length} destinataire(s) sélectionné(s)`}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, destinataires: e.target.value }))
+                setFieldErrors((fe) => ({ ...fe, destinataires: undefined }))
+              }}
+              helperText={fieldErrors.destinataires || (users.length === 0 ? 'Aucun autre membre à afficher.' : `${form.destinataires.length} destinataire(s) sélectionné(s)`)}
+              error={!!fieldErrors.destinataires}
             >
               {users.map((u) => (
                 <MenuItem key={u.id} value={u.id}>
@@ -260,8 +281,32 @@ export default function Messagerie() {
                 </MenuItem>
               ))}
             </TextField>
-            <TextField fullWidth label="Sujet" value={form.sujet} onChange={(e) => setForm((f) => ({ ...f, sujet: e.target.value }))} required />
-            <TextField fullWidth label="Message" value={form.contenu} onChange={(e) => setForm((f) => ({ ...f, contenu: e.target.value }))} multiline rows={5} required />
+            <TextField
+              fullWidth
+              label="Sujet"
+              value={form.sujet}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, sujet: e.target.value }))
+                setFieldErrors((fe) => ({ ...fe, sujet: undefined }))
+              }}
+              required
+              error={!!fieldErrors.sujet}
+              helperText={fieldErrors.sujet || ''}
+            />
+            <TextField
+              fullWidth
+              label="Message"
+              value={form.contenu}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, contenu: e.target.value }))
+                setFieldErrors((fe) => ({ ...fe, contenu: undefined }))
+              }}
+              multiline
+              rows={5}
+              required
+              error={!!fieldErrors.contenu}
+              helperText={fieldErrors.contenu || ''}
+            />
             <Box>
               <Button
                 component="label"

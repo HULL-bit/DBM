@@ -81,6 +81,8 @@ export default function Reunions() {
   const [openMaterielForm, setOpenMaterielForm] = useState(false)
   const [openMaterielDelete, setOpenMaterielDelete] = useState(null)
   const [materielSaving, setMaterielSaving] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [materielFieldErrors, setMaterielFieldErrors] = useState({})
 
   const loadList = () => {
     setLoading(true)
@@ -169,6 +171,7 @@ export default function Reunions() {
       lien_visio: '',
       statut: 'planifiee',
     })
+    setFieldErrors({})
     setOpenForm(true)
   }
 
@@ -183,12 +186,19 @@ export default function Reunions() {
       lien_visio: r.lien_visio || '',
       statut: r.statut || 'planifiee',
     })
+    setFieldErrors({})
     setOpenForm(true)
   }
 
   const handleSave = async () => {
-    if (!form.titre || !form.date_reunion || !form.lieu || !form.ordre_du_jour) {
-      setMessage({ type: 'error', text: 'Titre, date, lieu et ordre du jour requis.' })
+    const errors = {}
+    if (!form.titre) errors.titre = 'Nom de l’activité requis.'
+    if (!form.date_reunion) errors.date_reunion = 'Date et heure requises.'
+    if (!form.lieu) errors.lieu = 'Lieu requis.'
+    if (!form.ordre_du_jour) errors.ordre_du_jour = 'Description / ordre du jour requis.'
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
     setSaving(true)
@@ -214,8 +224,19 @@ export default function Reunions() {
       setOpenForm(false)
       setEditingId(null)
     } catch (err) {
-      const d = err.response?.data?.detail || err.response?.data
-      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      const data = err.response?.data
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiFieldErrors = {}
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) apiFieldErrors[key] = String(value[0])
+          else if (typeof value === 'string') apiFieldErrors[key] = value
+        })
+        setFieldErrors((prev) => ({ ...prev, ...apiFieldErrors }))
+        setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
+      } else {
+        const d = err.response?.data?.detail || data
+        setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      }
     } finally {
       setSaving(false)
     }
@@ -233,6 +254,7 @@ export default function Reunions() {
       lieu_stockage: '',
       notes: '',
     })
+    setMaterielFieldErrors({})
   }
 
   const handleOpenAddMateriel = () => {
@@ -256,17 +278,20 @@ export default function Reunions() {
   }
 
   const handleSaveMateriel = async () => {
-    if (!materielForm.nom) {
-      setMessage({ type: 'error', text: 'Le nom du matériel est obligatoire.' })
-      return
-    }
+    const errors = {}
+    if (!materielForm.nom) errors.nom = 'Nom du matériel requis.'
 
     const qt = Number(materielForm.quantite_totale) || 0
     const qd = Number(materielForm.quantite_disponible) || 0
     const qf = Number(materielForm.quantite_defectueuse) || 0
 
     if (qd > qt || qf > qt) {
-      setMessage({ type: 'error', text: 'Les quantités disponible / défectueuse ne peuvent pas dépasser la quantité totale.' })
+      errors.quantites = 'Les quantités disponible / défectueuse ne peuvent pas dépasser la quantité totale.'
+    }
+
+    setMaterielFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
 
@@ -545,11 +570,59 @@ export default function Reunions() {
             <DialogTitle>{editingId ? 'Modifier l’activité' : 'Ajouter une activité'}</DialogTitle>
             <DialogContent>
               <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-                <TextField fullWidth label="Nom de l’activité" value={form.titre} onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))} required />
-                <TextField fullWidth label="Description / détails" value={form.ordre_du_jour} onChange={(e) => setForm((f) => ({ ...f, ordre_du_jour: e.target.value }))} multiline rows={3} required />
-                <TextField fullWidth type="datetime-local" label="Date et heure" value={form.date_reunion} onChange={(e) => setForm((f) => ({ ...f, date_reunion: e.target.value }))} InputLabelProps={{ shrink: true }} required />
+                <TextField
+                  fullWidth
+                  label="Nom de l’activité"
+                  value={form.titre}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, titre: e.target.value }))
+                    setFieldErrors((fe) => ({ ...fe, titre: undefined }))
+                  }}
+                  required
+                  error={!!fieldErrors.titre}
+                  helperText={fieldErrors.titre || ''}
+                />
+                <TextField
+                  fullWidth
+                  label="Description / détails"
+                  value={form.ordre_du_jour}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, ordre_du_jour: e.target.value }))
+                    setFieldErrors((fe) => ({ ...fe, ordre_du_jour: undefined }))
+                  }}
+                  multiline
+                  rows={3}
+                  required
+                  error={!!fieldErrors.ordre_du_jour}
+                  helperText={fieldErrors.ordre_du_jour || ''}
+                />
+                <TextField
+                  fullWidth
+                  type="datetime-local"
+                  label="Date et heure"
+                  value={form.date_reunion}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, date_reunion: e.target.value }))
+                    setFieldErrors((fe) => ({ ...fe, date_reunion: undefined }))
+                  }}
+                  InputLabelProps={{ shrink: true }}
+                  required
+                  error={!!fieldErrors.date_reunion}
+                  helperText={fieldErrors.date_reunion || ''}
+                />
                 <TextField fullWidth type="number" label="Durée prévue (min)" value={form.duree_prevue} onChange={(e) => setForm((f) => ({ ...f, duree_prevue: e.target.value }))} inputProps={{ min: 1 }} />
-                <TextField fullWidth label="Lieu (daara, quartier...)" value={form.lieu} onChange={(e) => setForm((f) => ({ ...f, lieu: e.target.value }))} required />
+                <TextField
+                  fullWidth
+                  label="Lieu (daara, quartier...)"
+                  value={form.lieu}
+                  onChange={(e) => {
+                    setForm((f) => ({ ...f, lieu: e.target.value }))
+                    setFieldErrors((fe) => ({ ...fe, lieu: undefined }))
+                  }}
+                  required
+                  error={!!fieldErrors.lieu}
+                  helperText={fieldErrors.lieu || ''}
+                />
                 <TextField fullWidth label="Remarques / lien" value={form.lien_visio} onChange={(e) => setForm((f) => ({ ...f, lien_visio: e.target.value }))} />
                 <TextField select fullWidth label="Statut" value={form.statut} onChange={(e) => setForm((f) => ({ ...f, statut: e.target.value }))}>{STATUTS.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}</TextField>
               </Box>
@@ -629,6 +702,11 @@ export default function Reunions() {
                     sx={{ flex: 1, minWidth: 120 }}
                   />
                 </Box>
+                {materielFieldErrors.quantites && (
+                  <Typography variant="caption" color="error">
+                    {materielFieldErrors.quantites}
+                  </Typography>
+                )}
                 <TextField
                   fullWidth
                   label="Lieu de stockage"

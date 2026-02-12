@@ -19,14 +19,21 @@ export default function Register() {
     role: 'membre',
     sexe: '',
     profession: '',
+    categorie: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const ROLES = [
     { value: 'admin', label: 'Administrateur' },
     { value: 'membre', label: 'Membre' },
-    { value: 'jewrin', label: 'Jewrin' },
+    { value: 'jewrine_conservatoire', label: 'Jewrine Conservatoire' },
+    { value: 'jewrine_finance', label: 'Jewrine Finance' },
+    { value: 'jewrine_culturelle', label: 'Jewrine Culturelle' },
+    { value: 'jewrine_sociale', label: 'Jewrine Sociale' },
+    { value: 'jewrine_communication', label: 'Jewrine Communication' },
+    { value: 'jewrine_organisation', label: 'Jewrine Organisation' },
   ]
 
   const SEXES = [
@@ -34,17 +41,30 @@ export default function Register() {
     { value: 'F', label: 'Féminin' },
   ]
 
-  const handleChange = (e) => setForm((f) => ({ ...f, [e.target.name]: e.target.value }))
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setForm((f) => ({ ...f, [name]: value }))
+    setFieldErrors((fe) => ({ ...fe, [name]: undefined }))
+  }
 
   const handleSubmit = async (e) => {
     e.preventDefault()
     setError('')
-    if (form.password !== form.password_confirmation) {
-      setError('Les deux mots de passe ne correspondent pas.')
-      return
+    const errors = {}
+    if (!form.username) errors.username = "Nom d'utilisateur requis."
+    if (!form.email) errors.email = 'Email requis.'
+    if (!form.password) errors.password = 'Mot de passe requis.'
+    if (form.password && form.password.length < 8) errors.password = 'Le mot de passe doit contenir au moins 8 caractères.'
+    if (!form.password_confirmation) errors.password_confirmation = 'Confirmation requise.'
+    if (form.password && form.password_confirmation && form.password !== form.password_confirmation) {
+      errors.password_confirmation = 'Les deux mots de passe ne correspondent pas.'
     }
-    if (form.password.length < 8) {
-      setError('Le mot de passe doit contenir au moins 8 caractères.')
+    if (!form.sexe) errors.sexe = 'Sexe requis.'
+    if (!form.categorie) errors.categorie = 'Catégorie requise.'
+
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setError('Veuillez corriger les champs en rouge.')
       return
     }
     setLoading(true)
@@ -53,8 +73,22 @@ export default function Register() {
       await register(payload)
       navigate('/login')
     } catch (err) {
-      const msg = err.response?.data ? (typeof err.response.data === 'object' ? JSON.stringify(err.response.data) : err.response.data) : "Erreur d'inscription"
-      setError(msg)
+      const data = err.response?.data
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiFieldErrors = {}
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) {
+            apiFieldErrors[key] = String(value[0])
+          } else if (typeof value === 'string') {
+            apiFieldErrors[key] = value
+          }
+        })
+        setFieldErrors((prev) => ({ ...prev, ...apiFieldErrors }))
+        setError('Veuillez corriger les champs en rouge.')
+      } else {
+        const msg = data ? (typeof data === 'object' ? JSON.stringify(data) : data) : "Erreur d'inscription"
+        setError(msg)
+      }
     } finally {
       setLoading(false)
     }
@@ -87,10 +121,57 @@ export default function Register() {
           </Box>
           {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
           <form onSubmit={handleSubmit}>
-            <TextField fullWidth name="username" label="Nom d'utilisateur" value={form.username} onChange={handleChange} margin="dense" required sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-            <TextField fullWidth name="email" type="email" label="Email" value={form.email} onChange={handleChange} margin="dense" required sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-            <TextField fullWidth name="password" type="password" label="Mot de passe" value={form.password} onChange={handleChange} margin="dense" required helperText="Minimum 8 caractères" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
-            <TextField fullWidth name="password_confirmation" type="password" label="Confirmation du mot de passe" value={form.password_confirmation} onChange={handleChange} margin="dense" required error={!!(form.password_confirmation && form.password !== form.password_confirmation)} helperText={form.password_confirmation && form.password !== form.password_confirmation ? 'Les mots de passe ne correspondent pas' : ''} sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+            <TextField
+              fullWidth
+              name="username"
+              label="Nom d'utilisateur"
+              value={form.username}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.username}
+              helperText={fieldErrors.username || ''}
+            />
+            <TextField
+              fullWidth
+              name="email"
+              type="email"
+              label="Email"
+              value={form.email}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.email}
+              helperText={fieldErrors.email || ''}
+            />
+            <TextField
+              fullWidth
+              name="password"
+              type="password"
+              label="Mot de passe"
+              value={form.password}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.password}
+              helperText={fieldErrors.password || 'Minimum 8 caractères'}
+            />
+            <TextField
+              fullWidth
+              name="password_confirmation"
+              type="password"
+              label="Confirmation du mot de passe"
+              value={form.password_confirmation}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.password_confirmation}
+              helperText={fieldErrors.password_confirmation || ''}
+            />
             <TextField fullWidth name="first_name" label="Prénom" value={form.first_name} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
             <TextField fullWidth name="last_name" label="Nom" value={form.last_name} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
             <TextField fullWidth name="telephone" label="Téléphone" value={form.telephone} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
@@ -105,6 +186,8 @@ export default function Register() {
               margin="dense"
               required
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.sexe}
+              helperText={fieldErrors.sexe || ''}
             >
               {SEXES.map((s) => (
                 <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
@@ -119,6 +202,24 @@ export default function Register() {
               margin="dense"
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
+            <TextField
+              fullWidth
+              name="categorie"
+              select
+              label="Catégorie"
+              value={form.categorie}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.categorie}
+              helperText={fieldErrors.categorie || 'Élève, Étudiant ou Professionnel'}
+            >
+              <MenuItem value="">— Aucune —</MenuItem>
+              <MenuItem value="eleve">Élève</MenuItem>
+              <MenuItem value="etudiant">Étudiant</MenuItem>
+              <MenuItem value="professionnel">Professionnel</MenuItem>
+            </TextField>
             <TextField fullWidth name="role" select label="Rôle" value={form.role} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
               {ROLES.map((r) => (
                 <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>

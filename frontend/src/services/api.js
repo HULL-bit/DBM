@@ -8,7 +8,11 @@ const api = axios.create({
 })
 
 api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access')
+  // On priorise les tokens en sessionStorage (connexion valable tant que l'onglet est ouvert),
+  // tout en restant compatible avec d'éventuels anciens tokens en localStorage.
+  const token =
+    (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('access')) ||
+    localStorage.getItem('access')
   if (token) config.headers.Authorization = `Bearer ${token}`
   // Pour FormData (ex: photo de profil), ne pas fixer Content-Type pour que axios envoie multipart/form-data avec boundary
   if (typeof FormData !== 'undefined' && config.data instanceof FormData) {
@@ -23,17 +27,30 @@ api.interceptors.response.use(
     const original = err.config
     if (err.response?.status === 401 && !original._retry) {
       original._retry = true
-      const refresh = localStorage.getItem('refresh')
+      const refresh =
+        (typeof sessionStorage !== 'undefined' && sessionStorage.getItem('refresh')) ||
+        localStorage.getItem('refresh')
       if (refresh) {
         try {
           const { data } = await axios.post(
             (import.meta.env.VITE_API_BASE_URL || 'https://dbm-8ym4.onrender.com/api') + '/auth/token/refresh/',
             { refresh },
           )
-          localStorage.setItem('access', data.access)
+          // Après refresh, on stocke en priorité dans sessionStorage
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.setItem('access', data.access)
+            if (data.refresh) sessionStorage.setItem('refresh', data.refresh)
+          }
+          // On nettoie d'éventuels anciens tokens persistant en localStorage
+          localStorage.removeItem('access')
+          if (data.refresh) localStorage.removeItem('refresh')
           original.headers.Authorization = `Bearer ${data.access}`
           return api(original)
         } catch (_e) {
+          if (typeof sessionStorage !== 'undefined') {
+            sessionStorage.removeItem('access')
+            sessionStorage.removeItem('refresh')
+          }
           localStorage.removeItem('access')
           localStorage.removeItem('refresh')
           window.location.href = '/login'

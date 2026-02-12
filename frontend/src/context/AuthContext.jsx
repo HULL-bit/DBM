@@ -8,13 +8,15 @@ export function AuthProvider({ children }) {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    const token = localStorage.getItem('access')
+    // On stocke désormais les tokens uniquement en sessionStorage
+    // pour éviter une reconnexion automatique après fermeture du navigateur.
+    const token = sessionStorage.getItem('access')
     if (token) {
       api.get('/auth/me/')
         .then(({ data }) => setUser(data))
         .catch(() => {
-          localStorage.removeItem('access')
-          localStorage.removeItem('refresh')
+          sessionStorage.removeItem('access')
+          sessionStorage.removeItem('refresh')
         })
         .finally(() => setLoading(false))
     } else {
@@ -24,8 +26,8 @@ export function AuthProvider({ children }) {
 
   const login = async (username, password) => {
     const { data } = await api.post('/auth/token/', { username, password })
-    localStorage.setItem('access', data.access)
-    localStorage.setItem('refresh', data.refresh)
+    sessionStorage.setItem('access', data.access)
+    sessionStorage.setItem('refresh', data.refresh)
     setUser(data.user)
     return data.user
   }
@@ -36,8 +38,8 @@ export function AuthProvider({ children }) {
   }
 
   const logout = () => {
-    localStorage.removeItem('access')
-    localStorage.removeItem('refresh')
+    sessionStorage.removeItem('access')
+    sessionStorage.removeItem('refresh')
     setUser(null)
   }
 
@@ -52,7 +54,25 @@ export function AuthProvider({ children }) {
     if (userData) setUser(userData)
   }
 
-  const value = { user, loading, login, register, logout, refreshUser, setUserFromProfile, isAdmin: user?.role === 'admin', isJewrin: user?.role === 'jewrin', isMembre: user?.role === 'membre' }
+  const isAdmin = user?.role === 'admin'
+  const isMembre = user?.role === 'membre'
+  const isJewrine =
+    !!user?.role &&
+    (user.role === 'jewrin' ||
+      user.role.toLowerCase().startsWith('jewrine_'))
+
+  const value = {
+    user,
+    loading,
+    login,
+    register,
+    logout,
+    refreshUser,
+    setUserFromProfile,
+    isAdmin,
+    isJewrine,
+    isMembre,
+  }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }
 

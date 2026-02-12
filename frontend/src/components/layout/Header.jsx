@@ -77,6 +77,9 @@ export default function Header({ onMenuClick, sidebarCollapsed, sidebarWidth = 0
 
   const handleLogout = () => {
     handleUserClose()
+    // Nettoyage complet des tokens (session + éventuel localStorage hérité)
+    sessionStorage.removeItem('access')
+    sessionStorage.removeItem('refresh')
     localStorage.removeItem('access')
     localStorage.removeItem('refresh')
     navigate('/login')

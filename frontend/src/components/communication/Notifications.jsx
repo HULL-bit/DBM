@@ -48,6 +48,7 @@ export default function Notifications() {
   const [openCreate, setOpenCreate] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ utilisateurs: [], type_notification: 'info', titre: '', message: '', lien: '' })
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const loadList = () => {
     setLoading(true)
@@ -67,12 +68,13 @@ export default function Notifications() {
 
   const handleCreate = async () => {
     const dest = Array.isArray(form.utilisateurs) ? form.utilisateurs : []
-    if (!form.titre || !form.message) {
-      setMessage({ type: 'error', text: 'Titre et message requis.' })
-      return
-    }
-    if (dest.length === 0) {
-      setMessage({ type: 'error', text: 'Sélectionnez au moins un destinataire.' })
+    const errors = {}
+    if (!form.titre) errors.titre = 'Titre requis.'
+    if (!form.message) errors.message = 'Message requis.'
+    if (dest.length === 0) errors.utilisateurs = 'Sélectionnez au moins un destinataire.'
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
     setSaving(true)
@@ -91,8 +93,19 @@ export default function Notifications() {
       setForm({ utilisateurs: [], type_notification: 'info', titre: '', message: '', lien: '' })
       loadList()
     } catch (err) {
-      const d = err.response?.data?.detail || err.response?.data
-      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      const data = err.response?.data
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiFieldErrors = {}
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) apiFieldErrors[key] = String(value[0])
+          else if (typeof value === 'string') apiFieldErrors[key] = value
+        })
+        setFieldErrors((prev) => ({ ...prev, ...apiFieldErrors }))
+        setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
+      } else {
+        const d = err.response?.data?.detail || data
+        setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      }
     } finally {
       setSaving(false)
     }
@@ -180,8 +193,12 @@ export default function Notifications() {
                 fullWidth
                 label="Destinataires"
                 value={form.utilisateurs}
-                onChange={(e) => setForm((f) => ({ ...f, utilisateurs: e.target.value }))}
-                helperText={`${form.utilisateurs.length} destinataire(s) sélectionné(s)`}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, utilisateurs: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, utilisateurs: undefined }))
+                }}
+                helperText={fieldErrors.utilisateurs || `${form.utilisateurs.length} destinataire(s) sélectionné(s)`}
+                error={!!fieldErrors.utilisateurs}
               >
                 {users.map((u) => (
                   <MenuItem key={u.id} value={u.id}>
@@ -195,8 +212,32 @@ export default function Notifications() {
               <TextField select fullWidth label="Type" value={form.type_notification} onChange={(e) => setForm((f) => ({ ...f, type_notification: e.target.value }))}>
                 {TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
               </TextField>
-              <TextField fullWidth label="Titre" value={form.titre} onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))} required />
-              <TextField fullWidth label="Message" value={form.message} onChange={(e) => setForm((f) => ({ ...f, message: e.target.value }))} multiline rows={3} required />
+              <TextField
+                fullWidth
+                label="Titre"
+                value={form.titre}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, titre: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, titre: undefined }))
+                }}
+                required
+                error={!!fieldErrors.titre}
+                helperText={fieldErrors.titre || ''}
+              />
+              <TextField
+                fullWidth
+                label="Message"
+                value={form.message}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, message: e.target.value }))
+                  setFieldErrors((fe) => ({ ...fe, message: undefined }))
+                }}
+                multiline
+                rows={3}
+                required
+                error={!!fieldErrors.message}
+                helperText={fieldErrors.message || ''}
+              />
               <TextField fullWidth label="Lien (optionnel)" value={form.lien} onChange={(e) => setForm((f) => ({ ...f, lien: e.target.value }))} />
             </Box>
           </DialogContent>

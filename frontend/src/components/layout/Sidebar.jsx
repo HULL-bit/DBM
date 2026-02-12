@@ -265,7 +265,11 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
-  const sections = user?.role === 'admin' ? sectionsAdmin : user?.role === 'jewrin' ? sectionsJewrin : sectionsMembre
+  const isJewrine =
+    !!user?.role &&
+    (user.role === 'jewrin' ||
+      user.role.toLowerCase().startsWith('jewrine_'))
+  const sections = user?.role === 'admin' ? sectionsAdmin : isJewrine ? sectionsJewrin : sectionsMembre
   const width = collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH
 
   const sidebarContent = (

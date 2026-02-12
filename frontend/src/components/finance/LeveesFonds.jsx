@@ -45,12 +45,9 @@ export default function LeveesFonds() {
   const [openForm, setOpenForm] = useState(false)
   const [openDelete, setOpenDelete] = useState(null)
   const [openParticipate, setOpenParticipate] = useState(null)
-  const [openConfirmPayment, setOpenConfirmPayment] = useState(null)
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [participateForm, setParticipateForm] = useState({ montant: '', reference_wave: '', description: '' })
-  const [confirmForm, setConfirmForm] = useState({ reference_interne: '', reference_wave: '' })
-  const [pendingTransaction, setPendingTransaction] = useState(null)
   const [form, setForm] = useState({
     titre: '',
     description: '',
@@ -61,6 +58,7 @@ export default function LeveesFonds() {
     statut: 'active',
     lien_paiement_wave: '',
   })
+  const [formErrors, setFormErrors] = useState({})
 
   const loadList = () => {
     setLoading(true)
@@ -81,6 +79,7 @@ export default function LeveesFonds() {
       statut: 'active',
       lien_paiement_wave: '',
     })
+    setFormErrors({})
     setOpenForm(true)
   }
 
@@ -96,12 +95,19 @@ export default function LeveesFonds() {
       statut: lf.statut || 'active',
       lien_paiement_wave: lf.lien_paiement_wave || '',
     })
+    setFormErrors({})
     setOpenForm(true)
   }
 
   const handleSave = async () => {
-    if (!form.titre || !form.montant_objectif || !form.date_debut || !form.date_fin) {
-      setMessage({ type: 'error', text: 'Titre, montant objectif et dates requis.' })
+    const errors = {}
+    if (!form.titre) errors.titre = 'Titre requis.'
+    if (!form.montant_objectif) errors.montant_objectif = 'Montant objectif requis.'
+    if (!form.date_debut) errors.date_debut = 'Date de début requise.'
+    if (!form.date_fin) errors.date_fin = 'Date de fin requise.'
+    setFormErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
     setSaving(true)
@@ -159,13 +165,11 @@ export default function LeveesFonds() {
     // Ouvrir le dialog pour entrer le montant avant d'ouvrir Wave
     setOpenParticipate(lf)
     setParticipateForm({ montant: '', description: '' })
-    setPendingTransaction(null)
   }
 
   const handleOpenParticipate = (lf) => {
     setOpenParticipate(lf)
     setParticipateForm({ montant: '', description: '' })
-    setPendingTransaction(null)
   }
 
   const handleParticipate = async () => {
@@ -184,52 +188,15 @@ export default function LeveesFonds() {
         montant: Number(participateForm.montant),
         description: participateForm.description || `Participation à ${openParticipate.titre}`,
       })
-      // Sauvegarder la transaction en attente
-      setPendingTransaction({
-        reference_interne: data.reference_transaction,
-        levee_fonds_id: openParticipate.id,
-        montant: participateForm.montant,
-      })
       // Ouvrir Wave dans un nouvel onglet
       window.open(data.lien_wave, '_blank', 'noopener,noreferrer')
-      // Fermer le dialog de participation et ouvrir celui de confirmation
+      // Fermer le dialog après ouverture de Wave
       setOpenParticipate(null)
-      setOpenConfirmPayment(openParticipate)
-      setConfirmForm({ reference_interne: data.reference_transaction, reference_wave: '' })
-      setMessage({ type: 'info', text: 'Transaction créée. Veuillez effectuer le paiement sur Wave, puis confirmez avec votre référence Wave.' })
+      setParticipateForm({ montant: '', reference_wave: '', description: '' })
+      setMessage({ type: 'info', text: 'Transaction créée. Veuillez effectuer votre paiement sur Wave.' })
     } catch (err) {
       const d = err.response?.data?.detail || err.response?.data
       setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  const handleOpenConfirmPayment = (lf) => {
-    setOpenConfirmPayment(lf)
-    setConfirmForm({ reference_interne: '', reference_wave: '' })
-  }
-
-  const handleConfirmPayment = async () => {
-    if (!openConfirmPayment || !confirmForm.reference_wave) {
-      setMessage({ type: 'error', text: 'Référence Wave requise pour confirmer le paiement.' })
-      return
-    }
-    setSaving(true)
-    setMessage({ type: '', text: '' })
-    try {
-      await api.post(`/finance/levees-fonds/${openConfirmPayment.id}/confirmer_paiement/`, {
-        reference_interne: confirmForm.reference_interne,
-        reference_wave: confirmForm.reference_wave.trim(),
-      })
-      setMessage({ type: 'success', text: 'Paiement confirmé ! Votre participation a été enregistrée.' })
-      setOpenConfirmPayment(null)
-      setConfirmForm({ reference_interne: '', reference_wave: '' })
-      setPendingTransaction(null)
-      loadList()
-    } catch (err) {
-      const d = err.response?.data?.detail || err.response?.data
-      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur lors de la confirmation du paiement.') })
     } finally {
       setSaving(false)
     }
@@ -327,7 +294,7 @@ export default function LeveesFonds() {
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
-                      {lf.lien_paiement_wave ? (
+                      {lf.lien_paiement_wave && (
                         <Button
                           variant="contained"
                           size="small"
@@ -335,17 +302,9 @@ export default function LeveesFonds() {
                           onClick={() => handleBarkelou(lf)}
                           sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
                         >
-                          BARKELOU
+                          Barkeilou
                         </Button>
-                      ) : null}
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => handleOpenConfirmPayment(lf)}
-                        sx={{ borderColor: COLORS.or, color: COLORS.or, '&:hover': { borderColor: COLORS.or, bgcolor: `${COLORS.or}15` } }}
-                      >
-                        Confirmer paiement
-                      </Button>
+                      )}
                       <IconButton size="small" onClick={() => handleOpenEdit(lf)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
                       <IconButton size="small" onClick={() => setOpenDelete(lf)} color="error"><Delete /></IconButton>
                     </Box>
@@ -377,7 +336,7 @@ export default function LeveesFonds() {
                     </Box>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mt: 2 }}>
                       <Chip size="small" label={lf.statut_display || lf.statut} color="success" />
-                      {lf.lien_paiement_wave ? (
+                      {lf.lien_paiement_wave && (
                         <Button
                           variant="contained"
                           size="small"
@@ -385,17 +344,9 @@ export default function LeveesFonds() {
                           onClick={() => handleBarkelou(lf)}
                           sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
                         >
-                          BARKELOU
+                          Barkeilou
                         </Button>
-                      ) : null}
-                      <Button
-                        variant="outlined"
-                        size="small"
-                        onClick={() => handleOpenConfirmPayment(lf)}
-                        sx={{ borderColor: COLORS.or, color: COLORS.or, '&:hover': { borderColor: COLORS.or, bgcolor: `${COLORS.or}15` } }}
-                      >
-                        Confirmer paiement
-                      </Button>
+                      )}
                     </Box>
                   </CardContent>
                 </Card>
@@ -409,12 +360,70 @@ export default function LeveesFonds() {
         <DialogTitle>{editingId ? 'Modifier la levée de fonds' : 'Ajouter une levée de fonds'}</DialogTitle>
         <DialogContent>
           <Grid container spacing={2} sx={{ pt: 1 }}>
-            <Grid item xs={12}><TextField fullWidth label="Titre" value={form.titre} onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))} required /></Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                label="Titre"
+                value={form.titre}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, titre: e.target.value }))
+                  setFormErrors((fe) => ({ ...fe, titre: undefined }))
+                }}
+                required
+                error={!!formErrors.titre}
+                helperText={formErrors.titre || ''}
+              />
+            </Grid>
             <Grid item xs={12}><TextField fullWidth label="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} multiline rows={2} /></Grid>
             <Grid item xs={12}><TextField fullWidth label="Objectif (texte)" value={form.objectif} onChange={(e) => setForm((f) => ({ ...f, objectif: e.target.value }))} /></Grid>
-            <Grid item xs={12}><TextField fullWidth type="number" label="Montant objectif (FCFA)" value={form.montant_objectif} onChange={(e) => setForm((f) => ({ ...f, montant_objectif: e.target.value }))} inputProps={{ min: 0 }} required /></Grid>
-            <Grid item xs={6}><TextField fullWidth type="date" label="Date début" value={form.date_debut} onChange={(e) => setForm((f) => ({ ...f, date_debut: e.target.value }))} InputLabelProps={{ shrink: true }} required /></Grid>
-            <Grid item xs={6}><TextField fullWidth type="date" label="Date fin" value={form.date_fin} onChange={(e) => setForm((f) => ({ ...f, date_fin: e.target.value }))} InputLabelProps={{ shrink: true }} required /></Grid>
+            <Grid item xs={12}>
+              <TextField
+                fullWidth
+                type="number"
+                label="Montant objectif (FCFA)"
+                value={form.montant_objectif}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, montant_objectif: e.target.value }))
+                  setFormErrors((fe) => ({ ...fe, montant_objectif: undefined }))
+                }}
+                inputProps={{ min: 0 }}
+                required
+                error={!!formErrors.montant_objectif}
+                helperText={formErrors.montant_objectif || ''}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Date début"
+                value={form.date_debut}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, date_debut: e.target.value }))
+                  setFormErrors((fe) => ({ ...fe, date_debut: undefined }))
+                }}
+                InputLabelProps={{ shrink: true }}
+                required
+                error={!!formErrors.date_debut}
+                helperText={formErrors.date_debut || ''}
+              />
+            </Grid>
+            <Grid item xs={6}>
+              <TextField
+                fullWidth
+                type="date"
+                label="Date fin"
+                value={form.date_fin}
+                onChange={(e) => {
+                  setForm((f) => ({ ...f, date_fin: e.target.value }))
+                  setFormErrors((fe) => ({ ...fe, date_fin: undefined }))
+                }}
+                InputLabelProps={{ shrink: true }}
+                required
+                error={!!formErrors.date_fin}
+                helperText={formErrors.date_fin || ''}
+              />
+            </Grid>
             <Grid item xs={12}><TextField select fullWidth label="Statut" value={form.statut} onChange={(e) => setForm((f) => ({ ...f, statut: e.target.value }))}>{STATUTS.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}</TextField></Grid>
             <Grid item xs={12}><TextField fullWidth label="Lien paiement Wave" value={form.lien_paiement_wave} onChange={(e) => setForm((f) => ({ ...f, lien_paiement_wave: e.target.value }))} /></Grid>
           </Grid>
@@ -435,7 +444,7 @@ export default function LeveesFonds() {
       </Dialog>
 
       <Dialog open={!!openParticipate} onClose={() => setOpenParticipate(null)} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { mx: { xs: 1, sm: 2 } } }}>
-        <DialogTitle>BARKELOU</DialogTitle>
+        <DialogTitle>Barkeilou</DialogTitle>
         <DialogContent>
           {openParticipate && (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
@@ -465,8 +474,7 @@ export default function LeveesFonds() {
                 rows={2}
               />
               <Alert severity="info" sx={{ mt: 1 }}>
-                Après avoir cliqué sur "BARKELOU", une transaction sera créée et vous serez redirigé vers Wave pour effectuer le paiement. 
-                Revenez ensuite ici et cliquez sur "Confirmer paiement" pour entrer votre référence Wave.
+                Après avoir cliqué sur "Barkeilou", une transaction sera créée et vous serez redirigé vers Wave pour effectuer le paiement. 
               </Alert>
             </Box>
           )}
@@ -479,77 +487,11 @@ export default function LeveesFonds() {
             disabled={saving || !participateForm.montant || !openParticipate?.lien_paiement_wave}
             sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
           >
-            {saving ? <CircularProgress size={24} /> : 'BARKELOU'}
+            {saving ? <CircularProgress size={24} /> : 'Barkeilou'}
           </Button>
         </DialogActions>
       </Dialog>
 
-      <Dialog open={!!openConfirmPayment} onClose={() => { setOpenConfirmPayment(null); setConfirmForm({ reference_interne: '', reference_wave: '' }) }} maxWidth="sm" fullWidth sx={{ '& .MuiDialog-paper': { mx: { xs: 1, sm: 2 } } }}>
-        <DialogTitle>Confirmer votre paiement</DialogTitle>
-        <DialogContent>
-          {openConfirmPayment && (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-              <Typography variant="body2" color="text.secondary">
-                {openConfirmPayment.titre}
-              </Typography>
-              {pendingTransaction && (
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  Montant : {Number(pendingTransaction.montant).toLocaleString('fr-FR')} FCFA
-                  <br />
-                  Référence transaction : <strong>{pendingTransaction.reference_interne}</strong>
-                </Alert>
-              )}
-              {!pendingTransaction && (
-                <Alert severity="info" sx={{ mt: 1 }}>
-                  Si vous avez déjà effectué un paiement sur Wave, entrez votre référence de transaction Wave pour confirmer.
-                </Alert>
-              )}
-              {pendingTransaction && (
-                <TextField
-                  fullWidth
-                  label="Référence transaction (auto-rempli)"
-                  value={confirmForm.reference_interne}
-                  disabled
-                  sx={{ mt: 1 }}
-                />
-              )}
-              <TextField
-                fullWidth
-                label="Référence Wave *"
-                value={confirmForm.reference_wave}
-                onChange={(e) => setConfirmForm((f) => ({ ...f, reference_wave: e.target.value }))}
-                placeholder="Entrez la référence de votre transaction Wave"
-                required
-                helperText="Cette référence vous a été fournie par Wave après le paiement"
-              />
-              {!pendingTransaction && (
-                <TextField
-                  fullWidth
-                  label="Référence transaction (optionnel)"
-                  value={confirmForm.reference_interne}
-                  onChange={(e) => setConfirmForm((f) => ({ ...f, reference_interne: e.target.value }))}
-                  placeholder="Si vous avez la référence de transaction"
-                  helperText="Si vous ne l'avez pas, laissez vide"
-                />
-              )}
-              <Alert severity="warning" sx={{ mt: 1 }}>
-                ⚠️ Votre participation ne sera comptabilisée qu'après confirmation avec la référence Wave.
-              </Alert>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => { setOpenConfirmPayment(null); setConfirmForm({ reference_interne: '', reference_wave: '' }); setPendingTransaction(null) }}>Annuler</Button>
-          <Button
-            variant="contained"
-            onClick={handleConfirmPayment}
-            disabled={saving || !confirmForm.reference_wave}
-            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
-          >
-            {saving ? <CircularProgress size={24} /> : 'Confirmer le paiement'}
-          </Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   )
 }

@@ -56,18 +56,6 @@ export default function DashboardAdmin() {
         </Box>
         <Box display="flex" gap={1} flexWrap="wrap">
           <Button
-            variant="contained"
-            startIcon={<Add />}
-            onClick={() => navigate('/admin/membres')}
-            sx={{
-              background: 'linear-gradient(135deg, #2D5F3F 0%, #3A7750 100%)',
-              borderRadius: 2,
-              '&:hover': { transform: 'translateY(-1px)' },
-            }}
-          >
-            Nouveau Membre
-          </Button>
-          <Button
             variant="outlined"
             startIcon={<Event />}
             onClick={() => navigate('/informations/evenements')}

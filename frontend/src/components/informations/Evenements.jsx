@@ -60,6 +60,7 @@ export default function Evenements() {
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [detailEvt, setDetailEvt] = useState(null)
+  const [fieldErrors, setFieldErrors] = useState({})
 
   const loadList = () => {
     setLoading(true)
@@ -70,6 +71,7 @@ export default function Evenements() {
   const handleOpenAdd = () => {
     setEditingId(null)
     setForm(initialForm)
+    setFieldErrors({})
     setOpenForm(true)
   }
 
@@ -87,12 +89,19 @@ export default function Evenements() {
       capacite_max: evt.capacite_max ?? '',
       est_publie: evt.est_publie ?? false,
     })
+    setFieldErrors({})
     setOpenForm(true)
   }
 
   const handleSave = async () => {
-    if (!form.titre || !form.date_debut || !form.date_fin || !form.lieu) {
-      setMessage({ type: 'error', text: 'Titre, dates et lieu requis.' })
+    const errors = {}
+    if (!form.titre) errors.titre = 'Titre requis.'
+    if (!form.date_debut) errors.date_debut = 'Date de début requise.'
+    if (!form.date_fin) errors.date_fin = 'Date de fin requise.'
+    if (!form.lieu) errors.lieu = 'Lieu requis.'
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
     setSaving(true)
@@ -113,8 +122,19 @@ export default function Evenements() {
       setOpenForm(false)
       setEditingId(null)
     } catch (err) {
-      const detail = err.response?.data?.detail || err.response?.data
-      setMessage({ type: 'error', text: typeof detail === 'object' ? JSON.stringify(detail) : (detail || 'Erreur') })
+      const data = err.response?.data
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiFieldErrors = {}
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) apiFieldErrors[key] = String(value[0])
+          else if (typeof value === 'string') apiFieldErrors[key] = value
+        })
+        setFieldErrors((prev) => ({ ...prev, ...apiFieldErrors }))
+        setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
+      } else {
+        const detail = err.response?.data?.detail || data
+        setMessage({ type: 'error', text: typeof detail === 'object' ? JSON.stringify(detail) : (detail || 'Erreur') })
+      }
     } finally {
       setSaving(false)
     }
@@ -248,14 +268,62 @@ export default function Evenements() {
         <DialogTitle>{editingId ? 'Modifier l\'événement' : 'Créer un événement'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <TextField label="Titre" value={form.titre} onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))} required fullWidth />
+            <TextField
+              label="Titre"
+              value={form.titre}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, titre: e.target.value }))
+                setFieldErrors((fe) => ({ ...fe, titre: undefined }))
+              }}
+              required
+              fullWidth
+              error={!!fieldErrors.titre}
+              helperText={fieldErrors.titre || ''}
+            />
             <TextField label="Description" value={form.description} onChange={(e) => setForm((f) => ({ ...f, description: e.target.value }))} multiline rows={2} fullWidth />
             <TextField select label="Type" value={form.type_evenement} onChange={(e) => setForm((f) => ({ ...f, type_evenement: e.target.value }))} fullWidth>
               {TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
             </TextField>
-            <TextField label="Date début" type="datetime-local" value={form.date_debut} onChange={(e) => setForm((f) => ({ ...f, date_debut: e.target.value }))} required fullWidth InputLabelProps={{ shrink: true }} />
-            <TextField label="Date fin" type="datetime-local" value={form.date_fin} onChange={(e) => setForm((f) => ({ ...f, date_fin: e.target.value }))} required fullWidth InputLabelProps={{ shrink: true }} />
-            <TextField label="Lieu" value={form.lieu} onChange={(e) => setForm((f) => ({ ...f, lieu: e.target.value }))} required fullWidth />
+            <TextField
+              label="Date début"
+              type="datetime-local"
+              value={form.date_debut}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, date_debut: e.target.value }))
+                setFieldErrors((fe) => ({ ...fe, date_debut: undefined }))
+              }}
+              required
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              error={!!fieldErrors.date_debut}
+              helperText={fieldErrors.date_debut || ''}
+            />
+            <TextField
+              label="Date fin"
+              type="datetime-local"
+              value={form.date_fin}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, date_fin: e.target.value }))
+                setFieldErrors((fe) => ({ ...fe, date_fin: undefined }))
+              }}
+              required
+              fullWidth
+              InputLabelProps={{ shrink: true }}
+              error={!!fieldErrors.date_fin}
+              helperText={fieldErrors.date_fin || ''}
+            />
+            <TextField
+              label="Lieu"
+              value={form.lieu}
+              onChange={(e) => {
+                setForm((f) => ({ ...f, lieu: e.target.value }))
+                setFieldErrors((fe) => ({ ...fe, lieu: undefined }))
+              }}
+              required
+              fullWidth
+              error={!!fieldErrors.lieu}
+              helperText={fieldErrors.lieu || ''}
+            />
             <TextField label="Adresse complète" value={form.adresse_complete} onChange={(e) => setForm((f) => ({ ...f, adresse_complete: e.target.value }))} multiline fullWidth />
             <TextField label="Lien visio" value={form.lien_visio} onChange={(e) => setForm((f) => ({ ...f, lien_visio: e.target.value }))} fullWidth />
             <TextField label="Capacité max" type="number" value={form.capacite_max} onChange={(e) => setForm((f) => ({ ...f, capacite_max: e.target.value }))} fullWidth />
