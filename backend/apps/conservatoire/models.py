@@ -31,9 +31,9 @@ class DocumentNumerique(models.Model):
 
     titre = models.CharField(max_length=200)
     auteur = models.CharField(max_length=200)
-    categorie = models.ForeignKey(CategorieDocument, on_delete=models.SET_NULL, null=True)
-    type_document = models.CharField(max_length=50, choices=TYPE_CHOICES)
-    description = models.TextField()
+    categorie = models.ForeignKey(CategorieDocument, on_delete=models.SET_NULL, null=True, blank=True)
+    type_document = models.CharField(max_length=50, choices=TYPE_CHOICES, default='autre', blank=True)
+    description = models.TextField(blank=True)
     fichier = models.FileField(upload_to='conservatoire/documents/')
     couverture = models.ImageField(upload_to='conservatoire/couvertures/', null=True, blank=True)
     nombre_pages = models.IntegerField(null=True, blank=True)

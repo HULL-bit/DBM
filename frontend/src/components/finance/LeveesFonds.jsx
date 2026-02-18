@@ -30,6 +30,7 @@ import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
+const WAVE_PAYMENT_URL = 'https://pay.wave.com/m/M_sn_A4og8Zu7m589/c/sn/'
 const STATUTS = [
   { value: 'active', label: 'Active' },
   { value: 'terminee', label: 'Terminée' },
@@ -45,6 +46,8 @@ export default function LeveesFonds() {
   const [openForm, setOpenForm] = useState(false)
   const [openDelete, setOpenDelete] = useState(null)
   const [openParticipate, setOpenParticipate] = useState(null)
+  const [openPayer, setOpenPayer] = useState(null)
+  const [payerForm, setPayerForm] = useState({ reference_wave: '', description: '' })
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [participateForm, setParticipateForm] = useState({ montant: '', reference_wave: '', description: '' })
@@ -158,11 +161,8 @@ export default function LeveesFonds() {
   }
 
   const handleBarkelou = async (lf) => {
-    if (!lf.lien_paiement_wave) {
-      setMessage({ type: 'error', text: 'Lien de paiement Wave non configuré pour cette levée de fonds.' })
-      return
-    }
     // Ouvrir le dialog pour entrer le montant avant d'ouvrir Wave
+    // Le lien Wave peut être celui de la levée de fonds ou le lien par défaut
     setOpenParticipate(lf)
     setParticipateForm({ montant: '', description: '' })
   }
@@ -177,10 +177,6 @@ export default function LeveesFonds() {
       setMessage({ type: 'error', text: 'Montant requis.' })
       return
     }
-    if (!openParticipate.lien_paiement_wave) {
-      setMessage({ type: 'error', text: 'Lien de paiement Wave non configuré pour cette levée de fonds.' })
-      return
-    }
     setSaving(true)
     setMessage({ type: '', text: '' })
     try {
@@ -188,8 +184,12 @@ export default function LeveesFonds() {
         montant: Number(participateForm.montant),
         description: participateForm.description || `Participation à ${openParticipate.titre}`,
       })
+      // Utiliser le lien Wave de la réponse ou le lien par défaut
+      const lienWave = data.lien_wave || openParticipate.lien_paiement_wave || WAVE_PAYMENT_URL
       // Ouvrir Wave dans un nouvel onglet
-      window.open(data.lien_wave, '_blank', 'noopener,noreferrer')
+      if (lienWave) {
+        window.open(lienWave, '_blank', 'noopener,noreferrer')
+      }
       // Fermer le dialog après ouverture de Wave
       setOpenParticipate(null)
       setParticipateForm({ montant: '', reference_wave: '', description: '' })
@@ -202,12 +202,50 @@ export default function LeveesFonds() {
     }
   }
 
+  const handleOpenPayer = (lf) => {
+    setOpenPayer(lf)
+    setPayerForm({ reference_wave: '', description: '' })
+  }
+
+  const handlePayer = async () => {
+    if (!openPayer) return
+    setSaving(true)
+    setMessage({ type: '', text: '' })
+    try {
+      // Créer une transaction pour cette levée de fonds
+      const { data: transactionData } = await api.post(`/finance/levees-fonds/${openPayer.id}/participer/`, {
+        montant: Number(openPayer.montant_par_membre || 1000), // Utiliser montant_par_membre si disponible, sinon valeur par défaut
+        description: payerForm.description || `Participation à ${openPayer.titre}`,
+      })
+      
+      // Si une référence Wave est fournie, confirmer le paiement
+      if (payerForm.reference_wave.trim()) {
+        await api.post(`/finance/levees-fonds/${openPayer.id}/confirmer_paiement/`, {
+          reference_interne: transactionData.reference_transaction,
+          reference_wave: payerForm.reference_wave.trim(),
+        })
+        setMessage({ type: 'success', text: 'Paiement déclaré. L\'administrateur validera le paiement.' })
+      } else {
+        setMessage({ type: 'info', text: 'Transaction créée. Veuillez effectuer votre paiement sur Wave et déclarer votre référence.' })
+      }
+      
+      setOpenPayer(null)
+      setPayerForm({ reference_wave: '', description: '' })
+      loadList()
+    } catch (err) {
+      const d = err.response?.data?.detail || err.response?.data
+      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur lors de l\'enregistrement du paiement.') })
+    } finally {
+      setSaving(false)
+    }
+  }
+
   // Statistiques globales des levées de fonds
   const totalObjectif = list.reduce((sum, lf) => sum + Number(lf.montant_objectif || 0), 0)
   const totalCollecte = list.reduce((sum, lf) => sum + Number(lf.montant_collecte || 0), 0)
   const pourcentageGlobal = totalObjectif > 0 ? Math.round((totalCollecte / totalObjectif) * 100) : 0
-  const nbActives = list.filter((lf) => lf.statut === 'active').length
-  const nbTerminees = list.filter((lf) => lf.statut === 'terminee').length
+  const nbActives = list.filter((lf) => (lf.statut_reel || lf.statut) === 'active').length
+  const nbTerminees = list.filter((lf) => (lf.statut_reel || lf.statut) === 'terminee').length
 
   return (
     <Box>
@@ -288,25 +326,66 @@ export default function LeveesFonds() {
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mt: 2 }}>
-                      <Chip size="small" label={lf.statut_display || lf.statut} color={lf.statut === 'active' ? 'success' : 'default'} />
+                      <Chip size="small" label={lf.statut_reel_display || lf.statut_reel || lf.statut_display || lf.statut} color={(lf.statut_reel || lf.statut) === 'active' ? 'success' : 'default'} />
                       <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
                         {lf.date_debut?.slice(0, 10)} — {lf.date_fin?.slice(0, 10)}
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 2 }}>
-                      {lf.lien_paiement_wave && (
+                      {/* Bouton Payer : visible pour TOUS les membres (y compris admins) sur les levées de fonds actives */}
+                      {(() => {
+                        const statut = String(lf.statut_reel || lf.statut || '').toLowerCase()
+                        const hasWaveLink = lf.lien_paiement_wave && String(lf.lien_paiement_wave).trim() !== ''
+                        const isActive = statut === 'active'
+                        return isActive && hasWaveLink
+                      })() && (
                         <Button
                           variant="contained"
                           size="small"
                           startIcon={<Payment />}
-                          onClick={() => handleBarkelou(lf)}
+                          onClick={() => handleOpenPayer(lf)}
                           sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+                        >
+                          Payer
+                        </Button>
+                      )}
+                      {/* Bouton Participer : visible pour toutes les levées de fonds actives
+                      {(() => {
+                        const statut = String(lf.statut_reel || lf.statut || '').toLowerCase()
+                        const isActive = statut === 'active'
+                        return isActive
+                      })() && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          onClick={() => handleOpenParticipate(lf)}
+                          sx={{ borderColor: COLORS.or, color: COLORS.or, '&:hover': { borderColor: COLORS.vertFonce, bgcolor: COLORS.or + '10' } }}
+                        >
+                          Participer
+                        </Button>
+                      )} */}
+                      {/* Bouton Barkeilou : toujours disponible pour les levées de fonds actives */}
+                      {(() => {
+                        const statut = String(lf.statut_reel || lf.statut || '').toLowerCase()
+                        const isActive = statut === 'active'
+                        return isActive
+                      })() && (
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<Payment />}
+                          onClick={() => handleBarkelou(lf)}
+                          sx={{ borderColor: COLORS.vert, color: COLORS.vert, '&:hover': { borderColor: COLORS.vertFonce } }}
                         >
                           Barkeilou
                         </Button>
                       )}
-                      <IconButton size="small" onClick={() => handleOpenEdit(lf)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                      <IconButton size="small" onClick={() => setOpenDelete(lf)} color="error"><Delete /></IconButton>
+                      {isAdmin && (
+                        <>
+                          <IconButton size="small" onClick={() => handleOpenEdit(lf)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
+                          <IconButton size="small" onClick={() => setOpenDelete(lf)} color="error"><Delete /></IconButton>
+                        </>
+                      )}
                     </Box>
                   </CardContent>
                 </Card>
@@ -319,7 +398,7 @@ export default function LeveesFonds() {
           {list.length === 0 ? (
             <Grid item xs={12}><Typography color="text.secondary">Aucune levée de fonds active.</Typography></Grid>
           ) : (
-            list.filter((lf) => lf.statut === 'active').map((lf) => (
+            list.filter((lf) => (lf.statut_reel || lf.statut) === 'active').map((lf) => (
               <Grid item xs={12} md={6} key={lf.id}>
                 <Card sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
                   <CardContent>
@@ -335,17 +414,33 @@ export default function LeveesFonds() {
                       </Typography>
                     </Box>
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center', mt: 2 }}>
-                      <Chip size="small" label={lf.statut_display || lf.statut} color="success" />
-                      {lf.lien_paiement_wave && (
-                        <Button
-                          variant="contained"
-                          size="small"
-                          startIcon={<Payment />}
-                          onClick={() => handleBarkelou(lf)}
-                          sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
-                        >
-                          Barkeilou
-                        </Button>
+                      <Chip size="small" label={lf.statut_reel_display || lf.statut_reel || lf.statut_display || lf.statut} color={(lf.statut_reel || lf.statut) === 'active' ? 'success' : 'default'} />
+                      {/* Bouton Payer : visible pour TOUS les membres (y compris admins) sur les levées de fonds actives */}
+                      {(() => {
+                        const statut = String(lf.statut_reel || lf.statut || '').toLowerCase()
+                        const isActive = statut === 'active'
+                        // Le bouton apparaît si la levée de fonds est active (même sans lien Wave, on utilisera le lien par défaut)
+                        return isActive
+                      })() && (
+                        <>
+                          <Button
+                            variant="contained"
+                            size="small"
+                            startIcon={<Payment />}
+                            onClick={() => handleOpenPayer(lf)}
+                            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+                          >
+                            Payer
+                          </Button>
+                          {/* <Button
+                            variant="outlined"
+                            size="small"
+                            onClick={() => handleOpenParticipate(lf)}
+                            sx={{ borderColor: COLORS.or, color: COLORS.or, '&:hover': { borderColor: COLORS.vertFonce, bgcolor: COLORS.or + '10' } }}
+                          >
+                            Participer
+                          </Button> */}
+                        </>
                       )}
                     </Box>
                   </CardContent>
@@ -452,8 +547,8 @@ export default function LeveesFonds() {
                 {openParticipate.titre}
               </Typography>
               {!openParticipate.lien_paiement_wave && (
-                <Alert severity="warning" sx={{ mt: 1 }}>
-                  Le lien de paiement Wave n'est pas configuré pour cette levée de fonds.
+                <Alert severity="info" sx={{ mt: 1 }}>
+                  Le lien de paiement Wave spécifique n'est pas configuré. Le lien par défaut sera utilisé.
                 </Alert>
               )}
               <TextField
@@ -484,10 +579,68 @@ export default function LeveesFonds() {
           <Button
             variant="contained"
             onClick={handleParticipate}
-            disabled={saving || !participateForm.montant || !openParticipate?.lien_paiement_wave}
+            disabled={saving || !participateForm.montant}
             sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
           >
             {saving ? <CircularProgress size={24} /> : 'Barkeilou'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!openPayer} onClose={() => setOpenPayer(null)} maxWidth="sm" fullWidth>
+        <DialogTitle sx={{ bgcolor: COLORS.vert, color: 'white' }}>Payer ma participation</DialogTitle>
+        <DialogContent>
+          {openPayer && (
+            <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <Alert severity="info">
+                Levée de fonds : <strong>{openPayer.titre}</strong>
+                {openPayer.montant_par_membre && (
+                  <> — Montant suggéré : <strong>{openPayer.montant_par_membre} FCFA</strong></>
+                )}
+              </Alert>
+              <Button
+                variant="contained"
+                href={openPayer.lien_paiement_wave || WAVE_PAYMENT_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+                fullWidth
+                startIcon={<Payment />}
+                sx={{ bgcolor: '#00D9A5', color: '#000', py: 1.5, '&:hover': { bgcolor: '#00C496', color: '#000' } }}
+              >
+                Payer avec Wave
+              </Button>
+              <Typography variant="body2" color="text.secondary">
+                Après avoir payé via le lien Wave ci-dessus, cliquez sur &quot;Déclarer mon paiement&quot; pour enregistrer votre référence. L&apos;administrateur validera le versement avant de marquer la transaction comme validée.
+              </Typography>
+              <TextField
+                fullWidth
+                label="Référence Wave (optionnel)"
+                value={payerForm.reference_wave}
+                onChange={(e) => setPayerForm((f) => ({ ...f, reference_wave: e.target.value }))}
+                placeholder="Ex: 7XX1234567 — utile si vous avez déjà payé"
+              />
+              <TextField
+                fullWidth
+                label="Description (optionnel)"
+                value={payerForm.description}
+                onChange={(e) => setPayerForm((f) => ({ ...f, description: e.target.value }))}
+                multiline
+                rows={2}
+                placeholder="Description de votre participation"
+              />
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenPayer(null)}>Annuler</Button>
+          <Button
+            variant="contained"
+            onClick={handlePayer}
+            disabled={saving}
+            startIcon={saving ? <CircularProgress size={20} color="inherit" /> : <Payment />}
+            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+          >
+            Déclarer mon paiement
           </Button>
         </DialogActions>
       </Dialog>

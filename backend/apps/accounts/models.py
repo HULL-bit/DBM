@@ -7,6 +7,13 @@ class CustomUser(AbstractUser):
         ('admin', 'Administrateur'),
         ('membre', 'Membre'),
         ('jewrin', 'Jewrin'),
+        ('jewrine_conservatoire', 'Jewrin Conservatoire'),
+        ('jewrine_culturelle', 'Jewrin Culturelle'),
+        ('jewrine_finance', 'Jewrin Finance'),
+        ('jewrine_sociale', 'Jewrin Sociale'),
+        ('jewrine_communication', 'Jewrin Communication'),
+        ('jewrine_organisation', 'Jewrin Organisation'),
+        ('jewrine_scientifique', 'Jewrin Scientifique'),
     ]
 
     SEXE_CHOICES = [
@@ -22,7 +29,8 @@ class CustomUser(AbstractUser):
 
     telephone = models.CharField(max_length=20, blank=True)
     adresse = models.TextField(blank=True)
-    role = models.CharField(max_length=20, choices=ROLE_CHOICES, default='membre')
+    # Augmenter max_length pour accepter les rôles spécialisés (jusqu'à 21 caractères)
+    role = models.CharField(max_length=32, choices=ROLE_CHOICES, default='membre')
     photo = models.ImageField(upload_to='photos_membres/', null=True, blank=True)
     photo_updated_at = models.DateTimeField(null=True, blank=True, help_text='Mis à jour à chaque changement de photo (cache bust)')
     date_inscription = models.DateTimeField(auto_now_add=True)

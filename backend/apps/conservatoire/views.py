@@ -4,16 +4,13 @@ from django.http import HttpResponse
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, BasePermission
+from apps.accounts.permissions import IsAdminOrJewrinConservatoire, has_admin_access
 
 
 class IsAdminUserOrRole(BasePermission):
-    """Autorise is_staff OU role='admin' (CustomUser)."""
+    """Autorise is_staff OU role='admin' (CustomUser) OU jewrin conservatoire."""
     def has_permission(self, request, view):
-        return bool(
-            request.user
-            and request.user.is_authenticated
-            and (request.user.is_staff or getattr(request.user, 'role', None) == 'admin')
-        )
+        return has_admin_access(request.user, 'conservatoire')
 from rest_framework.response import Response
 
 from .models import (
@@ -42,7 +39,7 @@ class DocumentNumeriqueViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinConservatoire()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -57,7 +54,7 @@ class MediaAudioViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinConservatoire()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -72,7 +69,7 @@ class MediaVideoViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinConservatoire()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -87,7 +84,7 @@ class ArchiveHistoriqueViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinConservatoire()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -107,7 +104,7 @@ class AlbumPhotoViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinConservatoire()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -122,7 +119,7 @@ class PhotoViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinConservatoire()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -137,7 +134,7 @@ class KourelViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinConservatoire()]
         return [IsAuthenticated()]
 
 
@@ -150,19 +147,19 @@ class SeanceConservatoireViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = SeanceConservatoire.objects.all().select_related('kourel').prefetch_related('presences', 'presences__membre', 'khassidas').order_by('-date_heure')
         # Membres voient les séances des kourels auxquels ils appartiennent
-        if not (self.request.user.is_staff or self.request.user.role == 'admin'):
+        if not has_admin_access(self.request.user, 'conservatoire'):
             qs = qs.filter(kourel__membres=self.request.user)
         return qs.distinct()
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinConservatoire()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
         serializer.save(cree_par=self.request.user)
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrJewrinConservatoire()])
     def presences(self, request, pk=None):
         """
         Met à jour les présences des membres du kourel pour cette séance.
@@ -232,7 +229,7 @@ class SeanceConservatoireViewSet(viewsets.ModelViewSet):
         resp['Content-Disposition'] = f'attachment; filename="{filename}"'
         return resp
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrJewrinConservatoire()])
     def khassidas(self, request, pk=None):
         """
         Met à jour les khassidas répétées pour cette séance.
@@ -265,7 +262,7 @@ class PresenceSeanceViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinConservatoire()]
         return [IsAuthenticated()]
 
     @action(detail=False, methods=['get'])

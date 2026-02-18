@@ -72,6 +72,28 @@ class LeveeFonds(models.Model):
         if self.montant_objectif > 0:
             return float((self.montant_collecte / self.montant_objectif) * 100)
         return 0
+    
+    @property
+    def statut_reel(self):
+        """Calcule le statut réel en fonction de la date de fin et du statut manuel."""
+        from django.utils import timezone
+        from datetime import date
+        
+        # Si annulée manuellement, garder annulée
+        if self.statut == 'annulee':
+            return 'annulee'
+        
+        # Si pas de date de fin, utiliser le statut manuel
+        if not self.date_fin:
+            return self.statut if self.statut in ['active', 'terminee', 'annulee'] else 'active'
+        
+        # Si la date de fin est passée, la campagne est terminée
+        today = date.today()
+        if self.date_fin < today:
+            return 'terminee'
+        
+        # Sinon, la campagne est active (même si le statut manuel est "terminee")
+        return 'active'
 
 
 class Transaction(models.Model):

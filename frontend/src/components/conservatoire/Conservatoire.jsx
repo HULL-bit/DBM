@@ -30,7 +30,7 @@ import {
   ListItemText,
   InputAdornment,
 } from '@mui/material'
-import { Add, Edit, Delete, LibraryBooks, Archive, Groups, Event, PhotoLibrary, Collections, EventAvailable, Person, Search } from '@mui/icons-material'
+import { Add, Edit, Delete, LibraryBooks, Archive, Groups, Event, PhotoLibrary, Collections, EventAvailable, Person, Search, Download, Description } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
 import { useAuth } from '../../context/AuthContext'
@@ -57,6 +57,8 @@ const TYPES_ARCHIVE = [
 export default function Conservatoire() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
+  // Vérifier si l'utilisateur est admin ou jewrin conservatoire
+  const canManage = isAdmin || user?.role === 'jewrin' || user?.role === 'jewrine_conservatoire'
   const [tab, setTab] = useState(0)
   const [documents, setDocuments] = useState([])
   const [archives, setArchives] = useState([])
@@ -72,7 +74,7 @@ export default function Conservatoire() {
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
-  const [formDoc, setFormDoc] = useState({ titre: '', auteur: '', categorie: '', type_document: 'livre', description: '' })
+  const [formDoc, setFormDoc] = useState({ titre: '', auteur: '', description: '' })
   const [formArchive, setFormArchive] = useState({ titre: '', type_archive: 'evenement', annee: new Date().getFullYear(), date_evenement: '', description: '' })
   const [formKourel, setFormKourel] = useState({ nom: '', description: '', membres: [], maitre_de_coeur: '' })
   const [formSeance, setFormSeance] = useState({
@@ -121,38 +123,57 @@ export default function Conservatoire() {
   }
   useEffect(() => { loadAll() }, [])
   useEffect(() => { if (tab === 4) loadStatsMembres() }, [tab])
-  useEffect(() => { if (isAdmin) { loadCategories(); loadUsers() } }, [isAdmin])
+  useEffect(() => { if (canManage) { loadCategories(); loadUsers() } }, [canManage])
 
   const handleSaveDoc = async () => {
-    if (!formDoc.titre || !formDoc.auteur || !formDoc.description) {
-      setMessage({ type: 'error', text: 'Titre, auteur et description requis.' })
+    if (!formDoc.titre || !formDoc.auteur) {
+      setMessage({ type: 'error', text: 'Nom (titre) et auteur sont requis.' })
       return
     }
     if (!editingId && !fileDoc) {
-      setMessage({ type: 'error', text: 'Veuillez sélectionner un fichier.' })
+      setMessage({ type: 'error', text: 'Veuillez sélectionner un fichier à télécharger.' })
       return
     }
     setSaving(true)
     setMessage({ type: '', text: '' })
     try {
       if (editingId) {
-        const payload = { ...formDoc, categorie: formDoc.categorie || null }
+        const payload = { 
+          ...formDoc,
+          type_document: 'autre', // Valeur par défaut pour éviter l'erreur
+        }
         await api.patch(`/conservatoire/documents/${editingId}/`, payload)
-        setMessage({ type: 'success', text: 'Document modifié.' })
+        setMessage({ type: 'success', text: 'Document modifié avec succès.' })
       } else {
         const fd = new FormData()
-        Object.entries(formDoc).forEach(([k, v]) => v && fd.append(k, v))
-        fd.append('fichier', fileDoc)
-        await api.post('/conservatoire/documents/', fd)
-        setMessage({ type: 'success', text: 'Document ajouté.' })
+        // Ajouter les champs du formulaire
+        Object.entries(formDoc).forEach(([k, v]) => {
+          if (v !== null && v !== undefined && v !== '') {
+            fd.append(k, v)
+          }
+        })
+        // Ajouter type_document par défaut si non fourni
+        if (!formDoc.type_document) {
+          fd.append('type_document', 'autre')
+        }
+        if (fileDoc) {
+          fd.append('fichier', fileDoc)
+        }
+        await api.post('/conservatoire/documents/', fd, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        })
+        setMessage({ type: 'success', text: 'Document ajouté avec succès. Tous les membres peuvent maintenant le télécharger.' })
       }
       loadDocs()
       setOpenDoc(false)
       setEditingId(null)
       setFileDoc(null)
+      setFormDoc({ titre: '', auteur: '', description: '' })
     } catch (err) {
       const d = err.response?.data?.detail || err.response?.data
-      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+      const errorMsg = typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur lors de l\'enregistrement')
+      setMessage({ type: 'error', text: errorMsg })
+      console.error('Erreur lors de l\'enregistrement du document:', err)
     } finally {
       setSaving(false)
     }
@@ -607,34 +628,56 @@ export default function Conservatoire() {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
         ) : tab === 0 ? ( /* Documents */
           <Box sx={{ p: 2 }}>
-            {isAdmin && (
-              <Button variant="contained" startIcon={<Add />} onClick={() => { setEditingId(null); setFormDoc({ titre: '', auteur: '', categorie: '', type_document: 'livre', description: '' }); setOpenDoc(true) }} sx={{ mb: 2, bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
+            {canManage && (
+              <Button variant="contained" startIcon={<Add />} onClick={() => { setEditingId(null); setFormDoc({ titre: '', auteur: '', description: '' }); setFileDoc(null); setOpenDoc(true) }} sx={{ mb: 2, bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
                 Ajouter un document
               </Button>
             )}
             {documents.length === 0 ? (
-              <Typography color="text.secondary">Aucun document.</Typography>
+              <Typography color="text.secondary">Aucun document disponible.</Typography>
             ) : (
-              <TableContainer>
-                <Table size="small">
-                  <TableHead><TableRow sx={{ bgcolor: `${COLORS.vert}12` }}><TableCell>Titre</TableCell><TableCell>Auteur</TableCell><TableCell>Type</TableCell>{isAdmin && <TableCell align="right">Actions</TableCell>}</TableRow></TableHead>
-                  <TableBody>
-                    {documents.map((d) => (
-                      <TableRow key={d.id}>
-                        <TableCell>{d.titre}</TableCell>
-                        <TableCell>{d.auteur}</TableCell>
-                        <TableCell>{d.type_document}</TableCell>
-                        {isAdmin && (
-                          <TableCell align="right">
-                            <IconButton size="small" onClick={() => { setEditingId(d.id); setFormDoc({ titre: d.titre, auteur: d.auteur, categorie: d.categorie || '', type_document: d.type_document || 'livre', description: d.description || '' }); setOpenDoc(true) }} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                            <IconButton size="small" onClick={() => setDeleteTarget({ id: d.id, type: 'doc' })} color="error"><Delete /></IconButton>
-                          </TableCell>
+              <Grid container spacing={2}>
+                {documents.map((d) => (
+                  <Grid item xs={12} sm={6} md={4} key={d.id}>
+                    <Card sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2, height: '100%', display: 'flex', flexDirection: 'column' }}>
+                      <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+                        <Typography variant="h6" sx={{ color: COLORS.vert, mb: 1, fontWeight: 600 }}>
+                          {d.titre}
+                        </Typography>
+                        <Typography variant="body2" sx={{ color: COLORS.vertFonce, mb: 1 }}>
+                          <strong>Auteur:</strong> {d.auteur}
+                        </Typography>
+                        {d.description && (
+                          <Typography variant="body2" sx={{ color: 'text.secondary', mb: 2, flex: 1 }}>
+                            {d.description.length > 150 ? `${d.description.substring(0, 150)}...` : d.description}
+                          </Typography>
                         )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+                        <Box sx={{ display: 'flex', gap: 1, mt: 'auto', pt: 2 }}>
+                          {d.fichier && (
+                            <Button
+                              variant="contained"
+                              size="small"
+                              startIcon={<Download />}
+                              href={getMediaUrl(d.fichier)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce }, flex: 1 }}
+                            >
+                              Télécharger
+                            </Button>
+                          )}
+                          {canManage && (
+                            <>
+                              <IconButton size="small" onClick={() => { setEditingId(d.id); setFormDoc({ titre: d.titre, auteur: d.auteur, description: d.description || '' }); setFileDoc(null); setOpenDoc(true) }} sx={{ color: COLORS.vert }}><Edit /></IconButton>
+                              <IconButton size="small" onClick={() => setDeleteTarget({ id: d.id, type: 'doc' })} color="error"><Delete /></IconButton>
+                            </>
+                          )}
+                        </Box>
+                      </CardContent>
+                    </Card>
+                  </Grid>
+                ))}
+              </Grid>
             )}
           </Box>
         ) : tab === 1 ? ( /* Archives */
@@ -1068,23 +1111,89 @@ export default function Conservatoire() {
         )}
       </Paper>
 
-      {isAdmin && (
+      {canManage && (
         <>
-          <Dialog open={openDoc} onClose={() => { setOpenDoc(false); setEditingId(null) }} maxWidth="sm" fullWidth>
+          <Dialog open={openDoc} onClose={() => { setOpenDoc(false); setEditingId(null); setFileDoc(null) }} maxWidth="md" fullWidth>
             <DialogTitle>{editingId ? 'Modifier le document' : 'Ajouter un document'}</DialogTitle>
             <DialogContent>
               <Grid container spacing={2} sx={{ pt: 1 }}>
-                <Grid item xs={12}><TextField fullWidth label="Titre" value={formDoc.titre} onChange={(e) => setFormDoc((f) => ({ ...f, titre: e.target.value }))} required /></Grid>
-                <Grid item xs={12}><TextField fullWidth label="Auteur" value={formDoc.auteur} onChange={(e) => setFormDoc((f) => ({ ...f, auteur: e.target.value }))} required /></Grid>
-                <Grid item xs={12}><TextField select fullWidth label="Type" value={formDoc.type_document} onChange={(e) => setFormDoc((f) => ({ ...f, type_document: e.target.value }))}>{TYPES_DOC.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}</TextField></Grid>
-                <Grid item xs={12}><TextField select fullWidth label="Catégorie" value={formDoc.categorie} onChange={(e) => setFormDoc((f) => ({ ...f, categorie: e.target.value }))}><MenuItem value="">—</MenuItem>{categories.map((c) => <MenuItem key={c.id} value={c.id}>{c.nom}</MenuItem>)}</TextField></Grid>
-                <Grid item xs={12}><TextField fullWidth label="Description" value={formDoc.description} onChange={(e) => setFormDoc((f) => ({ ...f, description: e.target.value }))} multiline rows={2} required /></Grid>
-                {!editingId && <Grid item xs={12}><Button variant="outlined" component="label">Choisir un fichier<input type="file" hidden onChange={(e) => setFileDoc(e.target.files?.[0])} /></Button>{fileDoc && <Typography variant="caption" sx={{ ml: 1 }}>{fileDoc.name}</Typography>}</Grid>}
+                <Grid item xs={12}>
+                  <TextField 
+                    fullWidth 
+                    label="Nom du document (Titre)" 
+                    value={formDoc.titre} 
+                    onChange={(e) => setFormDoc((f) => ({ ...f, titre: e.target.value }))} 
+                    required 
+                    helperText="Nom du document à afficher"
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField 
+                    fullWidth 
+                    label="Auteur" 
+                    value={formDoc.auteur} 
+                    onChange={(e) => setFormDoc((f) => ({ ...f, auteur: e.target.value }))} 
+                    required 
+                  />
+                </Grid>
+                <Grid item xs={12}>
+                  <TextField 
+                    fullWidth 
+                    label="Description" 
+                    value={formDoc.description} 
+                    onChange={(e) => setFormDoc((f) => ({ ...f, description: e.target.value }))} 
+                    multiline 
+                    rows={4} 
+                    helperText="Description détaillée du document (optionnelle)"
+                  />
+                </Grid>
+                {!editingId && (
+                  <Grid item xs={12}>
+                    <Box sx={{ border: '2px dashed', borderColor: COLORS.or, borderRadius: 2, p: 2, textAlign: 'center' }}>
+                      <Button 
+                        variant="outlined" 
+                        component="label" 
+                        startIcon={<Add />}
+                        sx={{ borderColor: COLORS.vert, color: COLORS.vert, '&:hover': { borderColor: COLORS.vertFonce } }}
+                      >
+                        Choisir un fichier
+                        <input 
+                          type="file" 
+                          hidden 
+                          onChange={(e) => setFileDoc(e.target.files?.[0])} 
+                          accept=".pdf,.doc,.docx,.txt,.odt"
+                        />
+                      </Button>
+                      {fileDoc && (
+                        <Box sx={{ mt: 2 }}>
+                          <Typography variant="body2" sx={{ color: COLORS.vert, fontWeight: 600 }}>
+                            Fichier sélectionné: {fileDoc.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            Taille: {(fileDoc.size / 1024 / 1024).toFixed(2)} MB
+                          </Typography>
+                        </Box>
+                      )}
+                      {!fileDoc && (
+                        <Typography variant="caption" sx={{ display: 'block', mt: 1, color: 'text.secondary' }}>
+                          Formats acceptés: PDF, DOC, DOCX, TXT, ODT
+                        </Typography>
+                      )}
+                    </Box>
+                  </Grid>
+                )}
               </Grid>
             </DialogContent>
             <DialogActions>
-              <Button onClick={() => { setOpenDoc(false); setEditingId(null) }}>Annuler</Button>
-              <Button variant="contained" onClick={handleSaveDoc} disabled={saving} sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>{saving ? <CircularProgress size={24} /> : 'Enregistrer'}</Button>
+              <Button onClick={() => { setOpenDoc(false); setEditingId(null); setFileDoc(null) }}>Annuler</Button>
+              <Button 
+                variant="contained" 
+                onClick={handleSaveDoc} 
+                disabled={saving || (!editingId && !fileDoc)} 
+                sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+              >
+                {saving ? <CircularProgress size={24} /> : 'Enregistrer'}
+              </Button>
             </DialogActions>
           </Dialog>
 

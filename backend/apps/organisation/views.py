@@ -4,6 +4,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from apps.accounts.permissions import IsAdminOrJewrinOrganisation
 
 from .models import (
     TypeReunion,
@@ -41,7 +42,7 @@ class ReunionViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinOrganisation()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -56,7 +57,7 @@ class ProcesVerbalViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinOrganisation()]
         return [IsAuthenticated()]
 
 
@@ -68,7 +69,7 @@ class DecisionViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinOrganisation()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -83,7 +84,7 @@ class VoteViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinOrganisation()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -97,7 +98,7 @@ class StructureOrganisationViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinOrganisation()]
         return [IsAuthenticated()]
 
 
@@ -109,7 +110,7 @@ class RapportActiviteViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinOrganisation()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -123,7 +124,7 @@ class MaterielViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinOrganisation()]
         return [IsAuthenticated()]
 
     @action(detail=False, methods=['get'])

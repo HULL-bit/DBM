@@ -2,6 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from apps.accounts.permissions import IsAdminOrJewrinScientifique, has_admin_access
 
 from .models import DomaineScientifique, Cours, ModuleCours, LeconCours, InscriptionCours, OuvrageScientifique, PublicationScientifique
 from .serializers import DomaineScientifiqueSerializer, CoursSerializer, ModuleCoursSerializer, LeconCoursSerializer, InscriptionCoursSerializer, OuvrageScientifiqueSerializer, PublicationScientifiqueSerializer
@@ -21,13 +22,13 @@ class CoursViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Cours.objects.all().order_by('-date_creation')
-        if not (self.request.user.is_staff or self.request.user.role == 'admin'):
+        if not has_admin_access(self.request.user, 'scientifique'):
             qs = qs.filter(statut='publie')
         return qs
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinScientifique()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -50,7 +51,7 @@ class ModuleCoursViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinScientifique()]
         return [IsAuthenticated()]
 
 
@@ -62,7 +63,7 @@ class LeconCoursViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinScientifique()]
         return [IsAuthenticated()]
 
 
@@ -86,7 +87,7 @@ class OuvrageScientifiqueViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinScientifique()]
         return [IsAuthenticated()]
 
 
@@ -98,5 +99,5 @@ class PublicationScientifiqueViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinScientifique()]
         return [IsAuthenticated()]

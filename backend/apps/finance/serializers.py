@@ -13,12 +13,19 @@ class CotisationMensuelleSerializer(serializers.ModelSerializer):
 
 class LeveeFondsSerializer(serializers.ModelSerializer):
     statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    statut_reel = serializers.ReadOnlyField()
+    statut_reel_display = serializers.SerializerMethodField()
     pourcentage_atteint = serializers.ReadOnlyField()
 
     class Meta:
         model = LeveeFonds
         fields = '__all__'
         read_only_fields = ['montant_collecte', 'cree_par', 'date_creation']
+    
+    def get_statut_reel_display(self, obj):
+        """Retourne le libellé du statut réel."""
+        statut_reel = obj.statut_reel
+        return dict(LeveeFonds.STATUT_CHOICES).get(statut_reel, statut_reel)
 
 
 class TransactionSerializer(serializers.ModelSerializer):

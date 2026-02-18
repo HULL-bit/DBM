@@ -1,6 +1,9 @@
+import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Grid, Card, CardContent, Typography, Button } from '@mui/material'
-import { CheckCircle, MenuBook, Mosque, Add } from '@mui/icons-material'
+import { Box, Grid, Card, CardContent, Typography, Button, Chip, Badge } from '@mui/material'
+import { CheckCircle, MenuBook, Mosque, Add, School, TrendingUp, People, Message } from '@mui/icons-material'
+import { useAuth } from '../../context/AuthContext'
+import api from '../../services/api'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', noir: '#1A1A1A' }
 
@@ -29,35 +32,220 @@ const StatCard = ({ title, value, icon, color }) => (
 
 export default function DashboardJewrin() {
   const navigate = useNavigate()
+  const { user } = useAuth()
+  const [validationsEnAttente, setValidationsEnAttente] = useState(0)
+  const [progressionsKamil, setProgressionsKamil] = useState(0)
+  const [versementsEnAttente, setVersementsEnAttente] = useState(0)
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  const [loading, setLoading] = useState(true)
+
+  useEffect(() => {
+    // Charger les validations en attente
+    api.get('/culturelle/progressions/')
+      .then(({ data }) => {
+        const progressions = data.results || data || []
+        const enAttente = Array.isArray(progressions) ? progressions.filter(p => p.statut === 'en_attente').length : 0
+        setValidationsEnAttente(enAttente)
+        setProgressionsKamil(Array.isArray(progressions) ? progressions.length : 0)
+      })
+      .catch(() => {
+        setValidationsEnAttente(0)
+        setProgressionsKamil(0)
+      })
+
+    // Charger les versements Kamil en attente
+    api.get('/culturelle/versements-kamil/')
+      .then(({ data }) => {
+        const versements = data.results || data || []
+        const enAttente = Array.isArray(versements) ? versements.filter(v => v.statut === 'en_attente').length : 0
+        setVersementsEnAttente(enAttente)
+      })
+      .catch(() => setVersementsEnAttente(0))
+
+    // Charger les messages non lus
+    api.get('/communication/messages/conversations/')
+      .then(({ data }) => {
+        const convs = Array.isArray(data) ? data : []
+        const totalUnread = convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
+        setUnreadMessages(totalUnread)
+      })
+      .catch(() => setUnreadMessages(0))
+      .finally(() => setLoading(false))
+  }, [])
+
+  // Formater le nom avec DALALL AK JAM Sen/Sokhna
+  const formatUserName = () => {
+    if (!user) return 'Jewrin'
+    const sexe = user.sexe || user.gender
+    const prefix = sexe === 'M' ? 'DALALL AK JAM Sen' : sexe === 'F' ? 'Sokhna' : ''
+    const prenom = user.first_name || ''
+    const nom = user.last_name || ''
+    if (prefix) {
+      return `${prefix} ${prenom} ${nom}`.trim()
+    }
+    return `${prenom} ${nom}`.trim() || user.username || 'Jewrin'
+  }
+
   return (
     <Box>
       <Typography variant="h4" sx={{ color: COLORS.vert, fontFamily: '"Dancing Script", "Cormorant Garamond", serif', fontWeight: 700, mb: 0.5 }}>
-        Tableau de bord Jewrin
+        Bienvenue, {formatUserName()}
       </Typography>
       <Typography variant="body1" sx={{ color: COLORS.noir, mb: 3 }}>
-        Gestion culturelle et religieuse — Validations Kamil, activités, enseignements
+        Tableau de bord Jewrin — Gestion culturelle et religieuse — Validations Kamil, activités, enseignements
       </Typography>
       <Grid container spacing={3}>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard title="Validations en attente" value="—" icon={<CheckCircle />} color={COLORS.vert} />
+          <StatCard 
+            title="Validations en attente" 
+            value={validationsEnAttente > 0 ? validationsEnAttente : 'Aucune'} 
+            icon={<CheckCircle />} 
+            color={COLORS.vert} 
+          />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard title="Programme Kamil" value="Actif" icon={<MenuBook />} color={COLORS.or} />
+          <StatCard 
+            title="Progressions Kamil" 
+            value={progressionsKamil} 
+            icon={<MenuBook />} 
+            color={COLORS.or} 
+          />
         </Grid>
         <Grid item xs={12} sm={6} md={3}>
-          <StatCard title="Activités religieuses" value="—" icon={<Mosque />} color={COLORS.vert} />
+          <StatCard 
+            title="Versements en attente" 
+            value={versementsEnAttente > 0 ? versementsEnAttente : 'Aucun'} 
+            icon={<School />} 
+            color={COLORS.vert} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Messages non lus" 
+            value={unreadMessages > 0 ? unreadMessages : 'Aucun'} 
+            icon={
+              <Badge badgeContent={unreadMessages} color="error" invisible={unreadMessages === 0}>
+                <Message />
+              </Badge>
+            } 
+            color={COLORS.or} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard title="Programme Kamil" value="Actif" icon={<MenuBook />} color={COLORS.vert} />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard title="Activités religieuses" value="—" icon={<Mosque />} color={COLORS.or} />
         </Grid>
       </Grid>
-      <Card sx={{ mt: 3, borderRadius: 3, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', borderLeft: '3px solid #C9A961' }}>
-        <CardContent sx={{ p: 2.5 }}>
-          <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif' }} gutterBottom>Actions prioritaires</Typography>
-          <Box display="flex" flexWrap="wrap" gap={1} mt={1}>
-            <Button variant="contained" size="small" startIcon={<CheckCircle />} onClick={() => navigate('/culturelle/validations')} sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)` }}>Valider les progressions</Button>
-            <Button variant="outlined" size="small" startIcon={<Add />} onClick={() => navigate('/culturelle/activites-religieuses')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Créer une activité religieuse</Button>
-            <Button variant="outlined" size="small" startIcon={<MenuBook />} onClick={() => navigate('/culturelle/kamil')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Programme Kamil</Button>
-          </Box>
-        </CardContent>
-      </Card>
+      {/* Cartes d'actions rapides */}
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', borderLeft: '3px solid #C9A961', height: '100%' }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif', fontWeight: 600, mb: 2 }}>
+                Validations & Kamil
+              </Typography>
+              <Box display="flex" flexDirection="column" gap={1.5}>
+                <Button 
+                  variant="contained" 
+                  size="medium" 
+                  startIcon={<CheckCircle />} 
+                  onClick={() => navigate('/culturelle/validations')} 
+                  sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)`, justifyContent: 'flex-start' }}
+                >
+                  Valider les progressions
+                  {validationsEnAttente > 0 && (
+                    <Chip label={validationsEnAttente} size="small" color="warning" sx={{ ml: 1 }} />
+                  )}
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<School />} 
+                  onClick={() => navigate('/culturelle/versements-kamil')} 
+                  sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Valider les versements Kamil
+                  {versementsEnAttente > 0 && (
+                    <Chip label={versementsEnAttente} size="small" color="warning" sx={{ ml: 1 }} />
+                  )}
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<MenuBook />} 
+                  onClick={() => navigate('/culturelle/kamil')} 
+                  sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Programme Kamil
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<People />} 
+                  onClick={() => navigate('/culturelle/progressions')} 
+                  sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Toutes les progressions
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', borderLeft: '3px solid #2D5F3F', height: '100%' }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif', fontWeight: 600, mb: 2 }}>
+                Activités & Communication
+              </Typography>
+              <Box display="flex" flexDirection="column" gap={1.5}>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<Add />} 
+                  onClick={() => navigate('/culturelle/activites-religieuses')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Créer une activité religieuse
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<Mosque />} 
+                  onClick={() => navigate('/culturelle/activites-religieuses')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Gérer les activités religieuses
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={
+                    <Badge badgeContent={unreadMessages} color="error" invisible={unreadMessages === 0}>
+                      <Message />
+                    </Badge>
+                  } 
+                  onClick={() => navigate('/communication/messagerie')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Messagerie
+                  {unreadMessages > 0 && <Chip label={unreadMessages} size="small" color="error" sx={{ ml: 1 }} />}
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<TrendingUp />} 
+                  onClick={() => navigate('/culturelle/statistiques')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Statistiques Kamil
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
     </Box>
   )
 }

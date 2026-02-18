@@ -5,6 +5,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.db.models import Sum, Count
+from apps.accounts.permissions import IsAdminOrJewrinCulturelle, has_admin_access
 
 from .models import Kamil, Chapitre, Jukki, ProgressionLecture, ActiviteReligieuse, Enseignement, VersementKamil
 from .serializers import KamilSerializer, ChapitreSerializer, JukkiSerializer, ProgressionLectureSerializer, ActiviteReligieuseSerializer, EnseignementSerializer, VersementKamilSerializer
@@ -23,7 +24,7 @@ class KamilViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinCulturelle()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -65,7 +66,7 @@ class ChapitreViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinCulturelle()]
         return [IsAuthenticated()]
 
 
@@ -77,7 +78,7 @@ class JukkiViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         qs = Jukki.objects.all().select_related('kamil', 'membre').order_by('kamil', 'numero')
-        if not (self.request.user.is_staff or self.request.user.role in ['admin', 'jewrin']):
+        if not has_admin_access(self.request.user, 'culturelle'):
             qs = qs.filter(membre=self.request.user)
         return qs
 
@@ -102,7 +103,7 @@ class JukkiViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = JukkiSerializer(qs, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['patch'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdminOrJewrinCulturelle()])
     def changer_statut(self, request, pk=None):
         """Admin change le statut de validation d'un JUKKI."""
         jukki = self.get_object()
@@ -127,7 +128,7 @@ class ProgressionLectureViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = ProgressionLecture.objects.all().select_related('membre', 'kamil', 'chapitre').order_by('membre', 'kamil', 'chapitre__numero')
-        if not (self.request.user.is_staff or self.request.user.role == 'admin' or self.request.user.role == 'jewrin'):
+        if not has_admin_access(self.request.user, 'culturelle'):
             qs = qs.filter(membre=self.request.user)
         return qs
 
@@ -138,7 +139,7 @@ class ProgressionLectureViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         # Admin/Jewrin peut assigner un juzz à un membre ; sinon l'assignation est pour soi
-        if self.request.user.role in ['admin', 'jewrin'] and self.request.data.get('membre'):
+        if has_admin_access(self.request.user, 'culturelle') and self.request.data.get('membre'):
             membre = get_object_or_404(User, id=self.request.data.get('membre'))
         else:
             membre = self.request.user
@@ -166,7 +167,7 @@ class ProgressionLectureViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def valider(self, request, pk=None):
         prog = self.get_object()
-        if request.user.role not in ['admin', 'jewrin']:
+        if not has_admin_access(request.user, 'culturelle'):
             return Response({'detail': 'Non autorisé'}, status=403)
         from django.utils import timezone
         prog.statut = 'valide'
@@ -180,7 +181,7 @@ class ProgressionLectureViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def refuser(self, request, pk=None):
         prog = self.get_object()
-        if request.user.role not in ['admin', 'jewrin']:
+        if not has_admin_access(request.user, 'culturelle'):
             return Response({'detail': 'Non autorisé'}, status=403)
         prog.statut = 'refuse'
         prog.est_valide = False
@@ -200,7 +201,7 @@ class ActiviteReligieuseViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinCulturelle()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -225,7 +226,7 @@ class VersementKamilViewSet(viewsets.ModelViewSet):
         qs = VersementKamil.objects.all().select_related(
             'membre', 'progression', 'progression__chapitre', 'progression__kamil'
         ).order_by('-date_versement')
-        if not (self.request.user.is_staff or self.request.user.role in ['admin', 'jewrin']):
+        if not has_admin_access(self.request.user, 'culturelle'):
             qs = qs.filter(membre=self.request.user)
         return qs
 
@@ -239,7 +240,7 @@ class VersementKamilViewSet(viewsets.ModelViewSet):
         progression_id = self.request.data.get('progression')
         progression = get_object_or_404(ProgressionLecture, id=progression_id)
         # Vérifier que le membre est bien celui de la progression
-        if progression.membre != self.request.user and self.request.user.role not in ['admin', 'jewrin']:
+        if progression.membre != self.request.user and not has_admin_access(self.request.user, 'culturelle'):
             from rest_framework.exceptions import PermissionDenied
             raise PermissionDenied("Vous ne pouvez pas verser pour cette assignation.")
         # Vérifier que le montant ne dépasse pas le reste à payer
@@ -252,7 +253,7 @@ class VersementKamilViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def valider(self, request, pk=None):
         """Admin/Jewrin valide un versement"""
-        if request.user.role not in ['admin', 'jewrin'] and not request.user.is_staff:
+        if not has_admin_access(request.user, 'culturelle'):
             return Response({'detail': 'Non autorisé'}, status=403)
         versement = self.get_object()
         if versement.statut == 'valide':
@@ -274,7 +275,7 @@ class VersementKamilViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'])
     def refuser(self, request, pk=None):
         """Admin/Jewrin refuse un versement"""
-        if request.user.role not in ['admin', 'jewrin'] and not request.user.is_staff:
+        if not has_admin_access(request.user, 'culturelle'):
             return Response({'detail': 'Non autorisé'}, status=403)
         versement = self.get_object()
         if versement.statut != 'en_attente':

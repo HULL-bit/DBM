@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Grid, Card, CardContent, Typography, Button } from '@mui/material'
-import { AccountBalance, MenuBook, Event, Message } from '@mui/icons-material'
+import { Box, Grid, Card, CardContent, Typography, Button, Chip, Badge } from '@mui/material'
+import { AccountBalance, MenuBook, Event, Message, AttachMoney, TrendingUp, Notifications, Forum, Group, School, Payment } from '@mui/icons-material'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
 
@@ -34,12 +34,44 @@ export default function DashboardMembre() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [cotisationStats, setCotisationStats] = useState(null)
+  const [kamilStats, setKamilStats] = useState(null)
+  const [leveesFonds, setLeveesFonds] = useState([])
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    // Charger les statistiques de cotisations
     api
       .get('/finance/cotisations/statistiques/')
       .then(({ data }) => setCotisationStats(data))
       .catch(() => setCotisationStats(null))
+
+    // Charger les statistiques Kamil
+    api
+      .get('/culturelle/versements-kamil/mes_stats/')
+      .then(({ data }) => setKamilStats(data))
+      .catch(() => setKamilStats(null))
+
+    // Charger les levées de fonds actives
+    api
+      .get('/finance/levees-fonds/')
+      .then(({ data }) => {
+        const lf = data.results || data
+        const actives = Array.isArray(lf) ? lf.filter(l => (l.statut_reel || l.statut) === 'active') : []
+        setLeveesFonds(actives)
+      })
+      .catch(() => setLeveesFonds([]))
+
+    // Charger les messages non lus
+    api
+      .get('/communication/messages/conversations/')
+      .then(({ data }) => {
+        const convs = Array.isArray(data) ? data : []
+        const totalUnread = convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
+        setUnreadMessages(totalUnread)
+      })
+      .catch(() => setUnreadMessages(0))
+      .finally(() => setLoading(false))
   }, [])
 
   const totalAssignations = cotisationStats?.total_assignations ?? 0
@@ -50,10 +82,23 @@ export default function DashboardMembre() {
       ? `${totalPayees} / ${totalAssignations} (${Math.round(pourcentagePayees * 10) / 10} %)`
       : `${user?.cotisations_payees ?? 0}`
 
+  // Formater le nom avec DALALL AK JAM Sen/Sokhna
+  const formatUserName = () => {
+    if (!user) return ''
+    const sexe = user.sexe || user.gender
+    const prefix = sexe === 'M' ? 'DALALL AK JAM Sen' : sexe === 'F' ? 'Sokhna' : ''
+    const prenom = user.first_name || ''
+    const nom = user.last_name || ''
+    if (prefix) {
+      return `${prefix} ${prenom} ${nom}`.trim()
+    }
+    return `${prenom} ${nom}`.trim() || user.username || 'Membre'
+  }
+
   return (
     <Box>
       <Typography variant="h4" sx={{ color: COLORS.vert, fontFamily: '"Dancing Script", "Cormorant Garamond", serif', fontWeight: 700, mb: 0.5 }}>
-        Bienvenue, {user?.first_name} {user?.last_name}
+        Bienvenue, {formatUserName()}
       </Typography>
       <Typography variant="body1" sx={{ color: COLORS.noir, mb: 3 }}>
         Tableau de bord membre — Daara Barakatul Mahaahidi
@@ -73,18 +118,186 @@ export default function DashboardMembre() {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard title="Événements participés" value={user?.evenements_participes ?? 0} icon={<Event />} color={COLORS.vert} />
         </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Messages non lus" 
+            value={unreadMessages > 0 ? unreadMessages : 'Aucun'} 
+            icon={
+              <Badge badgeContent={unreadMessages} color="error" invisible={unreadMessages === 0}>
+                <Message />
+              </Badge>
+            } 
+            color={COLORS.or} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Versements Kamil" 
+            value={kamilStats ? `${kamilStats.nb_valides || 0} / ${kamilStats.nb_versements || 0}` : '0 / 0'} 
+            icon={<School />} 
+            color={COLORS.vert} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Montant versé (Kamil)" 
+            value={kamilStats ? `${Math.round(kamilStats.pourcentage_global || 0)}%` : '0%'} 
+            icon={<TrendingUp />} 
+            color={COLORS.or} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Levées de fonds actives" 
+            value={leveesFonds.length} 
+            icon={<AttachMoney />} 
+            color={COLORS.vert} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Membres actifs" 
+            value="—" 
+            icon={<Group />} 
+            color={COLORS.or} 
+          />
+        </Grid>
       </Grid>
-      <Card sx={{ mt: 3, borderRadius: 3, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', borderLeft: '3px solid #C9A961' }}>
-        <CardContent sx={{ p: 2.5 }}>
-          <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif' }} gutterBottom>Mes actions rapides</Typography>
-          <Box display="flex" flexWrap="wrap" gap={1} mt={1}>
-            <Button variant="contained" size="small" startIcon={<AccountBalance />} onClick={() => navigate('/finance/cotisations')} sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)` }}>Payer ma cotisation</Button>
-            <Button variant="outlined" size="small" startIcon={<MenuBook />} onClick={() => navigate('/culturelle/mes-progressions')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Mes JUKKI</Button>
-            <Button variant="outlined" size="small" startIcon={<Event />} onClick={() => navigate('/informations/evenements')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Voir les événements</Button>
-            <Button variant="outlined" size="small" startIcon={<Message />} onClick={() => navigate('/communication/messagerie')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>Messagerie</Button>
-          </Box>
-        </CardContent>
-      </Card>
+      {/* Cartes d'actions rapides */}
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', borderLeft: '3px solid #C9A961', height: '100%' }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif', mb: 2 }}>Mes actions rapides</Typography>
+              <Box display="flex" flexDirection="column" gap={1.5}>
+                <Button 
+                  variant="contained" 
+                  size="medium" 
+                  startIcon={<AccountBalance />} 
+                  onClick={() => navigate('/finance/cotisations')} 
+                  sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)`, justifyContent: 'flex-start' }}
+                >
+                  Payer ma cotisation
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<MenuBook />} 
+                  onClick={() => navigate('/culturelle/mes-progressions')} 
+                  sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Mes JUKKI
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<Event />} 
+                  onClick={() => navigate('/informations/evenements')} 
+                  sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Voir les événements
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={
+                    <Badge badgeContent={unreadMessages} color="error" invisible={unreadMessages === 0}>
+                      <Message />
+                    </Badge>
+                  } 
+                  onClick={() => navigate('/communication/messagerie')} 
+                  sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Messagerie {unreadMessages > 0 && <Chip label={unreadMessages} size="small" color="error" sx={{ ml: 1, height: 20 }} />}
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', borderLeft: '3px solid #2D5F3F', height: '100%' }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif', mb: 2 }}>Finance & Participation</Typography>
+              <Box display="flex" flexDirection="column" gap={1.5}>
+                {leveesFonds.length > 0 && (
+                  <Button 
+                    variant="contained" 
+                    size="medium" 
+                    startIcon={<AttachMoney />} 
+                    onClick={() => navigate('/finance/levees-fonds')} 
+                    sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.or} 0%, #D4B876 100%)`, justifyContent: 'flex-start' }}
+                  >
+                    Participer aux levées de fonds
+                    <Chip label={leveesFonds.length} size="small" sx={{ ml: 1, bgcolor: 'rgba(255,255,255,0.3)', color: 'inherit' }} />
+                  </Button>
+                )}
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<Payment />} 
+                  onClick={() => navigate('/finance/levees-fonds')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Mes participations
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<TrendingUp />} 
+                  onClick={() => navigate('/culturelle/versements-kamil')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Mes versements Kamil
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<Forum />} 
+                  onClick={() => navigate('/communication/forums')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Forums de discussion
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
+
+      {/* Carte d'informations */}
+      {kamilStats && (kamilStats.total_assigne > 0 || kamilStats.nb_versements > 0) && (
+        <Card sx={{ mt: 3, borderRadius: 3, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', borderLeft: '3px solid #C9A961' }}>
+          <CardContent sx={{ p: 2.5 }}>
+            <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif', mb: 2 }}>Mes statistiques Kamil</Typography>
+            <Grid container spacing={2}>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" sx={{ color: COLORS.noir, fontWeight: 500 }}>Montant assigné</Typography>
+                <Typography variant="h6" sx={{ color: COLORS.vert, fontWeight: 700 }}>
+                  {kamilStats.total_assigne?.toLocaleString('fr-FR') || 0} FCFA
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" sx={{ color: COLORS.noir, fontWeight: 500 }}>Montant versé</Typography>
+                <Typography variant="h6" sx={{ color: COLORS.or, fontWeight: 700 }}>
+                  {kamilStats.total_verse?.toLocaleString('fr-FR') || 0} FCFA
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" sx={{ color: COLORS.noir, fontWeight: 500 }}>Reste à verser</Typography>
+                <Typography variant="h6" sx={{ color: COLORS.vert, fontWeight: 700 }}>
+                  {kamilStats.reste_global?.toLocaleString('fr-FR') || 0} FCFA
+                </Typography>
+              </Grid>
+              <Grid item xs={12} sm={6} md={3}>
+                <Typography variant="body2" sx={{ color: COLORS.noir, fontWeight: 500 }}>Progression</Typography>
+                <Typography variant="h6" sx={{ color: COLORS.or, fontWeight: 700 }}>
+                  {Math.round(kamilStats.pourcentage_global || 0)}%
+                </Typography>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
     </Box>
   )
 }

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Box, Grid, Card, CardContent, Typography, Button } from '@mui/material'
-import { People, AccountBalance, Event, MenuBook, Add } from '@mui/icons-material'
+import { Box, Grid, Card, CardContent, Typography, Button, Chip, Badge } from '@mui/material'
+import { People, AccountBalance, Event, MenuBook, Add, AttachMoney, Message, School, TrendingUp, Forum, Payment, Notifications } from '@mui/icons-material'
+import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
 
 const COLORS = { vert: '#2D5F3F', vertClair: '#3d7a52', or: '#C9A961', noir: '#1A1A1A' }
@@ -34,12 +35,60 @@ const StatCard = ({ title, value, icon, color }) => (
 
 export default function DashboardAdmin() {
   const navigate = useNavigate()
+  const { user } = useAuth()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [leveesFonds, setLeveesFonds] = useState([])
+  const [unreadMessages, setUnreadMessages] = useState(0)
+  const [kamilStats, setKamilStats] = useState(null)
 
   useEffect(() => {
-    api.get('/auth/admin/statistiques/').then(({ data }) => setStats(data)).catch(() => setStats({ membres_actifs: 0, total_membres: 0, cotisations_payees_ce_mois: 0, evenements: 0 })).finally(() => setLoading(false))
+    // Charger les statistiques admin
+    api.get('/auth/admin/statistiques/')
+      .then(({ data }) => setStats(data))
+      .catch(() => setStats({ membres_actifs: 0, total_membres: 0, cotisations_payees_ce_mois: 0, evenements: 0 }))
+      .finally(() => setLoading(false))
+
+    // Charger les levées de fonds actives
+    api.get('/finance/levees-fonds/')
+      .then(({ data }) => {
+        const lf = data.results || data
+        const actives = Array.isArray(lf) ? lf.filter(l => (l.statut_reel || l.statut) === 'active') : []
+        setLeveesFonds(actives)
+      })
+      .catch(() => setLeveesFonds([]))
+
+    // Charger les messages non lus
+    api.get('/communication/messages/conversations/')
+      .then(({ data }) => {
+        const convs = Array.isArray(data) ? data : []
+        const totalUnread = convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
+        setUnreadMessages(totalUnread)
+      })
+      .catch(() => setUnreadMessages(0))
+
+    // Charger les statistiques Kamil globales
+    api.get('/culturelle/versements-kamil/')
+      .then(({ data }) => {
+        const versements = data.results || data || []
+        const enAttente = Array.isArray(versements) ? versements.filter(v => v.statut === 'en_attente').length : 0
+        setKamilStats({ en_attente: enAttente, total: Array.isArray(versements) ? versements.length : 0 })
+      })
+      .catch(() => setKamilStats(null))
   }, [])
+
+  // Formater le nom avec DALALL AK JAM Sen/Sokhna
+  const formatUserName = () => {
+    if (!user) return 'Administrateur'
+    const sexe = user.sexe || user.gender
+    const prefix = sexe === 'M' ? 'DALALL AK JAM Sen' : sexe === 'F' ? 'Sokhna' : ''
+    const prenom = user.first_name || ''
+    const nom = user.last_name || ''
+    if (prefix) {
+      return `${prefix} ${prenom} ${nom}`.trim()
+    }
+    return `${prenom} ${nom}`.trim() || user.username || 'Administrateur'
+  }
 
   if (loading) return <Typography sx={{ color: COLORS.noir }}>Chargement...</Typography>
 
@@ -48,10 +97,10 @@ export default function DashboardAdmin() {
       <Box display="flex" flexWrap="wrap" justifyContent="space-between" alignItems="flex-start" gap={2} mb={3}>
         <Box>
           <Typography variant="h4" sx={{ color: COLORS.vert, fontFamily: '"Dancing Script", "Cormorant Garamond", serif', fontWeight: 700 }}>
-            Tableau de bord Administrateur
+            Bienvenue, {formatUserName()}
           </Typography>
           <Typography variant="body1" sx={{ color: COLORS.noir, mt: 0.5 }}>
-            Vue d'ensemble de la plateforme Daara Barakatul Mahaahidi
+            Tableau de bord Administrateur — Vue d'ensemble de la plateforme Daara Barakatul Mahaahidi
           </Typography>
         </Box>
         <Box display="flex" gap={1} flexWrap="wrap">
@@ -94,36 +143,149 @@ export default function DashboardAdmin() {
         <Grid item xs={12} sm={6} md={3}>
           <StatCard title="Événements" value={stats?.evenements ?? 0} icon={<Event />} color={COLORS.vert} />
         </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Messages non lus" 
+            value={unreadMessages > 0 ? unreadMessages : 'Aucun'} 
+            icon={
+              <Badge badgeContent={unreadMessages} color="error" invisible={unreadMessages === 0}>
+                <Message />
+              </Badge>
+            } 
+            color={COLORS.or} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Levées de fonds actives" 
+            value={leveesFonds.length} 
+            icon={<AttachMoney />} 
+            color={COLORS.vert} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Versements Kamil en attente" 
+            value={kamilStats?.en_attente || 0} 
+            icon={<School />} 
+            color={COLORS.or} 
+          />
+        </Grid>
+        <Grid item xs={12} sm={6} md={3}>
+          <StatCard 
+            title="Total versements Kamil" 
+            value={kamilStats?.total || 0} 
+            icon={<TrendingUp />} 
+            color={COLORS.vertClair} 
+          />
+        </Grid>
       </Grid>
-      <Card
-        sx={{
-          mt: 3,
-          borderRadius: 3,
-          background: 'rgba(255, 255, 255, 0.85)',
-          backdropFilter: 'blur(12px)',
-          borderLeft: '3px solid #C9A961',
-        }}
-      >
-        <CardContent sx={{ p: 2.5 }}>
-          <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif', fontWeight: 600 }} gutterBottom>
-            Actions rapides
-          </Typography>
-          <Box display="flex" flexWrap="wrap" gap={1} mt={1}>
-            <Button variant="contained" size="small" startIcon={<Add />} onClick={() => navigate('/admin/membres')} sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)` }}>
-              Gestion des membres
-            </Button>
-            <Button variant="outlined" size="small" startIcon={<AccountBalance />} onClick={() => navigate('/finance/cotisations')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>
-              Cotisations
-            </Button>
-            <Button variant="outlined" size="small" startIcon={<Event />} onClick={() => navigate('/informations/evenements')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>
-              Événements
-            </Button>
-            <Button variant="outlined" size="small" startIcon={<MenuBook />} onClick={() => navigate('/culturelle/kamil')} sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2 }}>
-              Programme Kamil
-            </Button>
-          </Box>
-        </CardContent>
-      </Card>
+      {/* Cartes d'actions rapides */}
+      <Grid container spacing={3} sx={{ mt: 1 }}>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', borderLeft: '3px solid #C9A961', height: '100%' }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif', fontWeight: 600, mb: 2 }}>
+                Gestion & Administration
+              </Typography>
+              <Box display="flex" flexDirection="column" gap={1.5}>
+                <Button 
+                  variant="contained" 
+                  size="medium" 
+                  startIcon={<Add />} 
+                  onClick={() => navigate('/admin/membres')} 
+                  sx={{ borderRadius: 2, background: `linear-gradient(135deg, ${COLORS.vert} 0%, #3A7750 100%)`, justifyContent: 'flex-start' }}
+                >
+                  Gestion des membres
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<AccountBalance />} 
+                  onClick={() => navigate('/finance/cotisations')} 
+                  sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Gérer les cotisations
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<AttachMoney />} 
+                  onClick={() => navigate('/finance/levees-fonds')} 
+                  sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Levées de fonds
+                  {leveesFonds.length > 0 && <Chip label={leveesFonds.length} size="small" sx={{ ml: 1 }} />}
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<Event />} 
+                  onClick={() => navigate('/informations/evenements')} 
+                  sx={{ borderColor: COLORS.or, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Gérer les événements
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+        <Grid item xs={12} md={6}>
+          <Card sx={{ borderRadius: 3, background: 'rgba(255, 255, 255, 0.85)', backdropFilter: 'blur(12px)', borderLeft: '3px solid #2D5F3F', height: '100%' }}>
+            <CardContent sx={{ p: 2.5 }}>
+              <Typography variant="h6" sx={{ color: COLORS.vert, fontFamily: '"Cormorant Garamond", serif', fontWeight: 600, mb: 2 }}>
+                Culture & Communication
+              </Typography>
+              <Box display="flex" flexDirection="column" gap={1.5}>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<MenuBook />} 
+                  onClick={() => navigate('/culturelle/kamil')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Programme Kamil
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<School />} 
+                  onClick={() => navigate('/culturelle/versements-kamil')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Versements Kamil
+                  {kamilStats?.en_attente > 0 && (
+                    <Chip label={kamilStats.en_attente} size="small" color="warning" sx={{ ml: 1 }} />
+                  )}
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={
+                    <Badge badgeContent={unreadMessages} color="error" invisible={unreadMessages === 0}>
+                      <Message />
+                    </Badge>
+                  } 
+                  onClick={() => navigate('/communication/messagerie')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Messagerie
+                  {unreadMessages > 0 && <Chip label={unreadMessages} size="small" color="error" sx={{ ml: 1 }} />}
+                </Button>
+                <Button 
+                  variant="outlined" 
+                  size="medium" 
+                  startIcon={<Forum />} 
+                  onClick={() => navigate('/communication/forums')} 
+                  sx={{ borderColor: COLORS.vert, color: COLORS.noir, borderRadius: 2, justifyContent: 'flex-start' }}
+                >
+                  Forums de discussion
+                </Button>
+              </Box>
+            </CardContent>
+          </Card>
+        </Grid>
+      </Grid>
     </Box>
   )
 }

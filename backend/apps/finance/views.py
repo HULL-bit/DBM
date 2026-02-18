@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db.models import Sum, Q
 from decimal import Decimal
+from apps.accounts.permissions import IsAdminOrJewrinFinance, has_admin_access
 
 from .models import CotisationMensuelle, LeveeFonds, Transaction, Don, ParametresFinanciers
 from .serializers import CotisationMensuelleSerializer, LeveeFondsSerializer, TransactionSerializer, DonSerializer, ParametresFinanciersSerializer
@@ -17,13 +18,13 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = CotisationMensuelle.objects.select_related('membre').order_by('-annee', '-mois')
-        if not (self.request.user.is_staff or self.request.user.role == 'admin'):
+        if not has_admin_access(self.request.user, 'finance'):
             qs = qs.filter(membre=self.request.user)
         return qs
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinFinance()]
         return [IsAuthenticated()]
 
     def perform_update(self, serializer):
@@ -125,13 +126,13 @@ class LeveeFondsViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = LeveeFonds.objects.all().order_by('-date_creation')
-        if not (self.request.user.is_staff or self.request.user.role == 'admin'):
+        if not has_admin_access(self.request.user, 'finance'):
             qs = qs.filter(statut='active')
         return qs
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinFinance()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -142,7 +143,8 @@ class LeveeFondsViewSet(viewsets.ModelViewSet):
         """Permet à un membre (y compris admin) de participer à une levée de fonds.
         Crée une transaction en attente qui sera validée après confirmation du paiement Wave."""
         levee_fonds = self.get_object()
-        if levee_fonds.statut != 'active':
+        # Utiliser le statut réel calculé en fonction de la date de fin
+        if levee_fonds.statut_reel != 'active':
             return Response({'detail': 'Cette levée de fonds n\'est plus active.'}, status=status.HTTP_400_BAD_REQUEST)
         
         montant = request.data.get('montant')
@@ -240,7 +242,7 @@ class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
 
     def get_queryset(self):
         qs = Transaction.objects.all().select_related('membre').order_by('-date_transaction')
-        if not (self.request.user.is_staff or self.request.user.role == 'admin'):
+        if not has_admin_access(self.request.user, 'finance'):
             qs = qs.filter(membre=self.request.user)
         return qs
 
@@ -252,7 +254,7 @@ class DonViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Don.objects.all().order_by('-date_don')
-        if not (self.request.user.is_staff or self.request.user.role == 'admin'):
+        if not has_admin_access(self.request.user, 'finance'):
             qs = qs.filter(donateur=self.request.user)
         return qs
 
@@ -263,4 +265,4 @@ class DonViewSet(viewsets.ModelViewSet):
 class ParametresFinanciersViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ParametresFinanciers.objects.all()
     serializer_class = ParametresFinanciersSerializer
-    permission_classes = [IsAdminUser]
+    permission_classes = [IsAdminOrJewrinFinance()]

@@ -215,7 +215,15 @@ export default function Cotisations() {
     }
   }
 
-  const statutColor = (s) => (s === 'payee' ? 'success' : s === 'retard' ? 'warning' : 'default')
+  const statutColor = (s) => {
+    const statutLower = String(s || '').toLowerCase()
+    return statutLower === 'payee' ? 'success' : statutLower === 'retard' ? 'warning' : 'default'
+  }
+  
+  const canPayCotisation = (c) => {
+    const statutLower = String(c.statut || '').toLowerCase()
+    return statutLower === 'en_attente' || statutLower === 'retard'
+  }
 
   const handleExportRapport = async () => {
     const { format, annee, mois } = rapportExport
@@ -538,34 +546,26 @@ export default function Cotisations() {
                     </TableCell>
                     {isAdmin ? (
                       <TableCell align="right">
-                        {/* Si la cotisation concerne l'admin lui-même, afficher le bouton Payer comme pour un membre */}
-                        {Number(c.membre) === Number(user?.id) ? (
-                          <>
-                            {(c.statut === 'en_attente' || c.statut === 'retard') && (
-                              <Button
-                                size="small"
-                                variant="contained"
-                                startIcon={<Payment />}
-                                onClick={() => handleOpenPayer(c)}
-                                sx={{ mr: 1, bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
-                              >
-                                Payer
-                              </Button>
-                            )}
-                            {c.statut === 'payee' && <Chip label="Payée" color="success" size="small" sx={{ mr: 1 }} />}
-                            <IconButton size="small" onClick={() => handleOpenEdit(c)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                            <IconButton size="small" onClick={() => setOpenDelete(c)} color="error"><Delete /></IconButton>
-                          </>
-                        ) : (
-                          <>
-                            <IconButton size="small" onClick={() => handleOpenEdit(c)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                            <IconButton size="small" onClick={() => setOpenDelete(c)} color="error"><Delete /></IconButton>
-                          </>
+                        {/* Pour les admins : afficher le bouton Payer seulement si la cotisation leur appartient ET qu'elle n'est pas payée */}
+                        {Number(c.membre) === Number(user?.id) && canPayCotisation(c) && (
+                          <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={<Payment />}
+                            onClick={() => handleOpenPayer(c)}
+                            sx={{ mr: 1, bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+                          >
+                            Payer
+                          </Button>
                         )}
+                        {Number(c.membre) === Number(user?.id) && String(c.statut || '').toLowerCase() === 'payee' && <Chip label="Payée" color="success" size="small" sx={{ mr: 1 }} />}
+                        <IconButton size="small" onClick={() => handleOpenEdit(c)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
+                        <IconButton size="small" onClick={() => setOpenDelete(c)} color="error"><Delete /></IconButton>
                       </TableCell>
                     ) : (
                       <TableCell align="right">
-                        {(c.statut === 'en_attente' || c.statut === 'retard') && (
+                        {/* Pour les membres : afficher le bouton Payer si la cotisation n'est pas payée */}
+                        {canPayCotisation(c) && (
                           <Button
                             size="small"
                             variant="contained"
@@ -576,7 +576,7 @@ export default function Cotisations() {
                             Payer
                           </Button>
                         )}
-                        {c.statut === 'payee' && <Chip label="Payée" color="success" size="small" />}
+                        {String(c.statut || '').toLowerCase() === 'payee' && <Chip label="Payée" color="success" size="small" />}
                       </TableCell>
                     )}
                   </TableRow>
