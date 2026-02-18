@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Grid, Card, CardContent, Typography, Button, Chip, Badge } from '@mui/material'
 import { AccountBalance, MenuBook, Event, Message, AttachMoney, TrendingUp, Notifications, Forum, Group, School, Payment } from '@mui/icons-material'
@@ -40,50 +40,38 @@ export default function DashboardMembre() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Charger les statistiques de cotisations
-    api
-      .get('/finance/cotisations/statistiques/')
-      .then(({ data }) => setCotisationStats(data))
-      .catch(() => setCotisationStats(null))
-
-    // Charger les statistiques Kamil
-    api
-      .get('/culturelle/versements-kamil/mes_stats/')
-      .then(({ data }) => setKamilStats(data))
-      .catch(() => setKamilStats(null))
-
-    // Charger les levées de fonds actives
-    api
-      .get('/finance/levees-fonds/')
-      .then(({ data }) => {
+    // Charger toutes les données en parallèle pour améliorer les performances
+    Promise.all([
+      api.get('/finance/cotisations/statistiques/').then(({ data }) => data).catch(() => null),
+      api.get('/culturelle/versements-kamil/mes_stats/').then(({ data }) => data).catch(() => null),
+      api.get('/finance/levees-fonds/').then(({ data }) => {
         const lf = data.results || data
-        const actives = Array.isArray(lf) ? lf.filter(l => (l.statut_reel || l.statut) === 'active') : []
-        setLeveesFonds(actives)
-      })
-      .catch(() => setLeveesFonds([]))
-
-    // Charger les messages non lus
-    api
-      .get('/communication/messages/conversations/')
-      .then(({ data }) => {
+        return Array.isArray(lf) ? lf.filter(l => (l.statut_reel || l.statut) === 'active') : []
+      }).catch(() => []),
+      api.get('/communication/messages/conversations/').then(({ data }) => {
         const convs = Array.isArray(data) ? data : []
-        const totalUnread = convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
-        setUnreadMessages(totalUnread)
-      })
-      .catch(() => setUnreadMessages(0))
-      .finally(() => setLoading(false))
+        return convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
+      }).catch(() => 0)
+    ]).then(([cotisations, kamil, levees, unread]) => {
+      setCotisationStats(cotisations)
+      setKamilStats(kamil)
+      setLeveesFonds(levees)
+      setUnreadMessages(unread)
+    }).finally(() => setLoading(false))
   }, [])
 
-  const totalAssignations = cotisationStats?.total_assignations ?? 0
-  const totalPayees = cotisationStats?.total_payees ?? 0
-  const pourcentagePayees = cotisationStats?.pourcentage_payees ?? 0
-  const valeurCotisations =
-    totalAssignations > 0
+  // Utiliser useMemo pour éviter les recalculs inutiles
+  const valeurCotisations = useMemo(() => {
+    const totalAssignations = cotisationStats?.total_assignations ?? 0
+    const totalPayees = cotisationStats?.total_payees ?? 0
+    const pourcentagePayees = cotisationStats?.pourcentage_payees ?? 0
+    return totalAssignations > 0
       ? `${totalPayees} / ${totalAssignations} (${Math.round(pourcentagePayees * 10) / 10} %)`
       : `${user?.cotisations_payees ?? 0}`
+  }, [cotisationStats, user])
 
-  // Formater le nom avec DALALL AK JAM Sen/Sokhna
-  const formatUserName = () => {
+  // Formater le nom avec DALALL AK JAM Sen/Sokhna - mémorisé pour éviter les recalculs
+  const formatUserName = useCallback(() => {
     if (!user) return ''
     const sexe = user.sexe || user.gender
     const prefix = sexe === 'M' ? 'DALALL AK JAM Sen' : sexe === 'F' ? 'Sokhna' : ''
@@ -93,7 +81,7 @@ export default function DashboardMembre() {
       return `${prefix} ${prenom} ${nom}`.trim()
     }
     return `${prenom} ${nom}`.trim() || user.username || 'Membre'
-  }
+  }, [user])
 
   return (
     <Box>

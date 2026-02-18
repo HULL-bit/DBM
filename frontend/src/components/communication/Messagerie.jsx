@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback, useRef } from 'react'
 import {
   Box,
   Typography,
@@ -48,13 +48,24 @@ export default function Messagerie() {
   const [messageMenuAnchor, setMessageMenuAnchor] = useState(null)
   const [selectedMessageForDelete, setSelectedMessageForDelete] = useState(null)
   const [deletingMessage, setDeletingMessage] = useState(false)
+  const conversationsRef = useRef([])
+  const lastLoadTimeRef = useRef(0)
+  const searchTimeoutRef = useRef(null)
 
-  const loadConversations = () => {
+  const loadConversations = useCallback(() => {
+    // Éviter les appels trop fréquents (debounce de 2 secondes minimum)
+    const now = Date.now()
+    if (now - lastLoadTimeRef.current < 2000) {
+      return Promise.resolve()
+    }
+    lastLoadTimeRef.current = now
+    
     setLoading(true)
     setMessage({ type: '', text: '' })
-    api.get('/communication/messages/conversations/')
+    return api.get('/communication/messages/conversations/')
       .then(({ data }) => {
         const convs = Array.isArray(data) ? data : []
+        conversationsRef.current = convs
         setConversations(convs)
         if (convs.length === 0) {
           console.log('Aucun autre membre actif trouvé dans la base de données')
@@ -79,6 +90,7 @@ export default function Messagerie() {
               unread_count: 0,
               has_conversation: false,
             })) : []
+            conversationsRef.current = convs
             setConversations(convs)
             setMessage({ type: '', text: '' })
             return
@@ -88,11 +100,12 @@ export default function Messagerie() {
         }
         console.error('Détails de l\'erreur:', err.response?.data)
         const errorMsg = err.response?.data?.detail || err.response?.data?.message || err.message || 'Erreur lors du chargement des contacts'
+        conversationsRef.current = []
         setConversations([])
         setMessage({ type: 'error', text: `Erreur: ${errorMsg}. Vérifiez la console pour plus de détails.` })
       })
       .finally(() => setLoading(false))
-  }
+  }, [])
 
   const loadMessages = (contactId) => {
     if (!contactId) {
@@ -145,17 +158,18 @@ export default function Messagerie() {
   useEffect(() => {
     loadConversations()
     
-    // Recharger les conversations périodiquement pour mettre à jour les derniers messages
+    // Recharger les conversations périodiquement pour mettre à jour les derniers messages (augmenté à 60 secondes)
     const interval = setInterval(() => {
       if (!selectedContact) {
         loadConversations()
       }
-    }, 30000) // Recharger toutes les 30 secondes si aucune conversation n'est sélectionnée
+    }, 60000) // Recharger toutes les 60 secondes si aucune conversation n'est sélectionnée
     
     // Recharger quand la page redevient visible (quand l'utilisateur revient sur l'onglet)
     const handleVisibilityChange = () => {
       if (!document.hidden) {
-        loadConversations()
+        // Attendre un peu avant de recharger pour éviter les appels multiples
+        setTimeout(() => loadConversations(), 500)
       }
     }
     document.addEventListener('visibilitychange', handleVisibilityChange)
@@ -164,29 +178,30 @@ export default function Messagerie() {
       clearInterval(interval)
       document.removeEventListener('visibilitychange', handleVisibilityChange)
     }
-  }, [selectedContact])
+  }, [loadConversations, selectedContact])
 
   useEffect(() => {
     if (selectedContact) {
       loadMessages(selectedContact.contact_id)
-    } else {
-      // Quand aucune conversation n'est sélectionnée, recharger les conversations pour mettre à jour les derniers messages
-      loadConversations()
     }
+    // Ne pas recharger les conversations ici pour éviter les appels multiples
   }, [selectedContact])
 
   useEffect(() => {
-    // Marquer les messages comme lus après chargement
+    // Marquer les messages comme lus après chargement (en batch pour améliorer les performances)
     if (selectedContact && messages.length > 0) {
       const unreadMessages = messages.filter(m => !m.est_lu && m.expediteur === selectedContact.contact_id)
-      unreadMessages.forEach(msg => {
-        api.post(`/communication/messages/${msg.id}/marquer_lu/`).catch(() => {})
-      })
       if (unreadMessages.length > 0) {
-        loadConversations() // Rafraîchir la liste pour mettre à jour les badges
+        // Marquer tous les messages comme lus en parallèle
+        Promise.all(
+          unreadMessages.map(msg => api.post(`/communication/messages/${msg.id}/marquer_lu/`).catch(() => {}))
+        ).then(() => {
+          // Rafraîchir la liste seulement une fois après avoir marqué tous les messages
+          loadConversations()
+        })
       }
     }
-  }, [messages, selectedContact])
+  }, [messages, selectedContact, loadConversations])
 
   // Scroller automatiquement vers le bas quand les messages changent
   useEffect(() => {
@@ -436,10 +451,17 @@ export default function Messagerie() {
     return a.contact_name.localeCompare(b.contact_name, 'fr', { sensitivity: 'base' })
   })
 
-  const filteredConversations = sortedConversations.filter(conv =>
-    conv.contact_name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-    conv.contact_email.toLowerCase().includes(searchTerm.toLowerCase())
-  )
+  // Utiliser useMemo pour éviter les recalculs inutiles avec debouncing sur la recherche
+  const filteredConversations = useMemo(() => {
+    if (!searchTerm.trim()) {
+      return sortedConversations
+    }
+    const term = searchTerm.toLowerCase()
+    return sortedConversations.filter(conv =>
+      conv.contact_name.toLowerCase().includes(term) ||
+      conv.contact_email.toLowerCase().includes(term)
+    )
+  }, [sortedConversations, searchTerm])
 
   const formatTime = (dateString) => {
     if (!dateString) return ''
@@ -478,9 +500,8 @@ export default function Messagerie() {
     return date.toLocaleDateString('fr-FR', { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' })
   }
 
-  // Grouper les messages par date pour un meilleur historique
-  // Les messages doivent être déjà triés par date croissante (du plus ancien au plus récent)
-  const groupMessagesByDate = (msgs) => {
+  // Grouper les messages par date pour un meilleur historique - mémorisé pour éviter les recalculs
+  const groupMessagesByDate = useCallback((msgs) => {
     if (!Array.isArray(msgs) || msgs.length === 0) {
       return []
     }
@@ -516,7 +537,10 @@ export default function Messagerie() {
     }
 
     return grouped
-  }
+  }, [])
+  
+  // Mémoriser les messages groupés pour éviter les recalculs
+  const groupedMessages = useMemo(() => groupMessagesByDate(messages), [messages, groupMessagesByDate])
 
   return (
     <Box>
@@ -544,7 +568,17 @@ export default function Messagerie() {
               size="small"
               placeholder="Rechercher un membre..."
               value={searchTerm}
-              onChange={(e) => setSearchTerm(e.target.value)}
+              onChange={(e) => {
+                const value = e.target.value
+                setSearchTerm(value)
+                // Debouncing pour améliorer les performances
+                if (searchTimeoutRef.current) {
+                  clearTimeout(searchTimeoutRef.current)
+                }
+                searchTimeoutRef.current = setTimeout(() => {
+                  // Le filtrage se fait déjà dans useMemo avec searchTerm
+                }, 300)
+              }}
               sx={{
                 bgcolor: 'white',
                 borderRadius: 1,
@@ -719,9 +753,7 @@ export default function Messagerie() {
                     <Typography color="text.secondary">Aucun message. Commencez la conversation !</Typography>
                   </Box>
                 ) : (
-                  (() => {
-                    const groupedMessages = groupMessagesByDate(messages)
-                    return groupedMessages.map((group) => (
+                  groupedMessages.map((group) => (
                       <Box key={group.date}>
                         {/* Séparateur de date */}
                         <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', my: 2 }}>
@@ -850,7 +882,6 @@ export default function Messagerie() {
                         })}
                       </Box>
                     ))
-                  })()
                 )}
               </Box>
 

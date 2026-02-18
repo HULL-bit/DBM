@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Grid, Card, CardContent, Typography, Button, Chip, Badge } from '@mui/material'
 import { CheckCircle, MenuBook, Mosque, Add, School, TrendingUp, People, Message } from '@mui/icons-material'
@@ -40,37 +40,27 @@ export default function DashboardJewrin() {
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
-    // Charger les validations en attente
-    api.get('/culturelle/progressions/')
-      .then(({ data }) => {
+    // Charger toutes les données en parallèle pour améliorer les performances
+    Promise.all([
+      api.get('/culturelle/progressions/').then(({ data }) => {
         const progressions = data.results || data || []
         const enAttente = Array.isArray(progressions) ? progressions.filter(p => p.statut === 'en_attente').length : 0
-        setValidationsEnAttente(enAttente)
-        setProgressionsKamil(Array.isArray(progressions) ? progressions.length : 0)
-      })
-      .catch(() => {
-        setValidationsEnAttente(0)
-        setProgressionsKamil(0)
-      })
-
-    // Charger les versements Kamil en attente
-    api.get('/culturelle/versements-kamil/')
-      .then(({ data }) => {
+        return { enAttente, total: Array.isArray(progressions) ? progressions.length : 0 }
+      }).catch(() => ({ enAttente: 0, total: 0 })),
+      api.get('/culturelle/versements-kamil/').then(({ data }) => {
         const versements = data.results || data || []
-        const enAttente = Array.isArray(versements) ? versements.filter(v => v.statut === 'en_attente').length : 0
-        setVersementsEnAttente(enAttente)
-      })
-      .catch(() => setVersementsEnAttente(0))
-
-    // Charger les messages non lus
-    api.get('/communication/messages/conversations/')
-      .then(({ data }) => {
+        return Array.isArray(versements) ? versements.filter(v => v.statut === 'en_attente').length : 0
+      }).catch(() => 0),
+      api.get('/communication/messages/conversations/').then(({ data }) => {
         const convs = Array.isArray(data) ? data : []
-        const totalUnread = convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
-        setUnreadMessages(totalUnread)
-      })
-      .catch(() => setUnreadMessages(0))
-      .finally(() => setLoading(false))
+        return convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
+      }).catch(() => 0)
+    ]).then(([progressions, versements, unread]) => {
+      setValidationsEnAttente(progressions.enAttente)
+      setProgressionsKamil(progressions.total)
+      setVersementsEnAttente(versements)
+      setUnreadMessages(unread)
+    }).finally(() => setLoading(false))
   }, [])
 
   // Formater le nom avec DALALL AK JAM Sen/Sokhna

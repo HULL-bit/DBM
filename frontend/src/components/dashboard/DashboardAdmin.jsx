@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Box, Grid, Card, CardContent, Typography, Button, Chip, Badge } from '@mui/material'
 import { People, AccountBalance, Event, MenuBook, Add, AttachMoney, Message, School, TrendingUp, Forum, Payment, Notifications } from '@mui/icons-material'
@@ -43,38 +43,28 @@ export default function DashboardAdmin() {
   const [kamilStats, setKamilStats] = useState(null)
 
   useEffect(() => {
-    // Charger les statistiques admin
-    api.get('/auth/admin/statistiques/')
-      .then(({ data }) => setStats(data))
-      .catch(() => setStats({ membres_actifs: 0, total_membres: 0, cotisations_payees_ce_mois: 0, evenements: 0 }))
-      .finally(() => setLoading(false))
-
-    // Charger les levées de fonds actives
-    api.get('/finance/levees-fonds/')
-      .then(({ data }) => {
+    // Charger toutes les données en parallèle pour améliorer les performances
+    Promise.all([
+      api.get('/auth/admin/statistiques/').then(({ data }) => data).catch(() => ({ membres_actifs: 0, total_membres: 0, cotisations_payees_ce_mois: 0, evenements: 0 })),
+      api.get('/finance/levees-fonds/').then(({ data }) => {
         const lf = data.results || data
-        const actives = Array.isArray(lf) ? lf.filter(l => (l.statut_reel || l.statut) === 'active') : []
-        setLeveesFonds(actives)
-      })
-      .catch(() => setLeveesFonds([]))
-
-    // Charger les messages non lus
-    api.get('/communication/messages/conversations/')
-      .then(({ data }) => {
+        return Array.isArray(lf) ? lf.filter(l => (l.statut_reel || l.statut) === 'active') : []
+      }).catch(() => []),
+      api.get('/communication/messages/conversations/').then(({ data }) => {
         const convs = Array.isArray(data) ? data : []
-        const totalUnread = convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
-        setUnreadMessages(totalUnread)
-      })
-      .catch(() => setUnreadMessages(0))
-
-    // Charger les statistiques Kamil globales
-    api.get('/culturelle/versements-kamil/')
-      .then(({ data }) => {
+        return convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
+      }).catch(() => 0),
+      api.get('/culturelle/versements-kamil/').then(({ data }) => {
         const versements = data.results || data || []
         const enAttente = Array.isArray(versements) ? versements.filter(v => v.statut === 'en_attente').length : 0
-        setKamilStats({ en_attente: enAttente, total: Array.isArray(versements) ? versements.length : 0 })
-      })
-      .catch(() => setKamilStats(null))
+        return { en_attente: enAttente, total: Array.isArray(versements) ? versements.length : 0 }
+      }).catch(() => null)
+    ]).then(([statsData, levees, unread, kamil]) => {
+      setStats(statsData)
+      setLeveesFonds(levees)
+      setUnreadMessages(unread)
+      setKamilStats(kamil)
+    }).finally(() => setLoading(false))
   }, [])
 
   // Formater le nom avec DALALL AK JAM Sen/Sokhna
