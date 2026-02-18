@@ -24,8 +24,10 @@ import {
   Menu,
   MenuItem,
   Tooltip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
-import { Send, Search, AttachFile, Image as ImageIcon, Delete, MoreVert } from '@mui/icons-material'
+import { Send, Search, AttachFile, Image as ImageIcon, Delete, MoreVert, ArrowBack } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { getMediaUrl } from '../../services/media'
@@ -34,6 +36,8 @@ const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
 export default function Messagerie() {
   const { user } = useAuth()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [conversations, setConversations] = useState([])
   const [selectedContact, setSelectedContact] = useState(null)
   const [messages, setMessages] = useState([])
@@ -544,10 +548,14 @@ export default function Messagerie() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: { xs: 2, md: 3 } }}>
         <Box>
-          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }} gutterBottom>Messagerie</Typography>
-          <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>Communiquez avec tous les membres de la daara</Typography>
+          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600, fontSize: { xs: '1.5rem', md: '2rem' } }} gutterBottom>
+            Messagerie
+          </Typography>
+          <Typography variant="body2" sx={{ color: COLORS.vertFonce, fontSize: { xs: '0.75rem', md: '0.875rem' }, display: { xs: 'none', sm: 'block' } }}>
+            Communiquez avec tous les membres de la daara
+          </Typography>
         </Box>
       </Box>
 
@@ -557,12 +565,23 @@ export default function Messagerie() {
         </Alert>
       )}
 
-      <Paper sx={{ borderRadius: 2, overflow: 'hidden', borderLeft: `4px solid ${COLORS.or}`, height: 'calc(100vh - 250px)', display: 'flex' }}>
+      <Paper sx={{ borderRadius: 2, overflow: 'hidden', borderLeft: `4px solid ${COLORS.or}`, height: { xs: 'calc(100vh - 200px)', md: 'calc(100vh - 250px)' }, display: 'flex' }}>
         {/* Liste des contacts à gauche */}
-        <Box sx={{ width: { xs: '100%', md: '380px' }, borderRight: { md: 1 }, borderColor: 'divider', display: 'flex', flexDirection: 'column', bgcolor: '#f0f2f5' }}>
+        <Box sx={{ 
+          width: { xs: selectedContact ? '0%' : '100%', md: '380px' }, 
+          borderRight: { md: 1 }, 
+          borderColor: 'divider', 
+          display: { xs: selectedContact ? 'none' : 'flex', md: 'flex' },
+          flexDirection: 'column', 
+          bgcolor: '#f0f2f5',
+          transition: 'width 0.3s ease',
+          overflow: 'hidden',
+        }}>
           {/* Barre de recherche */}
-          <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', bgcolor: COLORS.vert, color: 'white' }}>
-            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Tous les membres de la daara</Typography>
+          <Box sx={{ p: { xs: 1.5, md: 2 }, borderBottom: 1, borderColor: 'divider', bgcolor: COLORS.vert, color: 'white' }}>
+            <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600, fontSize: { xs: '0.875rem', md: '1rem' } }}>
+              Tous les membres de la daara
+            </Typography>
             <TextField
               fullWidth
               size="small"
@@ -584,12 +603,13 @@ export default function Messagerie() {
                 borderRadius: 1,
                 '& .MuiOutlinedInput-root': {
                   '& fieldset': { border: 'none' },
+                  fontSize: { xs: '0.875rem', md: '1rem' },
                 },
               }}
               InputProps={{
                 startAdornment: (
                   <InputAdornment position="start">
-                    <Search fontSize="small" />
+                    <Search sx={{ fontSize: { xs: 18, md: 20 } }} />
                   </InputAdornment>
                 ),
               }}
@@ -629,9 +649,9 @@ export default function Messagerie() {
                         sx={{ 
                           bgcolor: COLORS.or, 
                           color: COLORS.vert,
-                          width: 56,
-                          height: 56,
-                          fontSize: '1.5rem',
+                          width: { xs: 48, md: 56 },
+                          height: { xs: 48, md: 56 },
+                          fontSize: { xs: '1.25rem', md: '1.5rem' },
                           fontWeight: 600,
                         }}
                       >
@@ -713,28 +733,47 @@ export default function Messagerie() {
         </Box>
 
         {/* Zone de conversation à droite */}
-        <Box sx={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <Box sx={{ 
+          flex: 1, 
+          display: { xs: selectedContact ? 'flex' : 'none', md: 'flex' },
+          flexDirection: 'column', 
+          minWidth: 0,
+          width: { xs: selectedContact ? '100%' : '0%', md: 'auto' },
+          transition: 'width 0.3s ease',
+        }}>
           {selectedContact ? (
             <>
               {/* En-tête de la conversation */}
-              <Box sx={{ p: 2, borderBottom: 1, borderColor: 'divider', bgcolor: COLORS.vert, color: 'white' }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+              <Box sx={{ p: { xs: 1.5, md: 2 }, borderBottom: 1, borderColor: 'divider', bgcolor: COLORS.vert, color: 'white' }}>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1, md: 2 } }}>
+                  {isMobile && (
+                    <IconButton
+                      onClick={() => setSelectedContact(null)}
+                      sx={{ color: 'white', mr: 0.5 }}
+                    >
+                      <ArrowBack />
+                    </IconButton>
+                  )}
                   <Avatar
                     src={selectedContact.contact_photo ? getMediaUrl(selectedContact.contact_photo, selectedContact.contact_photo_updated_at ? `v=${selectedContact.contact_photo_updated_at}` : '') : null}
                     sx={{ 
                       bgcolor: COLORS.or, 
                       color: COLORS.vert,
-                      width: 48,
-                      height: 48,
-                      fontSize: '1.25rem',
+                      width: { xs: 40, md: 48 },
+                      height: { xs: 40, md: 48 },
+                      fontSize: { xs: '1rem', md: '1.25rem' },
                       fontWeight: 600,
                     }}
                   >
                     {selectedContact.contact_name[0]?.toUpperCase() || '?'}
                   </Avatar>
-                  <Box>
-                    <Typography fontWeight={600}>{selectedContact.contact_name}</Typography>
-                    <Typography variant="caption" sx={{ opacity: 0.8 }}>{selectedContact.contact_email}</Typography>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography fontWeight={600} sx={{ fontSize: { xs: '0.9rem', md: '1rem' } }} noWrap>
+                      {selectedContact.contact_name}
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8, fontSize: { xs: '0.7rem', md: '0.75rem' } }} noWrap>
+                      {selectedContact.contact_email}
+                    </Typography>
                   </Box>
                 </Box>
               </Box>
@@ -742,7 +781,13 @@ export default function Messagerie() {
               {/* Messages */}
               <Box 
                 data-messages-container
-                sx={{ flex: 1, overflow: 'auto', p: 2, bgcolor: '#e5ddd5', backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'grid\' width=\'100\' height=\'100\' patternUnits=\'userSpaceOnUse\'%3E%3Cpath d=\'M 100 0 L 0 0 0 100\' fill=\'none\' stroke=\'%23d4c5b9\' stroke-width=\'1\'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width=\'100\' height=\'100\' fill=\'url(%23grid)\'/%3E%3C/svg%3E")' }}
+                sx={{ 
+                  flex: 1, 
+                  overflow: 'auto', 
+                  p: { xs: 1, md: 2 }, 
+                  bgcolor: '#e5ddd5', 
+                  backgroundImage: 'url("data:image/svg+xml,%3Csvg width=\'100\' height=\'100\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cdefs%3E%3Cpattern id=\'grid\' width=\'100\' height=\'100\' patternUnits=\'userSpaceOnUse\'%3E%3Cpath d=\'M 100 0 L 0 0 0 100\' fill=\'none\' stroke=\'%23d4c5b9\' stroke-width=\'1\'/%3E%3C/pattern%3E%3C/defs%3E%3Crect width=\'100\' height=\'100\' fill=\'url(%23grid)\'/%3E%3C/svg%3E")' 
+                }}
               >
                 {loadingMessages ? (
                   <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
@@ -756,14 +801,14 @@ export default function Messagerie() {
                   groupedMessages.map((group) => (
                       <Box key={group.date}>
                         {/* Séparateur de date */}
-                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', my: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', my: { xs: 1, md: 2 } }}>
                           <Chip
                             label={group.date}
                             size="small"
                             sx={{
                               bgcolor: 'rgba(255,255,255,0.9)',
                               fontWeight: 500,
-                              fontSize: '0.75rem',
+                              fontSize: { xs: '0.65rem', md: '0.75rem' },
                             }}
                           />
                         </Box>
@@ -785,8 +830,8 @@ export default function Messagerie() {
                             >
                               <Box
                                 sx={{
-                                  maxWidth: '70%',
-                                  p: 1.5,
+                                  maxWidth: { xs: '85%', md: '70%' },
+                                  p: { xs: 1, md: 1.5 },
                                   borderRadius: 2,
                                   bgcolor: isSent ? COLORS.vert : 'white',
                                   color: isSent ? 'white' : 'text.primary',
@@ -814,11 +859,16 @@ export default function Messagerie() {
                                   </IconButton>
                                 )}
                                 {!isSent && (
-                                  <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 600 }}>
+                                  <Typography variant="caption" sx={{ display: 'block', mb: 0.5, fontWeight: 600, fontSize: { xs: '0.7rem', md: '0.75rem' } }}>
                                     {msg.expediteur_nom}
                                   </Typography>
                                 )}
-                                <Typography variant="body1" sx={{ mb: msg.fichier_joint ? 1 : 0, pr: isSent ? 3 : 0, wordBreak: 'break-word' }}>
+                                <Typography variant="body1" sx={{ 
+                                  mb: msg.fichier_joint ? 1 : 0, 
+                                  pr: isSent ? { xs: 2, md: 3 } : 0, 
+                                  wordBreak: 'break-word',
+                                  fontSize: { xs: '0.875rem', md: '1rem' },
+                                }}>
                                   {msg.contenu}
                                 </Typography>
                                 {msg.fichier_joint && (
@@ -867,11 +917,11 @@ export default function Messagerie() {
                                   </Box>
                                 )}
                                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 0.5 }}>
-                                  <Typography variant="caption" sx={{ opacity: 0.7 }}>
+                                  <Typography variant="caption" sx={{ opacity: 0.7, fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
                                     {formatMessageTime(msg.date_envoi)}
                                   </Typography>
                                   {msg.est_lu && isSent && (
-                                    <Typography variant="caption" sx={{ opacity: 0.7, ml: 1 }}>
+                                    <Typography variant="caption" sx={{ opacity: 0.7, ml: 1, fontSize: { xs: '0.65rem', md: '0.75rem' } }}>
                                       ✓✓
                                     </Typography>
                                   )}
@@ -886,10 +936,10 @@ export default function Messagerie() {
               </Box>
 
               {/* Zone de saisie */}
-              <Box sx={{ p: 2, borderTop: 1, borderColor: 'divider', bgcolor: 'white' }}>
+              <Box sx={{ p: { xs: 1, md: 2 }, borderTop: 1, borderColor: 'divider', bgcolor: 'white' }}>
                 {filePreview && (
                   <Box sx={{ mb: 1, position: 'relative', display: 'inline-block' }}>
-                    <Box component="img" src={filePreview} alt="Aperçu" sx={{ maxWidth: 150, maxHeight: 150, borderRadius: 1 }} />
+                    <Box component="img" src={filePreview} alt="Aperçu" sx={{ maxWidth: { xs: 100, md: 150 }, maxHeight: { xs: 100, md: 150 }, borderRadius: 1 }} />
                     <IconButton
                       size="small"
                       onClick={() => {
@@ -902,9 +952,9 @@ export default function Messagerie() {
                     </IconButton>
                   </Box>
                 )}
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-end' }}>
-                  <IconButton component="label" sx={{ color: COLORS.vert }}>
-                    <ImageIcon />
+                <Box sx={{ display: 'flex', gap: { xs: 0.5, md: 1 }, alignItems: 'flex-end' }}>
+                  <IconButton component="label" sx={{ color: COLORS.vert, p: { xs: 0.5, md: 1 } }}>
+                    <ImageIcon sx={{ fontSize: { xs: 20, md: 24 } }} />
                     <input type="file" accept="image/*" hidden onChange={handleFileChange} />
                   </IconButton>
                   <TextField
@@ -922,13 +972,24 @@ export default function Messagerie() {
                     }}
                     variant="outlined"
                     size="small"
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        fontSize: { xs: '0.875rem', md: '1rem' },
+                      },
+                    }}
                   />
                   <IconButton
                     onClick={handleSend}
                     disabled={saving || (!newMessage.trim() && !selectedFile)}
-                    sx={{ bgcolor: COLORS.vert, color: 'white', '&:hover': { bgcolor: COLORS.vertFonce }, '&:disabled': { bgcolor: 'grey.300' } }}
+                    sx={{ 
+                      bgcolor: COLORS.vert, 
+                      color: 'white', 
+                      p: { xs: 0.75, md: 1 },
+                      '&:hover': { bgcolor: COLORS.vertFonce }, 
+                      '&:disabled': { bgcolor: 'grey.300' } 
+                    }}
                   >
-                    {saving ? <CircularProgress size={24} /> : <Send />}
+                    {saving ? <CircularProgress size={20} /> : <Send sx={{ fontSize: { xs: 20, md: 24 } }} />}
                   </IconButton>
                 </Box>
               </Box>
