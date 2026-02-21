@@ -24,6 +24,7 @@ import {
   Notifications as NotifIcon,
   VolunteerActivism as SocialIcon,
   LibraryBooks as ConservatoireIcon,
+  MenuBook as BibliothequeIcon,
   School as ScientifiqueIcon,
   Groups as OrgIcon,
   People as PeopleIcon,
@@ -83,6 +84,7 @@ const sectionsAdmin = [
   },
   { title: 'Sociale', items: [{ label: 'Sociale', path: '/sociale/projets', icon: <SocialIcon /> }] },
   { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon /> }] },
+  { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon /> }] },
   { title: 'Scientifique', items: [{ label: 'Cours & Formation', path: '/scientifique/cours', icon: <ScientifiqueIcon /> }] },
   { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation/reunions', icon: <OrgIcon /> }] },
   { title: 'Comptes', items: [{ label: 'Mon profil', path: '/comptes/profil', icon: <PersonIcon /> }] },
@@ -121,6 +123,7 @@ const sectionsMembre = [
   },
   { title: 'Sociale', items: [{ label: 'Sociale', path: '/sociale/projets', icon: <SocialIcon /> }] },
   { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon /> }] },
+  { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon /> }] },
   { title: 'Scientifique', items: [{ label: 'Cours', path: '/scientifique/cours', icon: <ScientifiqueIcon /> }] },
   { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation/reunions', icon: <OrgIcon /> }] },
   { title: 'Comptes', items: [{ label: 'Mon profil', path: '/comptes/profil', icon: <PersonIcon /> }] },
@@ -151,6 +154,7 @@ const sectionsJewrin = [
     ],
   },
   { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon /> }] },
+  { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon /> }] },
   { title: 'Comptes', items: [{ label: 'Mon profil', path: '/comptes/profil', icon: <PersonIcon /> }] },
 ]
 

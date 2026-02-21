@@ -136,10 +136,13 @@ class ArchiveHistorique(models.Model):
     ]
 
     titre = models.CharField(max_length=200)
-    type_archive = models.CharField(max_length=50, choices=TYPE_CHOICES)
-    date_evenement = models.DateField(help_text="Date de l'événement/document")
-    annee = models.IntegerField()
-    description = models.TextField()
+    type_archive = models.CharField(max_length=50, choices=TYPE_CHOICES, null=True, blank=True)
+    evenement = models.CharField(max_length=200, blank=True, help_text="Nom de l'événement (texte libre)")
+    date_evenement = models.DateField(help_text="Date de l'événement/document", null=True, blank=True)
+    annee = models.IntegerField(null=True, blank=True)
+    texte = models.TextField(blank=True)
+    lien_telegramme_du_son = models.CharField(max_length=500, blank=True, help_text='Lien Telegram du son')
+    description = models.TextField(blank=True)
     contexte_historique = models.TextField(blank=True)
     fichier = models.FileField(upload_to='conservatoire/archives/', null=True, blank=True)
     image = models.ImageField(upload_to='conservatoire/archives/images/', null=True, blank=True)

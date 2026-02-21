@@ -41,11 +41,34 @@ class MediaVideoSerializer(serializers.ModelSerializer):
 
 class ArchiveHistoriqueSerializer(serializers.ModelSerializer):
     type_display = serializers.CharField(source='get_type_archive_display', read_only=True)
+    type_archive = serializers.ChoiceField(choices=ArchiveHistorique.TYPE_CHOICES, required=False, allow_null=True, default=None)
+    evenement = serializers.CharField(required=False, allow_blank=True, default='', max_length=200)
+    description = serializers.CharField(required=False, allow_blank=True, default='')
+    lien_telegramme_du_son = serializers.CharField(required=False, allow_blank=True, default='', max_length=500)
 
     class Meta:
         model = ArchiveHistorique
         fields = '__all__'
         read_only_fields = ['date_archivage', 'archiviste']
+        extra_kwargs = {
+            'type_archive': {'required': False},
+            'description': {'required': False, 'allow_blank': True},
+        }
+
+    def validate(self, data):
+        lien = data.get('lien_telegramme_du_son')
+        if not self.instance:
+            if not (lien and str(lien).strip()):
+                raise serializers.ValidationError({'lien_telegramme_du_son': 'Le lien Telegram du son est requis.'})
+        return data
+
+    def update(self, instance, validated_data):
+        # S'assurer que evenement et lien_telegramme_du_son sont bien pris en compte à chaque mise à jour
+        if 'evenement' in validated_data:
+            instance.evenement = validated_data['evenement']
+        if 'lien_telegramme_du_son' in validated_data:
+            instance.lien_telegramme_du_son = validated_data['lien_telegramme_du_son']
+        return super().update(instance, validated_data)
 
 
 class PhotoSerializer(serializers.ModelSerializer):

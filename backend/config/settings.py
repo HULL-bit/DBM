@@ -30,6 +30,7 @@ INSTALLED_APPS = [
     'apps.conservatoire',
     'apps.scientifique',
     'apps.organisation',
+    'apps.bibliotheque',
 ]
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
@@ -120,7 +121,17 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
+# Créer le répertoire des médias pour que les PDF bibliothèque soient bien sauvegardés et toujours disponibles
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+(MEDIA_ROOT / 'bibliotheque' / 'livres').mkdir(parents=True, exist_ok=True)
+(MEDIA_ROOT / 'bibliotheque' / 'livres' / 'alquran').mkdir(parents=True, exist_ok=True)
+(MEDIA_ROOT / 'bibliotheque' / 'livres' / 'qassida').mkdir(parents=True, exist_ok=True)
+
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# Limite d'upload pour les PDF de la bibliothèque (10 Mo)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = DEBUG

@@ -19,6 +19,7 @@ import Notifications from './components/communication/Notifications'
 import ProjetsSociaux from './components/sociale/ProjetsSociaux'
 import Reunions from './components/organisation/Reunions'
 import Conservatoire from './components/conservatoire/Conservatoire'
+import Bibliotheque from './components/bibliotheque/Bibliotheque'
 import Cours from './components/scientifique/Cours'
 import MonProfil from './components/comptes/MonProfil'
 import GestionMembres from './components/comptes/GestionMembres'
@@ -79,6 +80,7 @@ function AppRoutes() {
         <Route path="sociale/projets" element={<ProjetsSociaux />} />
         <Route path="organisation/reunions" element={<Reunions />} />
         <Route path="conservatoire" element={<Conservatoire />} />
+        <Route path="bibliotheque" element={<Bibliotheque />} />
         <Route path="scientifique/cours" element={<Cours />} />
         <Route path="comptes/profil" element={<MonProfil />} />
         <Route path="admin/membres" element={<ProtectedRoute roles={['admin']}><GestionMembres /></ProtectedRoute>} />

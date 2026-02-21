@@ -29,13 +29,22 @@ import {
   ListItemIcon,
   ListItemText,
   InputAdornment,
+  Link,
+  Fade,
 } from '@mui/material'
-import { Add, Edit, Delete, LibraryBooks, Archive, Groups, Event, PhotoLibrary, Collections, EventAvailable, Person, Search, Download, Description } from '@mui/icons-material'
+import { Add, Edit, Delete, LibraryBooks, Folder, Groups, Event, PhotoLibrary, Collections, EventAvailable, Person, Search, Download, Description, PlayArrow, OpenInNew } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
 import { useAuth } from '../../context/AuthContext'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
+const getLienSon = (a) => (a?.lien_telegramme_du_son || a?.lienTelegrammeDuSon || '').trim()
+const toAbsoluteUrl = (url) => {
+  const u = (url || '').trim()
+  if (!u) return ''
+  if (/^https?:\/\//i.test(u)) return u
+  return `https://${u}`
+}
 const TYPES_DOC = [
   { value: 'livre', label: 'Livre' },
   { value: 'article', label: 'Article' },
@@ -43,14 +52,6 @@ const TYPES_DOC = [
   { value: 'memoire', label: 'Mémoire' },
   { value: 'rapport', label: 'Rapport' },
   { value: 'guide', label: 'Guide' },
-  { value: 'autre', label: 'Autre' },
-]
-const TYPES_ARCHIVE = [
-  { value: 'evenement', label: 'Événement Historique' },
-  { value: 'personnalite', label: 'Personnalité' },
-  { value: 'document', label: 'Document Ancien' },
-  { value: 'photo', label: 'Photo Ancienne' },
-  { value: 'temoignage', label: 'Témoignage' },
   { value: 'autre', label: 'Autre' },
 ]
 
@@ -75,7 +76,7 @@ export default function Conservatoire() {
   const [editingId, setEditingId] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [formDoc, setFormDoc] = useState({ titre: '', auteur: '', description: '' })
-  const [formArchive, setFormArchive] = useState({ titre: '', type_archive: 'evenement', annee: new Date().getFullYear(), date_evenement: '', description: '' })
+  const [formArchive, setFormArchive] = useState({ titre: '', evenement: '', date_evenement: '', lien_telegramme_du_son: '', description: '' })
   const [formKourel, setFormKourel] = useState({ nom: '', description: '', membres: [], maitre_de_coeur: '' })
   const [formSeance, setFormSeance] = useState({
     kourel: '',
@@ -180,22 +181,40 @@ export default function Conservatoire() {
   }
 
   const handleSaveArchive = async () => {
-    if (!formArchive.titre || !formArchive.annee || !formArchive.description) {
-      setMessage({ type: 'error', text: 'Titre, année et description requis.' })
+    if (!formArchive.titre || !formArchive.lien_telegramme_du_son?.trim()) {
+      setMessage({ type: 'error', text: 'Titre et lien Telegram du son sont requis.' })
       return
     }
     setSaving(true)
     setMessage({ type: '', text: '' })
     try {
-      const payload = { ...formArchive, date_evenement: formArchive.date_evenement || `${formArchive.annee}-01-01` }
-      if (editingId) {
-        await api.patch(`/conservatoire/archives/${editingId}/`, payload)
-        setMessage({ type: 'success', text: 'Archive modifiée.' })
-      } else {
-        await api.post('/conservatoire/archives/', payload)
-        setMessage({ type: 'success', text: 'Archive ajoutée.' })
+      const dateVal = formArchive.date_evenement || null
+      const annee = dateVal ? new Date(dateVal).getFullYear() : null
+      const payload = {
+        titre: String(formArchive.titre || '').trim(),
+        evenement: String(formArchive.evenement ?? '').trim(),
+        type_archive: 'autre',
+        date_evenement: dateVal,
+        annee,
+        lien_telegramme_du_son: String(formArchive.lien_telegramme_du_son ?? '').trim(),
+        description: String(formArchive.description ?? '').trim(),
       }
-      loadArchives()
+      let saved
+      if (editingId) {
+        const { data } = await api.patch(`/conservatoire/archives/${editingId}/`, payload)
+        saved = { ...data, evenement: payload.evenement, lien_telegramme_du_son: payload.lien_telegramme_du_son }
+        setMessage({ type: 'success', text: 'Entrée du répertoire modifiée.' })
+      } else {
+        const { data } = await api.post('/conservatoire/archives/', payload)
+        saved = { ...data, evenement: payload.evenement, lien_telegramme_du_son: payload.lien_telegramme_du_son }
+        setMessage({ type: 'success', text: 'Entrée ajoutée au répertoire.' })
+      }
+      setArchives((prev) => {
+        if (editingId) {
+          return prev.map((a) => (a.id === saved.id ? { ...a, ...saved } : a))
+        }
+        return [{ ...saved }, ...prev]
+      })
       setOpenArchive(false)
       setEditingId(null)
     } catch (err) {
@@ -226,7 +245,7 @@ export default function Conservatoire() {
     setSaving(true)
     try {
       await api.delete(`/conservatoire/archives/${deleteTarget.id}/`)
-      setMessage({ type: 'success', text: 'Archive supprimée.' })
+      setMessage({ type: 'success', text: 'Entrée du répertoire supprimée.' })
       loadArchives()
       setDeleteTarget(null)
     } catch (err) {
@@ -606,7 +625,7 @@ export default function Conservatoire() {
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Box>
           <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }} gutterBottom>Conservatoire</Typography>
-          <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>Bibliothèque numérique, archives</Typography>
+          <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>Bibliothèque numérique, répertoire</Typography>
         </Box>
       </Box>
 
@@ -617,7 +636,7 @@ export default function Conservatoire() {
       <Paper sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2, overflow: 'hidden' }}>
         <Tabs value={tab} onChange={(_, v) => setTab(v)} variant="scrollable" scrollButtons="auto" sx={{ borderBottom: 1, borderColor: 'divider', px: 2 }}>
           <Tab icon={<LibraryBooks />} iconPosition="start" label={`Documents (${documents.length})`} />
-          <Tab icon={<Archive />} iconPosition="start" label={`Archives (${archives.length})`} />
+          <Tab icon={<Folder />} iconPosition="start" label={`Répertoire (${archives.length})`} />
           <Tab icon={<Groups />} iconPosition="start" label={`Kourels (${kourels.length})`} />
           <Tab icon={<Event />} iconPosition="start" label={`Séances (${seances.length})`} />
           <Tab icon={<EventAvailable />} iconPosition="start" label="Présences" />
@@ -680,36 +699,93 @@ export default function Conservatoire() {
               </Grid>
             )}
           </Box>
-        ) : tab === 1 ? ( /* Archives */
-          <Box sx={{ p: 2 }}>
-            {isAdmin && (
-              <Button variant="contained" startIcon={<Add />} onClick={() => { setEditingId(null); setFormArchive({ titre: '', type_archive: 'evenement', annee: new Date().getFullYear(), date_evenement: '', description: '' }); setOpenArchive(true) }} sx={{ mb: 2, bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
-                Ajouter une archive
-              </Button>
+        ) : tab === 1 ? ( /* Répertoire */
+          <Box sx={{ p: 3 }}>
+            {canManage && (
+              <Fade in>
+                <Button variant="contained" startIcon={<Add />} onClick={() => { setEditingId(null); setFormArchive({ titre: '', evenement: '', date_evenement: '', lien_telegramme_du_son: '', description: '' }); setOpenArchive(true) }} sx={{ mb: 3, bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce }, boxShadow: 2, borderRadius: 2 }}>
+                  Ajouter au répertoire
+                </Button>
+              </Fade>
             )}
             {archives.length === 0 ? (
-              <Typography color="text.secondary">Aucune archive.</Typography>
+              <Fade in>
+                <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
+                  <Folder sx={{ fontSize: 64, color: 'action.disabled', mb: 2 }} />
+                  <Typography color="text.secondary" variant="h6">Aucune entrée dans le répertoire</Typography>
+                  <Typography color="text.secondary" variant="body2">Ajoutez des enregistrements pour les retrouver ici.</Typography>
+                </Box>
+              </Fade>
             ) : (
-              <TableContainer>
-                <Table size="small">
-                  <TableHead><TableRow sx={{ bgcolor: `${COLORS.vert}12` }}><TableCell>Titre</TableCell><TableCell>Type</TableCell><TableCell>Année</TableCell>{isAdmin && <TableCell align="right">Actions</TableCell>}</TableRow></TableHead>
-                  <TableBody>
-                    {archives.map((a) => (
-                      <TableRow key={a.id}>
-                        <TableCell>{a.titre}</TableCell>
-                        <TableCell>{a.type_display || a.type_archive}</TableCell>
-                        <TableCell>{a.annee}</TableCell>
-                        {isAdmin && (
-                          <TableCell align="right">
-                            <IconButton size="small" onClick={() => { setEditingId(a.id); setFormArchive({ titre: a.titre, type_archive: a.type_archive, annee: a.annee, date_evenement: a.date_evenement?.slice(0, 10), description: a.description || '' }); setOpenArchive(true) }} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                            <IconButton size="small" onClick={() => setDeleteTarget({ id: a.id, type: 'archive' })} color="error"><Delete /></IconButton>
-                          </TableCell>
-                        )}
-                      </TableRow>
-                    ))}
-                  </TableBody>
-                </Table>
-              </TableContainer>
+              <Grid container spacing={2}>
+                {archives.map((a, index) => (
+                  <Grid item xs={12} sm={6} md={4} key={a.id}>
+                    <Fade in timeout={{ enter: 400 + index * 80 }}>
+                      <Card
+                        sx={{
+                          height: '100%',
+                          display: 'flex',
+                          flexDirection: 'column',
+                          borderRadius: 2,
+                          overflow: 'hidden',
+                          transition: 'transform 0.25s ease, box-shadow 0.25s ease',
+                          '&:hover': { transform: 'translateY(-4px)', boxShadow: 4 },
+                          borderLeft: `4px solid ${COLORS.vert}`,
+                        }}
+                      >
+                        <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 600, color: COLORS.vertFonce, lineHeight: 1.3 }}>
+                            {a.titre}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{ fontStyle: 'italic' }}>
+                            <strong>Événement :</strong> {a.evenement?.trim() || '—'}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary">
+                            {a.date_evenement ? new Date(a.date_evenement).toLocaleDateString('fr-FR', { day: 'numeric', month: 'long', year: 'numeric' }) : (a.annee ? String(a.annee) : '—')}
+                          </Typography>
+                          {a.description?.trim() && (
+                            <Typography variant="body2" sx={{ mt: 0.5, flex: 1, color: 'text.secondary', display: '-webkit-box', WebkitLineClamp: 3, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>
+                              {a.description}
+                            </Typography>
+                          )}
+                          <Box sx={{ mt: 'auto', pt: 1.5, display: 'flex', flexWrap: 'wrap', gap: 1, alignItems: 'center' }}>
+                            {getLienSon(a) ? (
+                              <Button
+                                component="a"
+                                href={toAbsoluteUrl(getLienSon(a))}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                variant="contained"
+                                size="small"
+                                startIcon={<PlayArrow />}
+                                sx={{ bgcolor: '#0088cc', '&:hover': { bgcolor: '#006699' }, borderRadius: 2 }}
+                              >
+                                LIEN SON BI
+                              </Button>
+                            ) : (
+                              <Button
+                                variant="contained"
+                                size="small"
+                                startIcon={<PlayArrow />}
+                                disabled
+                                sx={{ borderRadius: 2 }}
+                              >
+                                LIEN SON BI
+                              </Button>
+                            )}
+                            {canManage && (
+                              <>
+                                <IconButton size="small" onClick={() => { setEditingId(a.id); setFormArchive({ titre: a.titre, evenement: a.evenement || '', date_evenement: a.date_evenement?.slice(0, 10) || '', lien_telegramme_du_son: getLienSon(a) || a.lien_telegramme_du_son || a.lienTelegrammeDuSon || '', description: a.description || '' }); setOpenArchive(true) }} sx={{ color: COLORS.vert }}><Edit /></IconButton>
+                                <IconButton size="small" onClick={() => setDeleteTarget({ id: a.id, type: 'archive' })} color="error"><Delete /></IconButton>
+                              </>
+                            )}
+                          </Box>
+                        </CardContent>
+                      </Card>
+                    </Fade>
+                  </Grid>
+                ))}
+              </Grid>
             )}
           </Box>
         ) : tab === 2 ? ( /* Kourels */
@@ -1198,14 +1274,14 @@ export default function Conservatoire() {
           </Dialog>
 
           <Dialog open={openArchive} onClose={() => { setOpenArchive(false); setEditingId(null) }} maxWidth="sm" fullWidth>
-            <DialogTitle>{editingId ? 'Modifier l\'archive' : 'Ajouter une archive'}</DialogTitle>
+            <DialogTitle>{editingId ? 'Modifier l\'entrée du répertoire' : 'Ajouter au répertoire'}</DialogTitle>
             <DialogContent>
               <Grid container spacing={2} sx={{ pt: 1 }}>
-                <Grid item xs={12}><TextField fullWidth label="Titre" value={formArchive.titre} onChange={(e) => setFormArchive((f) => ({ ...f, titre: e.target.value }))} required /></Grid>
-                <Grid item xs={12}><TextField select fullWidth label="Type" value={formArchive.type_archive} onChange={(e) => setFormArchive((f) => ({ ...f, type_archive: e.target.value }))}>{TYPES_ARCHIVE.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}</TextField></Grid>
-                <Grid item xs={6}><TextField fullWidth type="number" label="Année" value={formArchive.annee} onChange={(e) => setFormArchive((f) => ({ ...f, annee: e.target.value }))} required /></Grid>
-                <Grid item xs={6}><TextField fullWidth type="date" label="Date événement" value={formArchive.date_evenement} onChange={(e) => setFormArchive((f) => ({ ...f, date_evenement: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
-                <Grid item xs={12}><TextField fullWidth label="Description" value={formArchive.description} onChange={(e) => setFormArchive((f) => ({ ...f, description: e.target.value }))} multiline rows={3} required /></Grid>
+                <Grid item xs={12}><TextField fullWidth label="Titre *" value={formArchive.titre} onChange={(e) => setFormArchive((f) => ({ ...f, titre: e.target.value }))} required /></Grid>
+                <Grid item xs={12}><TextField fullWidth label="Événement" value={formArchive.evenement} onChange={(e) => setFormArchive((f) => ({ ...f, evenement: e.target.value }))} placeholder="Nom de l'événement" /></Grid>
+                <Grid item xs={12}><TextField fullWidth type="date" label="Date" value={formArchive.date_evenement} onChange={(e) => setFormArchive((f) => ({ ...f, date_evenement: e.target.value }))} InputLabelProps={{ shrink: true }} /></Grid>
+                <Grid item xs={12}><TextField fullWidth label="Lien Telegram du son *" value={formArchive.lien_telegramme_du_son} onChange={(e) => setFormArchive((f) => ({ ...f, lien_telegramme_du_son: e.target.value }))} placeholder="https://t.me/..." required /></Grid>
+                <Grid item xs={12}><TextField fullWidth label="Description (optionnel)" value={formArchive.description} onChange={(e) => setFormArchive((f) => ({ ...f, description: e.target.value }))} multiline rows={3} /></Grid>
               </Grid>
             </DialogContent>
             <DialogActions>

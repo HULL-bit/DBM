@@ -14,6 +14,7 @@ urlpatterns = [
     path('api/', include('apps.sociale.urls')),
     path('api/', include('apps.scientifique.urls')),
     path('api/', include('apps.organisation.urls')),
+    path('api/', include('apps.bibliotheque.urls')),
 ]
 
 if settings.DEBUG:

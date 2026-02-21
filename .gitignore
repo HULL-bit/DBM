@@ -16,7 +16,10 @@ build/
 *.log
 db.sqlite3
 db.sqlite3-journal
-media/
+# Médias : on ignore media/ sauf la bibliothèque (PDF toujours disponibles dans le projet)
+media/*
+!media/bibliotheque/
+!media/bibliotheque/**
 staticfiles/
 .env
 .env.local
