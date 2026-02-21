@@ -37,19 +37,18 @@ class MessageViewSet(viewsets.ModelViewSet):
         user = self.request.user
         # Filtrer par contact si fourni dans les query params
         contact_id = self.request.query_params.get('contact_id')
+        base = Message.objects.select_related('expediteur', 'destinataire')
         if contact_id:
             try:
                 contact_id_int = int(contact_id)
-                # Exclure les messages archivés par l'utilisateur
-                return Message.objects.filter(
-                    Q(expediteur=user, destinataire_id=contact_id_int, est_archive_expediteur=False) | 
+                return base.filter(
+                    Q(expediteur=user, destinataire_id=contact_id_int, est_archive_expediteur=False) |
                     Q(expediteur_id=contact_id_int, destinataire=user, est_archive_destinataire=False)
                 ).order_by('date_envoi')
             except (ValueError, TypeError):
                 pass
-        # Exclure les messages archivés par l'utilisateur
-        return Message.objects.filter(
-            Q(expediteur=user, est_archive_expediteur=False) | 
+        return base.filter(
+            Q(expediteur=user, est_archive_expediteur=False) |
             Q(destinataire=user, est_archive_destinataire=False)
         ).order_by('-date_envoi')
     
@@ -305,6 +304,25 @@ class MessageViewSet(viewsets.ModelViewSet):
             msg.date_lecture = timezone.now()
             msg.save(update_fields=['est_lu', 'date_lecture'])
         return Response(MessageSerializer(msg).data)
+
+    @action(detail=False, methods=['post'], url_path='marquer_conversation_lue')
+    def marquer_conversation_lue(self, request):
+        """Marquer tous les messages non lus d'une conversation (contact_id) comme lus en une requête."""
+        contact_id = request.data.get('contact_id')
+        if contact_id is None:
+            return Response({'detail': 'contact_id requis.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            contact_id = int(contact_id)
+        except (TypeError, ValueError):
+            return Response({'detail': 'contact_id invalide.'}, status=status.HTTP_400_BAD_REQUEST)
+        from django.utils import timezone
+        now = timezone.now()
+        updated = Message.objects.filter(
+            expediteur_id=contact_id,
+            destinataire=request.user,
+            est_lu=False,
+        ).update(est_lu=True, date_lecture=now)
+        return Response({'detail': f'{updated} message(s) marqué(s) comme lu(s).', 'count': updated})
     
     @action(detail=True, methods=['post'], url_path='supprimer')
     def supprimer(self, request, pk=None):
@@ -359,7 +377,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = Notification.objects.all().order_by('-date_creation')
+        qs = Notification.objects.select_related('utilisateur').order_by('-date_creation')
         if not (self.request.user.is_staff or self.request.user.role == 'admin'):
             qs = qs.filter(utilisateur=self.request.user)
         return qs
@@ -383,25 +401,26 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 {'detail': 'Titre et message requis.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        # Tous les utilisateurs actifs = tous les membres
+        # Tous les utilisateurs actifs = tous les membres (bulk_create pour performance)
         destinataires = list(CustomUser.objects.filter(is_active=True).values_list('id', flat=True))
-        created = []
-        for uid in destinataires:
-            notif = Notification.objects.create(
+        if not destinataires:
+            return Response(
+                {'detail': 'Aucun membre à notifier.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        batch = [
+            Notification(
                 utilisateur_id=uid,
                 type_notification=type_notification,
                 titre=titre,
                 message=message,
                 lien=lien or '',
             )
-            created.append(NotificationSerializer(notif).data)
-        if not created:
-            return Response(
-                {'detail': 'Aucun membre à notifier.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+            for uid in destinataires
+        ]
+        Notification.objects.bulk_create(batch)
         return Response(
-            {'detail': f'Notification envoyée à tous les membres ({len(created)} notification(s) créée(s)).', 'count': len(created)},
+            {'detail': f'Notification envoyée à tous les membres ({len(batch)} notification(s) créée(s)).', 'count': len(batch)},
             status=status.HTTP_201_CREATED
         )
 

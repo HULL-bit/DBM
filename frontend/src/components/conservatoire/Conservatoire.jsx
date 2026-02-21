@@ -120,11 +120,19 @@ export default function Conservatoire() {
   const loadStatsMembres = () => api.get('/conservatoire/presences/stats_membres/').then(({ data }) => setStatsMembres(Array.isArray(data) ? data : (data?.results || []))).catch(() => setStatsMembres([]))
   const loadAll = () => {
     setLoading(true)
-    Promise.all([loadDocs(), loadArchives(), loadCategories(), loadKourels(), loadSeances(), loadAlbums()]).finally(() => setLoading(false))
+    // Premier batch : données affichées en premier (onglets 0–2) pour un affichage plus rapide
+    Promise.all([loadDocs(), loadKourels(), loadSeances()])
+      .then(() => {
+        setLoading(false)
+        // Second batch en arrière-plan (archives, catégories, albums)
+        Promise.all([loadArchives(), loadCategories(), loadAlbums()]).catch(() => {})
+      })
+      .catch(() => setLoading(false))
   }
   useEffect(() => { loadAll() }, [])
   useEffect(() => { if (tab === 4) loadStatsMembres() }, [tab])
-  useEffect(() => { if (canManage) { loadCategories(); loadUsers() } }, [canManage])
+  useEffect(() => { if (canManage) loadCategories() }, [canManage])
+  useEffect(() => { if (canManage) loadUsers() }, [canManage])
 
   const handleSaveDoc = async () => {
     if (!formDoc.titre || !formDoc.auteur) {

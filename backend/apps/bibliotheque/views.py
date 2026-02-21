@@ -1,6 +1,7 @@
 from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -13,12 +14,20 @@ from .models import LivreNumerique
 from .serializers import LivreNumeriqueSerializer
 
 
+class BibliothequePagination(PageNumberPagination):
+    """Jusqu'à 200 livres par page pour supporter 150+ PDF sans multiplier les requêtes."""
+    page_size = 200
+    page_size_query_param = 'page_size'
+    max_page_size = 200
+
+
 class LivreNumeriqueViewSet(viewsets.ModelViewSet):
-    queryset = LivreNumerique.objects.all().order_by('categorie', 'ordre', 'nom')
+    queryset = LivreNumerique.objects.select_related('ajoute_par').order_by('categorie', 'ordre', 'nom')
     serializer_class = LivreNumeriqueSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie']
     parser_classes = [JSONParser, MultiPartParser, FormParser]
+    pagination_class = BibliothequePagination
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:

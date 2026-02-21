@@ -32,7 +32,7 @@ class CategorieDocumentViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class DocumentNumeriqueViewSet(viewsets.ModelViewSet):
-    queryset = DocumentNumerique.objects.all().order_by('-date_ajout')
+    queryset = DocumentNumerique.objects.select_related('telecharge_par', 'categorie').order_by('-date_ajout')
     serializer_class = DocumentNumeriqueSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie', 'type_document']
@@ -47,7 +47,7 @@ class DocumentNumeriqueViewSet(viewsets.ModelViewSet):
 
 
 class MediaAudioViewSet(viewsets.ModelViewSet):
-    queryset = MediaAudio.objects.all().order_by('-date_ajout')
+    queryset = MediaAudio.objects.select_related('upload_par').order_by('-date_ajout')
     serializer_class = MediaAudioSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie']
@@ -62,7 +62,7 @@ class MediaAudioViewSet(viewsets.ModelViewSet):
 
 
 class MediaVideoViewSet(viewsets.ModelViewSet):
-    queryset = MediaVideo.objects.all().order_by('-date_ajout')
+    queryset = MediaVideo.objects.select_related('upload_par').order_by('-date_ajout')
     serializer_class = MediaVideoSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie']
@@ -77,7 +77,7 @@ class MediaVideoViewSet(viewsets.ModelViewSet):
 
 
 class ArchiveHistoriqueViewSet(viewsets.ModelViewSet):
-    queryset = ArchiveHistorique.objects.all().order_by('-annee', 'date_evenement')
+    queryset = ArchiveHistorique.objects.select_related('archiviste').order_by('-annee', 'date_evenement')
     serializer_class = ArchiveHistoriqueSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['type_archive', 'annee']
@@ -92,12 +92,12 @@ class ArchiveHistoriqueViewSet(viewsets.ModelViewSet):
 
 
 class AlbumPhotoViewSet(viewsets.ModelViewSet):
-    queryset = AlbumPhoto.objects.filter(est_public=True).order_by('-date_evenement')
+    queryset = AlbumPhoto.objects.select_related('cree_par').filter(est_public=True).order_by('-date_evenement')
     serializer_class = AlbumPhotoSerializer
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = AlbumPhoto.objects.all().order_by('-date_evenement')
+        qs = AlbumPhoto.objects.select_related('cree_par').all().order_by('-date_evenement')
         if not (self.request.user.is_staff or self.request.user.role == 'admin'):
             qs = qs.filter(est_public=True)
         return qs
@@ -112,7 +112,7 @@ class AlbumPhotoViewSet(viewsets.ModelViewSet):
 
 
 class PhotoViewSet(viewsets.ModelViewSet):
-    queryset = Photo.objects.all().order_by('album', 'ordre')
+    queryset = Photo.objects.select_related('album', 'photographe').order_by('album', 'ordre')
     serializer_class = PhotoSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['album']

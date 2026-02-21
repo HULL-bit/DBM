@@ -19,12 +19,12 @@ class GroupeViewSet(viewsets.ModelViewSet):
 
 
 class EvenementViewSet(viewsets.ModelViewSet):
-    queryset = Evenement.objects.filter(est_publie=True).order_by('-date_debut')
+    queryset = Evenement.objects.select_related('cree_par').filter(est_publie=True).order_by('-date_debut')
     serializer_class = EvenementSerializer
     filterset_fields = ['type_evenement', 'est_publie']
 
     def get_queryset(self):
-        qs = Evenement.objects.all().order_by('-date_debut')
+        qs = Evenement.objects.select_related('cree_par').all().order_by('-date_debut')
         if not (self.request.user.is_staff or self.request.user.role == 'admin'):
             qs = qs.filter(est_publie=True)
         return qs

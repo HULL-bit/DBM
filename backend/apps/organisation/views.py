@@ -35,7 +35,7 @@ class TypeReunionViewSet(viewsets.ReadOnlyModelViewSet):
 
 
 class ReunionViewSet(viewsets.ModelViewSet):
-    queryset = Reunion.objects.all().order_by('-date_reunion')
+    queryset = Reunion.objects.select_related('organisateur', 'type_reunion').all().order_by('-date_reunion')
     serializer_class = ReunionSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['statut', 'type_reunion']

@@ -192,20 +192,19 @@ export default function Messagerie() {
   }, [selectedContact])
 
   useEffect(() => {
-    // Marquer les messages comme lus après chargement (en batch pour améliorer les performances)
+    // Marquer toute la conversation comme lue en une seule requête (plus rapide)
     if (selectedContact && messages.length > 0) {
-      const unreadMessages = messages.filter(m => !m.est_lu && m.expediteur === selectedContact.contact_id)
-      if (unreadMessages.length > 0) {
-        // Marquer tous les messages comme lus en parallèle
-        Promise.all(
-          unreadMessages.map(msg => api.post(`/communication/messages/${msg.id}/marquer_lu/`).catch(() => {}))
-        ).then(() => {
-          // Rafraîchir la liste seulement une fois après avoir marqué tous les messages
-          loadConversations()
-        })
+      const hasUnread = messages.some(m => !m.est_lu && m.expediteur === selectedContact.contact_id)
+      if (hasUnread) {
+        api.post('/communication/messages/marquer_conversation_lue/', { contact_id: selectedContact.contact_id })
+          .then(() => {
+            setMessages(prev => prev.map(m => (m.expediteur === selectedContact.contact_id ? { ...m, est_lu: true } : m)))
+            setConversations(prev => prev.map(c => c.contact_id === selectedContact.contact_id ? { ...c, unread_count: 0 } : c))
+          })
+          .catch(() => {})
       }
     }
-  }, [messages, selectedContact, loadConversations])
+  }, [messages, selectedContact])
 
   // Scroller automatiquement vers le bas quand les messages changent
   useEffect(() => {

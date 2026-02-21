@@ -119,13 +119,13 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
 
 
 class LeveeFondsViewSet(viewsets.ModelViewSet):
-    queryset = LeveeFonds.objects.filter(statut='active').order_by('-date_creation')
+    queryset = LeveeFonds.objects.select_related('cree_par').filter(statut='active').order_by('-date_creation')
     serializer_class = LeveeFondsSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['statut']
 
     def get_queryset(self):
-        qs = LeveeFonds.objects.all().order_by('-date_creation')
+        qs = LeveeFonds.objects.select_related('cree_par').all().order_by('-date_creation')
         if not has_admin_access(self.request.user, 'finance'):
             qs = qs.filter(statut='active')
         return qs

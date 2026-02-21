@@ -57,11 +57,27 @@ export default function Bibliotheque() {
   const [form, setForm] = useState({ nom: '', categorie: 'alquran', description: '' })
   const [pdfFile, setPdfFile] = useState(null)
   const [editingId, setEditingId] = useState(null)
+  const [visibleCount, setVisibleCount] = useState(24)
 
   const loadLivres = useCallback(() => {
+    const accumulate = (acc, data) => {
+      const results = data.results || data || []
+      const list = Array.isArray(results) ? results : []
+      return [...acc, ...list]
+    }
     return api
-      .get('/bibliotheque/livres/')
-      .then(({ data }) => setLivres(data.results || data || []))
+      .get('/bibliotheque/livres/', { params: { page_size: 200 } })
+      .then(async ({ data }) => {
+        let all = accumulate([], data)
+        let nextUrl = data.next
+        while (nextUrl) {
+          const { data: nextData } = await api.get(nextUrl)
+          all = accumulate(all, nextData)
+          nextUrl = nextData?.next
+        }
+        setLivres(all)
+        setVisibleCount(24)
+      })
       .catch((err) => {
         setLivres([])
         if (err.response?.status === 404) {
@@ -82,6 +98,12 @@ export default function Bibliotheque() {
   const alquran = livresByCategory('alquran')
   const qassida = livresByCategory('qassida')
   const currentList = tab === 0 ? alquran : qassida
+  const INITIAL_VISIBLE = 24
+  const LOAD_MORE_STEP = 24
+  const visibleList = currentList.slice(0, visibleCount)
+  const hasMore = visibleCount < currentList.length
+  const showLoadMore = currentList.length > INITIAL_VISIBLE && hasMore
+  const resetVisibleCount = () => setVisibleCount(INITIAL_VISIBLE)
 
   const handleOpenForm = (livre = null) => {
     if (livre) {
@@ -316,7 +338,7 @@ export default function Bibliotheque() {
       {/* Onglets animés */}
       <Tabs
         value={tab}
-        onChange={(_, v) => setTab(v)}
+        onChange={(_, v) => { setTab(v); resetVisibleCount() }}
         variant={isMobile ? 'fullWidth' : 'standard'}
         sx={{
           mb: { xs: 2, sm: 3 },
@@ -348,7 +370,7 @@ export default function Bibliotheque() {
         </Box>
       ) : (
         <Grid container spacing={isMobile ? 2 : 3}>
-          {currentList.map((livre, index) => (
+          {visibleList.map((livre, index) => (
             <Grid item xs={12} sm={6} md={4} key={livre.id}>
               <Card
                 sx={{
@@ -359,12 +381,12 @@ export default function Bibliotheque() {
                   border: '1px solid',
                   borderColor: alpha(COLORS.vert, 0.15),
                   overflow: 'hidden',
-                  transition: 'all 0.35s cubic-bezier(0.4, 0, 0.2, 1)',
-                  animation: 'fadeInUp 0.5s ease-out forwards',
-                  animationDelay: `${Math.min(index * 0.08, 0.6)}s`,
-                  opacity: 0,
+                  transition: 'all 0.25s ease',
+                  animation: visibleList.length <= 30 ? 'fadeInUp 0.4s ease-out forwards' : 'none',
+                  animationDelay: index < 20 ? `${Math.min(index * 0.03, 0.4)}s` : '0s',
+                  opacity: visibleList.length > 30 ? 1 : 0,
                   '@keyframes fadeInUp': {
-                    '0%': { opacity: 0, transform: 'translateY(20px)' },
+                    '0%': { opacity: 0, transform: 'translateY(12px)' },
                     '100%': { opacity: 1, transform: 'translateY(0)' },
                   },
                   '&:hover': {
@@ -475,6 +497,29 @@ export default function Bibliotheque() {
         </Grid>
       )}
 
+      {!loading && showLoadMore && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 3 }}>
+          <Button
+            variant="outlined"
+            onClick={() => setVisibleCount((v) => Math.min(v + LOAD_MORE_STEP, currentList.length))}
+            sx={{
+              borderColor: COLORS.vert,
+              color: COLORS.vert,
+              fontWeight: 600,
+              '&:hover': { borderColor: COLORS.vertFonce, bgcolor: alpha(COLORS.vert, 0.06) },
+            }}
+          >
+            Voir plus ({Math.min(LOAD_MORE_STEP, currentList.length - visibleCount)} de plus)
+          </Button>
+        </Box>
+      )}
+
+      {!loading && currentList.length > 0 && !showLoadMore && currentList.length > INITIAL_VISIBLE && (
+        <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center', mt: 2 }}>
+          Tous les ouvrages sont affichés ({currentList.length})
+        </Typography>
+      )}
+
       {!loading && currentList.length === 0 && (
         <Box
           sx={{
@@ -560,7 +605,7 @@ export default function Bibliotheque() {
         </DialogActions>
       </Dialog>
 
-      {/* Lecteur PDF — plein écran, lecture directe + télécharger depuis le lecteur */}
+      {/* Lecteur PDF — plein écran, défilement tactile OK sur mobile */}
       <Dialog
         open={!!openReader}
         onClose={handleCloseReader}
@@ -571,12 +616,16 @@ export default function Bibliotheque() {
           sx: {
             borderRadius: 0,
             bgcolor: '#1a1a1a',
-            maxHeight: '100vh',
+            maxHeight: { xs: '100dvh', sm: '100vh' },
+            display: 'flex',
+            flexDirection: 'column',
+            overflow: 'hidden',
           },
         }}
       >
         <Box
           sx={{
+            flexShrink: 0,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
@@ -609,7 +658,18 @@ export default function Bibliotheque() {
             </IconButton>
           </Box>
         </Box>
-        <DialogContent sx={{ p: 0, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, bgcolor: '#2d2d2d' }}>
+        <DialogContent
+          sx={{
+            p: 0,
+            flex: 1,
+            display: 'flex',
+            flexDirection: 'column',
+            minHeight: 0,
+            overflow: 'hidden',
+            bgcolor: '#2d2d2d',
+            height: { xs: 'calc(100dvh - 56px)', sm: 'calc(100vh - 56px)' },
+          }}
+        >
           {loadingPdf && (
             <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, gap: 2 }}>
               <CircularProgress size={56} sx={{ color: COLORS.or }} />
@@ -618,17 +678,30 @@ export default function Bibliotheque() {
           )}
           {pdfBlobUrl && !loadingPdf && (
             <Box
-              component="iframe"
-              title={openReader?.nom}
-              src={pdfBlobUrl}
               sx={{
                 flex: 1,
+                minHeight: 0,
                 width: '100%',
-                border: 'none',
-                minHeight: 400,
-                borderRadius: 0,
+                position: 'relative',
+                overflow: 'hidden',
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-y pinch-zoom',
               }}
-            />
+            >
+              <iframe
+                title={openReader?.nom}
+                src={pdfBlobUrl}
+                style={{
+                  position: 'absolute',
+                  top: 0,
+                  left: 0,
+                  width: '100%',
+                  height: '100%',
+                  border: 'none',
+                  minHeight: '100%',
+                }}
+              />
+            </Box>
           )}
         </DialogContent>
       </Dialog>
