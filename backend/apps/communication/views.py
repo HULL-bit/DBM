@@ -370,32 +370,40 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
-        utilisateurs = request.data.get('utilisateurs')
-        if isinstance(utilisateurs, list) and len(utilisateurs) > 0 and (request.user.is_staff or getattr(request.user, 'role', None) == 'admin'):
-            from apps.accounts.models import CustomUser
-            type_notification = request.data.get('type_notification', 'info')
-            titre = request.data.get('titre', '')
-            message = request.data.get('message', '')
-            lien = request.data.get('lien', '')
-            created = []
-            for uid in utilisateurs:
-                target = CustomUser.objects.filter(id=uid).first()
-                if target:
-                    notif = Notification.objects.create(
-                        utilisateur=target,
-                        type_notification=type_notification,
-                        titre=titre,
-                        message=message,
-                        lien=lien or '',
-                    )
-                    created.append(NotificationSerializer(notif).data)
-            if not created:
-                return Response(
-                    {'detail': 'Aucun destinataire valide.'},
-                    status=status.HTTP_400_BAD_REQUEST
-                )
-            return Response(created[0] if len(created) == 1 else {'detail': f'{len(created)} notifications créées.', 'count': len(created)}, status=status.HTTP_201_CREATED)
-        return super().create(request, *args, **kwargs)
+        """Créer une notification : envoyée à tous les membres (utilisateurs actifs)."""
+        if not (request.user.is_staff or getattr(request.user, 'role', None) == 'admin'):
+            return super().create(request, *args, **kwargs)
+        from apps.accounts.models import CustomUser
+        type_notification = request.data.get('type_notification', 'info')
+        titre = request.data.get('titre', '')
+        message = request.data.get('message', '')
+        lien = request.data.get('lien', '')
+        if not titre or not message:
+            return Response(
+                {'detail': 'Titre et message requis.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        # Tous les utilisateurs actifs = tous les membres
+        destinataires = list(CustomUser.objects.filter(is_active=True).values_list('id', flat=True))
+        created = []
+        for uid in destinataires:
+            notif = Notification.objects.create(
+                utilisateur_id=uid,
+                type_notification=type_notification,
+                titre=titre,
+                message=message,
+                lien=lien or '',
+            )
+            created.append(NotificationSerializer(notif).data)
+        if not created:
+            return Response(
+                {'detail': 'Aucun membre à notifier.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        return Response(
+            {'detail': f'Notification envoyée à tous les membres ({len(created)} notification(s) créée(s)).', 'count': len(created)},
+            status=status.HTTP_201_CREATED
+        )
 
     def perform_create(self, serializer):
         utilisateur_id = self.request.data.get('utilisateur')

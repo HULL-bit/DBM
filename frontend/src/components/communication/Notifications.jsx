@@ -6,7 +6,6 @@ import {
   ListItem,
   ListItemText,
   ListItemSecondaryAction,
-  ListItemIcon,
   IconButton,
   Paper,
   Chip,
@@ -19,7 +18,6 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
-  Checkbox,
 } from '@mui/material'
 import { Add, Done } from '@mui/icons-material'
 import api from '../../services/api'
@@ -42,12 +40,11 @@ export default function Notifications() {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   const [list, setList] = useState([])
-  const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [openCreate, setOpenCreate] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ utilisateurs: [], type_notification: 'info', titre: '', message: '', lien: '' })
+  const [form, setForm] = useState({ type_notification: 'info', titre: '', message: '', lien: '' })
   const [fieldErrors, setFieldErrors] = useState({})
 
   const loadList = () => {
@@ -55,9 +52,6 @@ export default function Notifications() {
     api.get('/communication/notifications/').then(({ data }) => setList(data.results || data)).catch(() => setList([])).finally(() => setLoading(false))
   }
   useEffect(() => { loadList() }, [])
-  useEffect(() => {
-    if (isAdmin) api.get('/auth/users/').then(({ data }) => setUsers(data.results || data)).catch(() => setUsers([]))
-  }, [isAdmin])
 
   const handleMarquerLue = async (id) => {
     try {
@@ -67,11 +61,9 @@ export default function Notifications() {
   }
 
   const handleCreate = async () => {
-    const dest = Array.isArray(form.utilisateurs) ? form.utilisateurs : []
     const errors = {}
     if (!form.titre) errors.titre = 'Titre requis.'
     if (!form.message) errors.message = 'Message requis.'
-    if (dest.length === 0) errors.utilisateurs = 'Sélectionnez au moins un destinataire.'
     setFieldErrors(errors)
     if (Object.keys(errors).length > 0) {
       setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
@@ -81,16 +73,16 @@ export default function Notifications() {
     setMessage({ type: '', text: '' })
     try {
       const { data } = await api.post('/communication/notifications/', {
-        utilisateurs: dest.map((id) => Number(id)),
         type_notification: form.type_notification,
         titre: form.titre,
         message: form.message,
         lien: form.lien || '',
       })
       const count = data?.count
-      setMessage({ type: 'success', text: count ? `${count} notifications créées.` : 'Notification créée.' })
+      const detail = data?.detail
+      setMessage({ type: 'success', text: detail || (count ? `Notification envoyée à tous les membres (${count} notification(s)).` : 'Notification envoyée.') })
       setOpenCreate(false)
-      setForm({ utilisateurs: [], type_notification: 'info', titre: '', message: '', lien: '' })
+      setForm({ type_notification: 'info', titre: '', message: '', lien: '' })
       loadList()
     } catch (err) {
       const data = err.response?.data
@@ -180,35 +172,9 @@ export default function Notifications() {
           <DialogTitle>Créer une notification</DialogTitle>
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-              <TextField
-                select
-                SelectProps={{
-                  multiple: true,
-                  renderValue: (selected) => {
-                    if (selected.length === 0) return ''
-                    return selected.map((id) => users.find((u) => u.id === id)).filter(Boolean).map((u) => `${u.first_name} ${u.last_name}`).join(', ')
-                  },
-                  MenuProps: { PaperProps: { sx: { maxHeight: 300 } } }
-                }}
-                fullWidth
-                label="Destinataires"
-                value={form.utilisateurs}
-                onChange={(e) => {
-                  setForm((f) => ({ ...f, utilisateurs: e.target.value }))
-                  setFieldErrors((fe) => ({ ...fe, utilisateurs: undefined }))
-                }}
-                helperText={fieldErrors.utilisateurs || `${form.utilisateurs.length} destinataire(s) sélectionné(s)`}
-                error={!!fieldErrors.utilisateurs}
-              >
-                {users.map((u) => (
-                  <MenuItem key={u.id} value={u.id}>
-                    <ListItemIcon>
-                      <Checkbox checked={form.utilisateurs.includes(u.id)} sx={{ color: COLORS.vert, '&.Mui-checked': { color: COLORS.vert } }} />
-                    </ListItemIcon>
-                    <ListItemText primary={`${u.first_name} ${u.last_name}`} secondary={u.email} />
-                  </MenuItem>
-                ))}
-              </TextField>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
+                La notification sera envoyée à tous les membres.
+              </Typography>
               <TextField select fullWidth label="Type" value={form.type_notification} onChange={(e) => setForm((f) => ({ ...f, type_notification: e.target.value }))}>
                 {TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
               </TextField>
