@@ -5,6 +5,8 @@ from .models import Kamil, Chapitre, Jukki, ProgressionLecture, ActiviteReligieu
 class JukkiSerializer(serializers.ModelSerializer):
     membre_nom = serializers.CharField(source='membre.get_full_name', read_only=True)
     kamil_titre = serializers.CharField(source='kamil.titre', read_only=True)
+    kamil_date_debut = serializers.DateField(source='kamil.date_debut', read_only=True)
+    kamil_date_fin = serializers.DateField(source='kamil.date_fin', read_only=True)
 
     class Meta:
         model = Jukki
@@ -22,11 +24,29 @@ class KamilSerializer(serializers.ModelSerializer):
     semestre_display = serializers.CharField(source='get_semestre_display', read_only=True)
     chapitres = ChapitreSerializer(many=True, read_only=True)
     jukkis = JukkiSerializer(many=True, read_only=True)
+    nb_jukkis_valides = serializers.SerializerMethodField()
+    nb_jukkis_non_valides = serializers.SerializerMethodField()
+    pourcentage_completion = serializers.SerializerMethodField()
 
     class Meta:
         model = Kamil
         fields = '__all__'
         read_only_fields = ['cree_par', 'date_creation']
+
+    def get_nb_jukkis_valides(self, obj):
+        jukkis = obj.jukkis.all() if hasattr(obj, 'jukkis') else []
+        return sum(1 for j in jukkis if j.est_valide)
+
+    def get_nb_jukkis_non_valides(self, obj):
+        jukkis = obj.jukkis.all() if hasattr(obj, 'jukkis') else []
+        return sum(1 for j in jukkis if not j.est_valide)
+
+    def get_pourcentage_completion(self, obj):
+        jukkis = list(obj.jukkis.all()) if hasattr(obj, 'jukkis') else []
+        total = len(jukkis)
+        if total == 0:
+            return 0
+        return round(100 * sum(1 for j in jukkis if j.est_valide) / total, 1)
 
 
 class VersementKamilSerializer(serializers.ModelSerializer):

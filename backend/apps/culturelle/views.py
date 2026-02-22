@@ -51,9 +51,11 @@ class KamilViewSet(viewsets.ModelViewSet):
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
     def recommencer(self, request, pk=None):
-        """Réinitialise tous les JUKKI du Kamil : chaque membre devra revalider."""
+        """Réinitialise tous les JUKKI du Kamil : chaque membre devra revalider. Incrémente nb_lectures."""
         kamil = self.get_object()
         Jukki.objects.filter(kamil=kamil).update(est_valide=False, date_validation=None)
+        kamil.nb_lectures = (kamil.nb_lectures or 0) + 1
+        kamil.save(update_fields=['nb_lectures'])
         kamil.refresh_from_db()
         return Response(KamilSerializer(kamil).data)
 

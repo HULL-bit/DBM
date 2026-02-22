@@ -17,10 +17,42 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material'
-import { MenuBook, CheckCircle } from '@mui/icons-material'
+import { MenuBook, CheckCircle, Schedule } from '@mui/icons-material'
 import api from '../../services/api'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
+
+function useTempsRestant(dateFin) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    if (!dateFin) return
+    const t = setInterval(() => setNow(new Date()), 60 * 1000)
+    return () => clearInterval(t)
+  }, [dateFin])
+  if (!dateFin) return null
+  const fin = new Date(dateFin)
+  fin.setHours(23, 59, 59, 999)
+  const diff = fin - now
+  if (diff <= 0) return 'Terminé'
+  const jours = Math.ceil(diff / (24 * 60 * 60 * 1000))
+  return jours === 1 ? '1 jour restant' : `${jours} jours restants`
+}
+
+function IntervalleKamil({ dateDebut, dateFin }) {
+  const restant = useTempsRestant(dateFin)
+  const debutStr = dateDebut ? new Date(dateDebut).toLocaleDateString('fr-FR') : '—'
+  const finStr = dateFin ? new Date(dateFin).toLocaleDateString('fr-FR') : '—'
+  return (
+    <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1, mt: 0.5 }}>
+      <Typography variant="body2" color="text.secondary">
+        Période d&apos;apprentissage : du {debutStr} au {finStr}
+      </Typography>
+      {restant != null && (
+        <Chip size="small" icon={<Schedule />} label={restant} sx={{ bgcolor: `${COLORS.or}20`, color: COLORS.vertFonce }} />
+      )}
+    </Box>
+  )
+}
 
 export default function MesProgressions() {
   const [list, setList] = useState([])
@@ -91,10 +123,13 @@ export default function MesProgressions() {
             <Grid item xs={12} key={kamilTitre}>
               <Card sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
                 <CardContent>
-                  <Typography variant="h6" sx={{ color: COLORS.vert, mb: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="h6" sx={{ color: COLORS.vert, mb: 0.5, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <MenuBook /> {kamilTitre}
                   </Typography>
-                  <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1 }}>
+                  {jukkis[0] && (jukkis[0].kamil_date_debut || jukkis[0].kamil_date_fin) && (
+                    <IntervalleKamil dateDebut={jukkis[0].kamil_date_debut} dateFin={jukkis[0].kamil_date_fin} />
+                  )}
+                  <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1, mt: 2 }}>
                     <Table size="small">
                       <TableHead>
                         <TableRow sx={{ bgcolor: `${COLORS.or}15` }}>

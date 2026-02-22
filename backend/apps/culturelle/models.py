@@ -20,6 +20,7 @@ class Kamil(models.Model):
     date_fin = models.DateField()
     image = models.ImageField(upload_to='kamil/', null=True, blank=True)
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='actif')
+    nb_lectures = models.IntegerField(default=0, help_text='Nombre de cycles/kamil lus (incrémenté à chaque Recommencer)')
     cree_par = models.ForeignKey(CustomUser, on_delete=models.CASCADE)
     date_creation = models.DateTimeField(auto_now_add=True)
 

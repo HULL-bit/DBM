@@ -22,14 +22,58 @@ import {
   Chip,
   Alert,
   CircularProgress,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material'
-import { Add, Assignment, Delete } from '@mui/icons-material'
+import { Add, Assignment, Delete, Edit, MenuBook, Schedule } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
+function useTempsRestant(dateFin) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    if (!dateFin) return
+    const t = setInterval(() => setNow(new Date()), 60 * 1000)
+    return () => clearInterval(t)
+  }, [dateFin])
+  if (!dateFin) return { jours: 0, texte: '—' }
+  const fin = new Date(dateFin)
+  fin.setHours(23, 59, 59, 999)
+  const diff = fin - now
+  if (diff <= 0) return { jours: 0, texte: 'Terminé' }
+  const jours = Math.ceil(diff / (24 * 60 * 60 * 1000))
+  return { jours, texte: jours === 1 ? '1 jour restant' : `${jours} jours restants` }
+}
+
+function MiniStatCard({ icon: Icon, label, value, color }) {
+  return (
+    <Paper variant="outlined" sx={{ borderRadius: 2, p: 1.5, flex: 1, minWidth: 0, borderLeft: `4px solid ${color}` }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+        <Icon sx={{ color, fontSize: 20 }} />
+        <Typography variant="caption" color="text.secondary" fontWeight={600}>{label}</Typography>
+      </Box>
+      <Typography variant="h6" fontWeight={700} sx={{ color }}>{value}</Typography>
+    </Paper>
+  )
+}
+
+function TempsRestantCard({ dateFin }) {
+  const { jours, texte } = useTempsRestant(dateFin)
+  return (
+    <MiniStatCard
+      icon={Schedule}
+      label="Temps restant"
+      value={jours <= 0 ? 'Terminé' : texte}
+      color={jours <= 0 ? COLORS.vertFonce : COLORS.or}
+    />
+  )
+}
+
 export default function ProgrammeKamil() {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const { user } = useAuth()
   const isJewrine =
     !!user?.role &&
@@ -45,6 +89,8 @@ export default function ProgrammeKamil() {
   const [openCreate, setOpenCreate] = useState(false)
   const [openAssign, setOpenAssign] = useState(null)
   const [openDelete, setOpenDelete] = useState(null)
+  const [openEdit, setOpenEdit] = useState(null)
+  const [editForm, setEditForm] = useState({ date_debut: '', date_fin: '' })
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({
     titre: '',
@@ -101,6 +147,34 @@ export default function ProgrammeKamil() {
       setOpenCreate(false)
       loadKamils()
       loadJukkis()
+    } catch (err) {
+      const d = err.response?.data?.detail || err.response?.data
+      setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleEditOpen = (k) => {
+    setOpenEdit(k)
+    setEditForm({
+      date_debut: k.date_debut || '',
+      date_fin: k.date_fin || '',
+    })
+  }
+
+  const handleEditSubmit = async () => {
+    if (!openEdit) return
+    setSaving(true)
+    setMessage({ type: '', text: '' })
+    try {
+      await api.patch(`/culturelle/kamil/${openEdit.id}/`, {
+        date_debut: editForm.date_debut,
+        date_fin: editForm.date_fin,
+      })
+      setMessage({ type: 'success', text: 'Dates mises à jour.' })
+      setOpenEdit(null)
+      loadKamils()
     } catch (err) {
       const d = err.response?.data?.detail || err.response?.data
       setMessage({ type: 'error', text: typeof d === 'object' ? JSON.stringify(d) : (d || 'Erreur') })
@@ -211,6 +285,10 @@ export default function ProgrammeKamil() {
                       {k.date_debut ? new Date(k.date_debut).toLocaleDateString('fr-FR') : '—'} → {k.date_fin ? new Date(k.date_fin).toLocaleDateString('fr-FR') : '—'}
                     </Typography>
                   </Box>
+                  <Box sx={{ mt: 1.5, display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
+                    <MiniStatCard icon={MenuBook} label="Kamil lus" value={k.nb_lectures ?? 0} color={COLORS.vert} />
+                    <TempsRestantCard dateFin={k.date_fin} />
+                  </Box>
                   <Box sx={{ mt: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
                     {canAssignJukki && (
                       <Button
@@ -223,14 +301,24 @@ export default function ProgrammeKamil() {
                       </Button>
                     )}
                     {canCreateProgramme && (
-                      <Button
-                        size="small"
-                        startIcon={<Delete />}
-                        onClick={() => setOpenDelete(k)}
-                        sx={{ color: 'error.main' }}
-                      >
-                        Supprimer
-                      </Button>
+                      <>
+                        <Button
+                          size="small"
+                          startIcon={<Edit />}
+                          onClick={() => handleEditOpen(k)}
+                          sx={{ color: COLORS.vert }}
+                        >
+                          Modifier les dates
+                        </Button>
+                        <Button
+                          size="small"
+                          startIcon={<Delete />}
+                          onClick={() => setOpenDelete(k)}
+                          sx={{ color: 'error.main' }}
+                        >
+                          Supprimer
+                        </Button>
+                      </>
                     )}
                   </Box>
                 </CardContent>
@@ -266,9 +354,43 @@ export default function ProgrammeKamil() {
         </DialogActions>
       </Dialog>
 
-      <Dialog open={Boolean(openAssign)} onClose={() => setOpenAssign(null)} maxWidth="md" fullWidth>
-        <DialogTitle>Assigner chaque JUKKI à un membre — {openAssign?.titre}</DialogTitle>
+      <Dialog open={!!openEdit} onClose={() => setOpenEdit(null)} maxWidth="xs" fullWidth>
+        <DialogTitle>Modifier les dates — {openEdit?.titre}</DialogTitle>
         <DialogContent>
+          <Grid container spacing={2} sx={{ mt: 0.5 }}>
+            <Grid item xs={12}>
+              <TextField fullWidth type="date" label="Date de début" value={editForm.date_debut} onChange={(e) => setEditForm((f) => ({ ...f, date_debut: e.target.value }))} InputLabelProps={{ shrink: true }} />
+            </Grid>
+            <Grid item xs={12}>
+              <TextField fullWidth type="date" label="Date fin prévue" value={editForm.date_fin} onChange={(e) => setEditForm((f) => ({ ...f, date_fin: e.target.value }))} InputLabelProps={{ shrink: true }} />
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEdit(null)}>Annuler</Button>
+          <Button variant="contained" onClick={handleEditSubmit} disabled={saving} startIcon={saving ? <CircularProgress size={20} color="inherit" /> : null} sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
+            Enregistrer
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog
+        open={Boolean(openAssign)}
+        onClose={() => setOpenAssign(null)}
+        maxWidth="md"
+        fullWidth
+        fullScreen={isMobile}
+        PaperProps={isMobile ? { sx: { maxHeight: '100%' } } : undefined}
+      >
+        <DialogTitle>Assigner chaque JUKKI à un membre — {openAssign?.titre}</DialogTitle>
+        <DialogContent
+          sx={{
+            overflowY: 'auto',
+            WebkitOverflowScrolling: 'touch',
+            maxHeight: isMobile ? 'calc(100dvh - 120px)' : '70vh',
+            p: { xs: 2, sm: 3 },
+          }}
+        >
           <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
             Un JUKKI ne peut être attribué qu&apos;à un seul membre. Un membre peut avoir plusieurs JUKKI.
           </Typography>

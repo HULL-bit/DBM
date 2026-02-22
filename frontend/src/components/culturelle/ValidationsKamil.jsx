@@ -22,11 +22,58 @@ import {
   DialogActions,
   Switch,
   FormControlLabel,
+  Grid,
+  Card,
+  CardContent,
 } from '@mui/material'
-import { CheckCircle, Replay, Edit } from '@mui/icons-material'
+import { CheckCircle, Replay, Edit, MenuBook, DoneAll, Pending, TrendingUp, Schedule } from '@mui/icons-material'
 import api from '../../services/api'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
+
+function useTempsRestant(dateFin) {
+  const [now, setNow] = useState(() => new Date())
+  useEffect(() => {
+    if (!dateFin) return
+    const t = setInterval(() => setNow(new Date()), 60 * 1000)
+    return () => clearInterval(t)
+  }, [dateFin])
+  if (!dateFin) return { jours: 0, texte: '—' }
+  const fin = new Date(dateFin)
+  fin.setHours(23, 59, 59, 999)
+  const diff = fin - now
+  if (diff <= 0) return { jours: 0, texte: 'Terminé' }
+  const jours = Math.ceil(diff / (24 * 60 * 60 * 1000))
+  return { jours, texte: jours === 1 ? '1 jour restant' : `${jours} jours restants` }
+}
+
+function StatCard({ icon: Icon, title, value, sub, color }) {
+  return (
+    <Card sx={{ borderRadius: 2, borderLeft: `4px solid ${color}`, height: '100%', boxShadow: 1 }}>
+      <CardContent sx={{ py: 1.5, '&:last-child': { pb: 1.5 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Icon sx={{ color, fontSize: 22 }} />
+          <Typography variant="caption" color="text.secondary" fontWeight={600}>{title}</Typography>
+        </Box>
+        <Typography variant="h5" fontWeight={700} sx={{ color }}>{value}</Typography>
+        {sub != null && <Typography variant="caption" color="text.secondary">{sub}</Typography>}
+      </CardContent>
+    </Card>
+  )
+}
+
+function TempsRestantCard({ dateFin, color }) {
+  const { jours, texte } = useTempsRestant(dateFin)
+  return (
+    <StatCard
+      icon={Schedule}
+      title="Temps restant"
+      value={jours}
+      sub={texte}
+      color={jours <= 0 ? COLORS.vertFonce : color}
+    />
+  )
+}
 
 export default function ValidationsKamil() {
   const [jukkis, setJukkis] = useState([])
@@ -35,6 +82,7 @@ export default function ValidationsKamil() {
   const [filterKamil, setFilterKamil] = useState('')
   const [message, setMessage] = useState({ type: '', text: '' })
   const [recommencerId, setRecommencerId] = useState(null)
+  const [openConfirmRecommencer, setOpenConfirmRecommencer] = useState(null)
   const [openStatusDialog, setOpenStatusDialog] = useState(null)
   const [statusForm, setStatusForm] = useState({ est_valide: false })
   const [saving, setSaving] = useState(false)
@@ -53,12 +101,18 @@ export default function ValidationsKamil() {
 
   useEffect(() => { loadJukkis(); loadKamils() }, [])
 
+  const handleConfirmRecommencer = () => {
+    if (openConfirmRecommencer) handleRecommencer(openConfirmRecommencer)
+    setOpenConfirmRecommencer(null)
+  }
+
   const handleRecommencer = async (kamilId) => {
     setRecommencerId(kamilId)
     setMessage({ type: '', text: '' })
     try {
       await api.post(`/culturelle/kamil/${kamilId}/recommencer/`)
-      setMessage({ type: 'success', text: 'Kamil réinitialisé. Chaque membre devra revalider ses JUKKI.' })
+      setMessage({ type: 'success', text: 'Kamil réinitialisé. Chaque membre devra revalider ses JUKKI. Nombre de kamil lus incrémenté.' })
+      loadKamils()
       loadJukkis()
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.detail || 'Erreur.' })
@@ -169,6 +223,7 @@ export default function ValidationsKamil() {
       ) : (
         Object.entries(byKamil).map(([kamilTitre, list]) => {
           const kamilId = list[0]?.kamil
+          const kamil = kamils.find((k) => Number(k.id) === Number(kamilId))
           return (
           <Box key={kamilTitre} sx={{ mb: 3 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1, flexWrap: 'wrap', gap: 1 }}>
@@ -177,13 +232,32 @@ export default function ValidationsKamil() {
                 variant="outlined"
                 size="small"
                 startIcon={recommencerId === kamilId ? <CircularProgress size={16} /> : <Replay />}
-                onClick={() => handleRecommencer(kamilId)}
+                onClick={() => setOpenConfirmRecommencer(kamilId)}
                 disabled={!!recommencerId}
                 sx={{ borderColor: COLORS.vert, color: COLORS.vert, '&:hover': { borderColor: COLORS.vertFonce, bgcolor: `${COLORS.vert}15` } }}
               >
                 Recommencer
               </Button>
             </Box>
+            {kamil && (
+              <Grid container spacing={2} sx={{ mb: 2 }}>
+                <Grid item xs={6} sm={4} md={2}>
+                  <StatCard icon={MenuBook} title="Kamil lus" value={kamil.nb_lectures ?? 0} color={COLORS.vert} />
+                </Grid>
+                <Grid item xs={6} sm={4} md={2}>
+                  <StatCard icon={DoneAll} title="JUKKI validés" value={kamil.nb_jukkis_valides ?? 0} color={COLORS.vert} />
+                </Grid>
+                <Grid item xs={6} sm={4} md={2}>
+                  <StatCard icon={Pending} title="JUKKI non validés" value={kamil.nb_jukkis_non_valides ?? 0} color={COLORS.or} />
+                </Grid>
+                <Grid item xs={6} sm={4} md={2}>
+                  <StatCard icon={TrendingUp} title="Complétion" value={`${kamil.pourcentage_completion ?? 0}%`} color={COLORS.vertFonce} />
+                </Grid>
+                <Grid item xs={6} sm={4} md={2}>
+                  <TempsRestantCard dateFin={kamil.date_fin} color={COLORS.or} />
+                </Grid>
+              </Grid>
+            )}
             <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.or}` }}>
               <Table size="small">
                 <TableHead>
@@ -224,6 +298,26 @@ export default function ValidationsKamil() {
           )
         })
       )}
+
+      <Dialog open={!!openConfirmRecommencer} onClose={() => setOpenConfirmRecommencer(null)}>
+        <DialogTitle>Confirmer le recommencement</DialogTitle>
+        <DialogContent>
+          <Typography>
+            Êtes-vous sûr de vouloir recommencer ce programme Kamil ? Tous les JUKKI seront à revalider par les membres et le nombre de kamil lus sera incrémenté.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenConfirmRecommencer(null)}>Annuler</Button>
+          <Button
+            variant="contained"
+            onClick={handleConfirmRecommencer}
+            disabled={!!recommencerId}
+            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+          >
+            {recommencerId ? <CircularProgress size={24} /> : 'Recommencer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={!!openStatusDialog} onClose={() => setOpenStatusDialog(null)} maxWidth="sm" fullWidth>
         <DialogTitle>Modifier le statut du JUKKI {openStatusDialog?.numero}</DialogTitle>
