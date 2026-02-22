@@ -2,8 +2,18 @@ from django.contrib import admin
 from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
+from django.http import JsonResponse
+
+def root(request):
+    """Réponse sur la racine pour éviter 404."""
+    return JsonResponse({
+        'message': 'DBM API',
+        'admin': '/admin/',
+        'api': '/api/',
+    })
 
 urlpatterns = [
+    path('', root),
     path('admin/', admin.site.urls),
     path('api/auth/', include('apps.accounts.urls')),
     path('api/', include('apps.conservatoire.urls')),  # AVANT informations
