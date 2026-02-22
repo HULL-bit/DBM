@@ -121,11 +121,42 @@ STATIC_ROOT = BASE_DIR / 'staticfiles'
 MEDIA_URL = 'media/'
 MEDIA_ROOT = BASE_DIR / 'media'
 
-# Créer le répertoire des médias pour que les PDF bibliothèque soient bien sauvegardés et toujours disponibles
-MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
-(MEDIA_ROOT / 'bibliotheque' / 'livres').mkdir(parents=True, exist_ok=True)
-(MEDIA_ROOT / 'bibliotheque' / 'livres' / 'alquran').mkdir(parents=True, exist_ok=True)
-(MEDIA_ROOT / 'bibliotheque' / 'livres' / 'qassida').mkdir(parents=True, exist_ok=True)
+# Stockage des médias : S3 (persistant après redéploiement) si configuré, sinon disque local
+USE_S3_MEDIA = bool(os.environ.get('AWS_STORAGE_BUCKET_NAME'))
+
+if USE_S3_MEDIA:
+    # Les fichiers restent disponibles après redéploiement (Render, etc.)
+    STORAGES = {
+        'default': {
+            'BACKEND': 'storages.backends.s3boto3.S3Boto3Storage',
+            'OPTIONS': {
+                'bucket_name': os.environ.get('AWS_STORAGE_BUCKET_NAME'),
+                'access_key': os.environ.get('AWS_ACCESS_KEY_ID'),
+                'secret_key': os.environ.get('AWS_SECRET_ACCESS_KEY'),
+                'region_name': os.environ.get('AWS_S3_REGION_NAME', 'us-east-1'),
+                'custom_domain': os.environ.get('AWS_S3_CUSTOM_DOMAIN') or None,
+                'endpoint_url': os.environ.get('AWS_S3_ENDPOINT_URL') or None,
+                'location': os.environ.get('AWS_S3_MEDIA_LOCATION', 'media'),
+                'file_overwrite': False,
+                'querystring_auth': os.environ.get('AWS_QUERYSTRING_AUTH', 'true').lower() == 'true',
+            },
+        },
+        'staticfiles': {
+            'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
+        },
+    }
+    # URL des médias : bucket ou CDN
+    if os.environ.get('AWS_S3_CUSTOM_DOMAIN'):
+        MEDIA_URL = f"https://{os.environ['AWS_S3_CUSTOM_DOMAIN']}/{os.environ.get('AWS_S3_MEDIA_LOCATION', 'media')}/"
+    else:
+        MEDIA_URL = f"https://{os.environ.get('AWS_STORAGE_BUCKET_NAME')}.s3.{os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')}.amazonaws.com/{os.environ.get('AWS_S3_MEDIA_LOCATION', 'media')}/"
+else:
+    # Pas de STORAGES : Django utilise le stockage fichier par défaut (MEDIA_ROOT)
+    # Créer le répertoire des médias en local pour que les PDF soient sauvegardés
+    MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
+    (MEDIA_ROOT / 'bibliotheque' / 'livres').mkdir(parents=True, exist_ok=True)
+    (MEDIA_ROOT / 'bibliotheque' / 'livres' / 'alquran').mkdir(parents=True, exist_ok=True)
+    (MEDIA_ROOT / 'bibliotheque' / 'livres' / 'qassida').mkdir(parents=True, exist_ok=True)
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
