@@ -78,9 +78,8 @@ export default function Notifications() {
         message: form.message,
         lien: form.lien || '',
       })
-      const count = data?.count
       const detail = data?.detail
-      setMessage({ type: 'success', text: detail || (count ? `Notification envoyée à tous les membres (${count} notification(s)).` : 'Notification envoyée.') })
+      setMessage({ type: 'success', text: detail || '1 message envoyé à tous les membres.' })
       setOpenCreate(false)
       setForm({ type_notification: 'info', titre: '', message: '', lien: '' })
       loadList()

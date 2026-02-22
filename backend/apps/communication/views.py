@@ -377,10 +377,8 @@ class NotificationViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
-        qs = Notification.objects.select_related('utilisateur').order_by('-date_creation')
-        if not (self.request.user.is_staff or self.request.user.role == 'admin'):
-            qs = qs.filter(utilisateur=self.request.user)
-        return qs
+        # Chaque utilisateur (y compris admin) ne voit que ses propres notifications = 1 message reçu par membre
+        return Notification.objects.filter(utilisateur=self.request.user).select_related('utilisateur').order_by('-date_creation')
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -419,8 +417,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
             for uid in destinataires
         ]
         Notification.objects.bulk_create(batch)
+        nb_membres = len(batch)
         return Response(
-            {'detail': f'Notification envoyée à tous les membres ({len(batch)} notification(s) créée(s)).', 'count': len(batch)},
+            {'detail': f'1 message envoyé à {nb_membres} membre(s).', 'count': nb_membres},
             status=status.HTTP_201_CREATED
         )
 

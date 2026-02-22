@@ -5,7 +5,7 @@ from rest_framework.pagination import PageNumberPagination
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
-from django.http import FileResponse, Http404
+from django.http import FileResponse, Http404, HttpResponse
 from django.utils.encoding import smart_str
 
 from apps.accounts.permissions import IsAdminRoleOrStaff
@@ -48,40 +48,41 @@ class LivreNumeriqueViewSet(viewsets.ModelViewSet):
                 status=400,
             )
 
+    def _serve_pdf(self, livre, as_attachment=False):
+        """Sert le PDF via le storage (compatible FileSystem, S3, etc.)."""
+        if not livre.pdf or not livre.pdf.name:
+            raise Http404("Fichier non disponible.")
+        try:
+            with livre.pdf.storage.open(livre.pdf.name, 'rb') as f:
+                content = f.read()
+        except (FileNotFoundError, OSError) as e:
+            if getattr(e, 'errno', None) == 2 or 'No such file' in str(e):
+                raise Http404(
+                    "Fichier introuvable sur le serveur. En hébergement cloud, les fichiers peuvent être perdus après un redéploiement. Veuillez supprimer ce livre et le réajouter avec le PDF."
+                )
+            raise Http404(f"Fichier non accessible: {e!s}")
+        except Exception as e:
+            raise Http404(f"Fichier non accessible: {e!s}")
+        if not content:
+            raise Http404("Fichier vide.")
+        filename = smart_str(livre.nom or 'livre') + '.pdf'
+        resp = HttpResponse(content, content_type='application/pdf')
+        resp['Content-Disposition'] = ('attachment; filename="%s"' % filename) if as_attachment else ('inline; filename="%s"' % filename)
+        resp['Content-Length'] = len(content)
+        return resp
+
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def lire(self, request, pk=None):
-        """Stream le PDF pour lecture intégrée (iframe) et incrémente les vues."""
+        """Sert le PDF pour lecture (iframe ou nouvel onglet) et incrémente les vues."""
         livre = self.get_object()
-        if not livre.pdf:
-            raise Http404("Fichier non disponible.")
         livre.vues += 1
         livre.save(update_fields=['vues'])
-        try:
-            resp = FileResponse(
-                livre.pdf.open('rb'),
-                as_attachment=False,
-                content_type='application/pdf',
-            )
-            resp['Content-Disposition'] = 'inline; filename="' + smart_str(livre.nom or 'livre') + '.pdf"'
-            return resp
-        except Exception:
-            raise Http404("Fichier non accessible.")
+        return self._serve_pdf(livre, as_attachment=False)
 
     @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
     def telecharger(self, request, pk=None):
         """Télécharge le PDF et incrémente le compteur."""
         livre = self.get_object()
-        if not livre.pdf:
-            raise Http404("Fichier non disponible.")
         livre.telechargements += 1
         livre.save(update_fields=['telechargements'])
-        try:
-            resp = FileResponse(
-                livre.pdf.open('rb'),
-                as_attachment=True,
-                filename=smart_str(livre.nom or 'livre') + '.pdf',
-                content_type='application/pdf',
-            )
-            return resp
-        except Exception:
-            raise Http404("Fichier non accessible.")
+        return self._serve_pdf(livre, as_attachment=True)

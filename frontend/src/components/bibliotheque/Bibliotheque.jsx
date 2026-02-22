@@ -207,14 +207,39 @@ export default function Bibliotheque() {
     setOpenReader(livre)
     setPdfBlobUrl(null)
     setLoadingPdf(true)
+    setMessage({ type: '', text: '' })
     try {
-      const { data } = await api.get(`/bibliotheque/livres/${livre.id}/lire/`, {
+      const res = await api.get(`/bibliotheque/livres/${livre.id}/lire/`, {
         responseType: 'blob',
+        validateStatus: () => true,
       })
-      const url = URL.createObjectURL(data)
-      setPdfBlobUrl(url)
-    } catch {
-      setMessage({ type: 'error', text: 'Impossible de charger le PDF.' })
+      if (res.status !== 200) {
+        const text = await (res.data instanceof Blob ? new Promise((ok) => {
+          const r = new FileReader()
+          r.onload = () => ok(r.result)
+          r.readAsText(res.data)
+        }) : Promise.resolve(String(res.data)))
+        let errMsg = 'Impossible de charger le PDF.'
+        try {
+          const j = JSON.parse(text)
+          if (j.detail) errMsg = j.detail
+        } catch {
+          if (text && text.length < 200) errMsg = text
+        }
+        setMessage({ type: 'error', text: errMsg })
+        setOpenReader(null)
+        return
+      }
+      const url = URL.createObjectURL(res.data)
+      if (isMobile) {
+        window.open(url, '_blank')
+        setMessage({ type: 'success', text: 'PDF ouvert dans un nouvel onglet. Le défilement y fonctionne correctement.' })
+        setOpenReader(null)
+      } else {
+        setPdfBlobUrl(url)
+      }
+    } catch (e) {
+      setMessage({ type: 'error', text: e?.message || 'Impossible de charger le PDF. Vérifiez votre connexion.' })
       setOpenReader(null)
     } finally {
       setLoadingPdf(false)
@@ -228,19 +253,37 @@ export default function Bibliotheque() {
   }
 
   const handleTelecharger = async (livre) => {
+    setMessage({ type: '', text: '' })
     try {
-      const { data } = await api.get(`/bibliotheque/livres/${livre.id}/telecharger/`, {
+      const res = await api.get(`/bibliotheque/livres/${livre.id}/telecharger/`, {
         responseType: 'blob',
+        validateStatus: () => true,
       })
-      const url = URL.createObjectURL(data)
+      if (res.status !== 200) {
+        const text = await (res.data instanceof Blob ? new Promise((ok) => {
+          const r = new FileReader()
+          r.onload = () => ok(r.result)
+          r.readAsText(res.data)
+        }) : Promise.resolve(String(res.data)))
+        let errMsg = 'Impossible de télécharger le PDF.'
+        try {
+          const j = JSON.parse(text)
+          if (j.detail) errMsg = j.detail
+        } catch {
+          if (text && text.length < 200) errMsg = text
+        }
+        setMessage({ type: 'error', text: errMsg })
+        return
+      }
+      const url = URL.createObjectURL(res.data)
       const a = document.createElement('a')
       a.href = url
       a.download = (livre.nom || 'livre') + '.pdf'
       a.click()
       URL.revokeObjectURL(url)
       loadLivres()
-    } catch {
-      setMessage({ type: 'error', text: 'Impossible de télécharger le PDF.' })
+    } catch (e) {
+      setMessage({ type: 'error', text: e?.message || 'Impossible de télécharger le PDF. Vérifiez votre connexion.' })
     }
   }
 
@@ -644,6 +687,15 @@ export default function Bibliotheque() {
             </Typography>
           </Box>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
+            {pdfBlobUrl && isMobile && (
+              <Button
+                size="small"
+                onClick={() => pdfBlobUrl && window.open(pdfBlobUrl, '_blank')}
+                sx={{ color: COLORS.or, fontWeight: 600, mr: 0.5 }}
+              >
+                Ouvrir en onglet
+              </Button>
+            )}
             <IconButton
               onClick={() => openReader && handleTelecharger(openReader)}
               sx={{ color: COLORS.or }}
