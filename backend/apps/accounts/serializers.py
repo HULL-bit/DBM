@@ -34,6 +34,7 @@ class UserSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'telephone', 'adresse', 'sexe', 'profession', 'categorie',
+            'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis',
             'role', 'role_display', 'photo',
             'date_inscription', 'est_actif', 'numero_wave', 'numero_carte',
             'specialite', 'biographie',
@@ -71,6 +72,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
         fields = [
             'username', 'email', 'password', 'first_name', 'last_name',
             'telephone', 'adresse', 'sexe', 'profession', 'categorie',
+            'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis',
             'role', 'numero_wave', 'numero_carte',
             'specialite', 'biographie',
         ]
@@ -133,6 +135,7 @@ class UserMeSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'telephone', 'adresse', 'sexe', 'profession', 'categorie',
+            'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis',
             'role', 'role_display', 'photo',
             'photo_updated_at',
             'date_inscription', 'est_actif', 'numero_wave', 'numero_carte',

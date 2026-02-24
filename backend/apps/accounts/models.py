@@ -27,6 +27,31 @@ class CustomUser(AbstractUser):
         ('professionnel', 'Professionnel'),
     ]
 
+    CELLULE_CHOICES = [
+        ('dakar', 'Dakar'),
+        ('touba_mbacke', 'Touba / Mbacké'),
+        ('diaspora', 'Diaspora'),
+    ]
+
+    GROUPE_SANGUIN_CHOICES = [
+        ('A+', 'A+'),
+        ('A-', 'A-'),
+        ('B+', 'B+'),
+        ('B-', 'B-'),
+        ('AB+', 'AB+'),
+        ('AB-', 'AB-'),
+        ('O+', 'O+'),
+        ('O-', 'O-'),
+    ]
+
+    NIVEAU_CHOICES = [
+        ('faible', 'Faible'),
+        ('debutant', 'Débutant'),
+        ('moyen', 'Moyen'),
+        ('intermediaire', 'Intermédiaire'),
+        ('avance', 'Avancé'),
+    ]
+
     telephone = models.CharField(max_length=20, blank=True)
     adresse = models.TextField(blank=True)
     # Augmenter max_length pour accepter les rôles spécialisés (jusqu'à 21 caractères)
@@ -42,6 +67,10 @@ class CustomUser(AbstractUser):
     sexe = models.CharField(max_length=1, choices=SEXE_CHOICES, blank=True)
     profession = models.CharField(max_length=100, blank=True)
     categorie = models.CharField(max_length=20, choices=CATEGORIE_CHOICES, default='professionnel')
+    cellule = models.CharField(max_length=30, choices=CELLULE_CHOICES, blank=True)
+    groupe_sanguin = models.CharField(max_length=5, choices=GROUPE_SANGUIN_CHOICES, blank=True)
+    niveau_alquran = models.CharField(max_length=20, choices=NIVEAU_CHOICES, blank=True)
+    niveau_majalis = models.CharField(max_length=20, choices=NIVEAU_CHOICES, blank=True)
 
     # Champs spécifiques Jewrin
     specialite = models.CharField(max_length=100, blank=True)

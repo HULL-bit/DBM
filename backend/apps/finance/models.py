@@ -29,7 +29,7 @@ class CotisationMensuelle(models.Model):
     notes = models.TextField(blank=True)
 
     class Meta:
-        unique_together = ['membre', 'mois', 'annee', 'type_cotisation']
+        unique_together = ['membre', 'mois', 'annee', 'type_cotisation', 'objet_assignation']
         verbose_name = 'Cotisation Mensuelle'
         verbose_name_plural = 'Cotisations Mensuelles'
         ordering = ['-annee', '-mois']

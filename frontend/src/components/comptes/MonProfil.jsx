@@ -40,7 +40,6 @@ export default function MonProfil() {
     email: '',
     telephone: '',
     adresse: '',
-    numero_wave: '',
     specialite: '',
     biographie: '',
   })
@@ -60,7 +59,6 @@ export default function MonProfil() {
         email: user.email || '',
         telephone: user.telephone || '',
         adresse: user.adresse || '',
-        numero_wave: user.numero_wave || '',
         specialite: user.specialite || '',
         biographie: user.biographie || '',
       })
@@ -203,9 +201,6 @@ export default function MonProfil() {
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth name="telephone" label="Téléphone" value={form.telephone} onChange={handleChange} />
-            </Grid>
-            <Grid item xs={12} sm={6}>
-              <TextField fullWidth name="numero_wave" label="Numéro Wave" value={form.numero_wave} onChange={handleChange} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth name="specialite" label="Spécialité" value={form.specialite} onChange={handleChange} />

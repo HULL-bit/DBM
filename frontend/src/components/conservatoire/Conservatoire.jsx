@@ -1007,8 +1007,8 @@ export default function Conservatoire() {
                         const presences = s.presences || []
                         const nbPresents = presences.filter((p) => p.statut === 'present').length
                         const nbAbsents = presences.filter((p) => p.statut === 'absent_non_justifie' || p.statut === 'absent_justifie').length
-                        const presents = presences.filter((p) => p.statut === 'present').map((p) => p.membre_nom || `#${p.membre}`).join(', ') || '—'
-                        const absents = presences.filter((p) => p.statut !== 'present').map((p) => `${p.membre_nom || p.membre} (${p.statut_display || p.statut})`).join(', ') || '—'
+                        const presentList = presences.filter((p) => p.statut === 'present')
+                        const absentList = presences.filter((p) => p.statut !== 'present')
                         const isExpanded = expandedSeance === s.id
                         return (
                           <React.Fragment key={s.id}>
@@ -1025,14 +1025,54 @@ export default function Conservatoire() {
                             {isExpanded && (
                               <TableRow>
                                 <TableCell colSpan={6} sx={{ bgcolor: `${COLORS.or}25`, py: 2, borderBottom: 1, borderColor: 'divider' }}>
-                                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap' }}>
-                                    <Box>
-                                      <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.vert }}>Présents :</Typography>
-                                      <Typography variant="body2" sx={{ mt: 0.5 }}>{presents || '—'}</Typography>
+                                  <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+                                    <Box sx={{ minWidth: 200 }}>
+                                      <Typography variant="caption" sx={{ fontWeight: 600, color: COLORS.vert, display: 'block', mb: 0.5 }}>Présents :</Typography>
+                                      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1, maxHeight: 200, overflow: 'auto' }}>
+                                        <Table size="small" stickyHeader>
+                                          <TableHead>
+                                            <TableRow sx={{ bgcolor: `${COLORS.vert}15` }}>
+                                              <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}><strong>Nom</strong></TableCell>
+                                            </TableRow>
+                                          </TableHead>
+                                          <TableBody>
+                                            {presentList.length === 0 ? (
+                                              <TableRow><TableCell sx={{ py: 0.5, fontSize: '0.8rem' }}>—</TableCell></TableRow>
+                                            ) : (
+                                              presentList.map((p) => (
+                                                <TableRow key={p.id || p.membre}>
+                                                  <TableCell sx={{ py: 0.25, fontSize: '0.8rem' }}>{p.membre_nom || `#${p.membre}`}</TableCell>
+                                                </TableRow>
+                                              ))
+                                            )}
+                                          </TableBody>
+                                        </Table>
+                                      </TableContainer>
                                     </Box>
-                                    <Box>
-                                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#c62828' }}>Absents :</Typography>
-                                      <Typography variant="body2" sx={{ mt: 0.5 }}>{absents || '—'}</Typography>
+                                    <Box sx={{ minWidth: 260 }}>
+                                      <Typography variant="caption" sx={{ fontWeight: 600, color: '#c62828', display: 'block', mb: 0.5 }}>Absents :</Typography>
+                                      <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 1, maxHeight: 200, overflow: 'auto' }}>
+                                        <Table size="small" stickyHeader>
+                                          <TableHead>
+                                            <TableRow sx={{ bgcolor: 'rgba(198, 40, 40, 0.12)' }}>
+                                              <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}><strong>Nom</strong></TableCell>
+                                              <TableCell sx={{ py: 0.5, fontSize: '0.75rem' }}><strong>Statut</strong></TableCell>
+                                            </TableRow>
+                                          </TableHead>
+                                          <TableBody>
+                                            {absentList.length === 0 ? (
+                                              <TableRow><TableCell colSpan={2} sx={{ py: 0.5, fontSize: '0.8rem' }}>—</TableCell></TableRow>
+                                            ) : (
+                                              absentList.map((p) => (
+                                                <TableRow key={p.id || p.membre}>
+                                                  <TableCell sx={{ py: 0.25, fontSize: '0.8rem' }}>{p.membre_nom || `#${p.membre}`}</TableCell>
+                                                  <TableCell sx={{ py: 0.25, fontSize: '0.8rem' }}>{p.statut_display || p.statut}</TableCell>
+                                                </TableRow>
+                                              ))
+                                            )}
+                                          </TableBody>
+                                        </Table>
+                                      </TableContainer>
                                     </Box>
                                   </Box>
                                 </TableCell>

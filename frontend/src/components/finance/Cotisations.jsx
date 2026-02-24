@@ -106,6 +106,7 @@ export default function Cotisations() {
       notes: '',
     })
     setFormErrors({})
+    setMessage({ type: '', text: '' })
     setOpenForm(true)
   }
 
@@ -124,6 +125,7 @@ export default function Cotisations() {
       notes: c.notes || '',
     })
     setFormErrors({})
+    setMessage({ type: '', text: '' })
     setOpenForm(true)
   }
 
@@ -167,8 +169,23 @@ export default function Cotisations() {
       setOpenForm(false)
       setEditingId(null)
     } catch (err) {
-      const detail = err.response?.data?.detail || err.response?.data
-      setMessage({ type: 'error', text: typeof detail === 'object' ? JSON.stringify(detail) : (detail || 'Erreur') })
+      const data = err.response?.data
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiErrors = {}
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) {
+            apiErrors[key] = String(value[0])
+          } else if (typeof value === 'string') {
+            apiErrors[key] = value
+          }
+        })
+        setFormErrors((prev) => ({ ...prev, ...apiErrors }))
+        const firstMsg = Object.values(apiErrors)[0] || 'Veuillez corriger les champs.'
+        setMessage({ type: 'error', text: firstMsg })
+      } else {
+        const detail = data?.detail || data
+        setMessage({ type: 'error', text: typeof detail === 'object' ? JSON.stringify(detail) : (detail || 'Erreur') })
+      }
     } finally {
       setSaving(false)
     }

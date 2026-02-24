@@ -108,7 +108,7 @@ class UserList(generics.ListAPIView):
     serializer_class = UserSerializer
     # Admin Django (is_staff) OU admin logique (role='admin')
     permission_classes = [IsAuthenticated, IsAdminRoleOrStaff]
-    filterset_fields = ['role', 'est_actif']
+    filterset_fields = ['role', 'est_actif', 'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis']
 
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):

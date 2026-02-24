@@ -38,6 +38,28 @@ const ROLES = [
   { value: 'jewrine_organisation', label: 'Jewrine Organisation' },
 ]
 
+const CELLULES = [
+  { value: '', label: 'Non renseigné' },
+  { value: 'dakar', label: 'Dakar' },
+  { value: 'touba_mbacke', label: 'Touba / Mbacké' },
+  { value: 'diaspora', label: 'Diaspora' },
+]
+const GROUPES_SANGUINS = [
+  { value: '', label: 'Non renseigné' },
+  { value: 'A+', label: 'A+' }, { value: 'A-', label: 'A-' },
+  { value: 'B+', label: 'B+' }, { value: 'B-', label: 'B-' },
+  { value: 'AB+', label: 'AB+' }, { value: 'AB-', label: 'AB-' },
+  { value: 'O+', label: 'O+' }, { value: 'O-', label: 'O-' },
+]
+const NIVEAUX = [
+  { value: '', label: 'Non renseigné' },
+  { value: 'faible', label: 'Faible' },
+  { value: 'debutant', label: 'Débutant' },
+  { value: 'moyen', label: 'Moyen' },
+  { value: 'intermediaire', label: 'Intermédiaire' },
+  { value: 'avance', label: 'Avancé' },
+]
+
 const initialForm = {
   username: '',
   email: '',
@@ -47,10 +69,13 @@ const initialForm = {
   role: 'membre',
   telephone: '',
   adresse: '',
-  numero_wave: '',
   sexe: '',
   profession: '',
-  categorie: 'professionnel', // Par défaut
+  categorie: 'professionnel',
+  cellule: '',
+  groupe_sanguin: '',
+  niveau_alquran: '',
+  niveau_majalis: '',
   numero_carte: '',
   est_actif: true,
 }
@@ -68,6 +93,10 @@ export default function GestionMembres() {
   const [sexeFilter, setSexeFilter] = useState('')
   const [categorieFilter, setCategorieFilter] = useState('')
   const [professionFilter, setProfessionFilter] = useState('')
+  const [celluleFilter, setCelluleFilter] = useState('')
+  const [groupeSanguinFilter, setGroupeSanguinFilter] = useState('')
+  const [niveauAlquranFilter, setNiveauAlquranFilter] = useState('')
+  const [niveauMajalisFilter, setNiveauMajalisFilter] = useState('')
   const [fieldErrors, setFieldErrors] = useState({})
 
   const loadList = async () => {
@@ -75,7 +104,6 @@ export default function GestionMembres() {
     try {
       const { data } = await api.get('/auth/users/')
       const users = data.results || data
-      console.log('Liste rechargée, catégories:', users.map(u => ({ id: u.id, nom: u.first_name, categorie: u.categorie })))
       setList(users)
     } catch (err) {
       console.error('Erreur lors du chargement:', err)
@@ -114,10 +142,13 @@ export default function GestionMembres() {
       role: u.role || 'membre',
       telephone: u.telephone || '',
       adresse: u.adresse || '',
-      numero_wave: u.numero_wave || '',
       sexe: u.sexe || '',
       profession: u.profession || '',
       categorie: normaliseCategorie(u.categorie),
+      cellule: u.cellule || '',
+      groupe_sanguin: u.groupe_sanguin || '',
+      niveau_alquran: u.niveau_alquran || '',
+      niveau_majalis: u.niveau_majalis || '',
       numero_carte: u.numero_carte || '',
       est_actif: u.est_actif ?? true,
     })
@@ -160,9 +191,7 @@ export default function GestionMembres() {
       if (editingId) {
         const payload = { ...form, categorie: categorieValide }
         if (!payload.password) delete payload.password
-        console.log('Envoi PATCH avec categorie:', categorieValide, 'payload complet:', payload)
         const response = await api.patch(`/auth/users/${editingId}/`, payload)
-        console.log('Réponse backend - categorie retournée:', response.data?.categorie)
         
         // Mettre à jour directement dans la liste si la réponse contient les données
         if (response.data) {
@@ -245,7 +274,13 @@ export default function GestionMembres() {
       !professionFilter ||
       (u.profession && u.profession.toLowerCase().includes(professionFilter.trim().toLowerCase()))
 
-    return matchesSearch && matchesSexe && matchesCategorie && matchesProfession
+    const matchesCellule = !celluleFilter || (u.cellule || '') === celluleFilter
+    const matchesGroupeSanguin = !groupeSanguinFilter || (u.groupe_sanguin || '') === groupeSanguinFilter
+    const matchesNiveauAlquran = !niveauAlquranFilter || (u.niveau_alquran || '') === niveauAlquranFilter
+    const matchesNiveauMajalis = !niveauMajalisFilter || (u.niveau_majalis || '') === niveauMajalisFilter
+
+    return matchesSearch && matchesSexe && matchesCategorie && matchesProfession &&
+      matchesCellule && matchesGroupeSanguin && matchesNiveauAlquran && matchesNiveauMajalis
   })
 
   return (
@@ -305,6 +340,50 @@ export default function GestionMembres() {
             size="small"
             sx={{ minWidth: 200 }}
           />
+          <TextField
+            select
+            label="Cellule"
+            value={celluleFilter}
+            onChange={(e) => setCelluleFilter(e.target.value)}
+            size="small"
+            sx={{ minWidth: 160 }}
+          >
+            <MenuItem value="">Toutes</MenuItem>
+            {CELLULES.filter((c) => c.value).map((c) => <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>)}
+          </TextField>
+          <TextField
+            select
+            label="Groupe sanguin"
+            value={groupeSanguinFilter}
+            onChange={(e) => setGroupeSanguinFilter(e.target.value)}
+            size="small"
+            sx={{ minWidth: 140 }}
+          >
+            <MenuItem value="">Tous</MenuItem>
+            {GROUPES_SANGUINS.filter((g) => g.value).map((g) => <MenuItem key={g.value} value={g.value}>{g.label}</MenuItem>)}
+          </TextField>
+          <TextField
+            select
+            label="Niveau Al-Quran"
+            value={niveauAlquranFilter}
+            onChange={(e) => setNiveauAlquranFilter(e.target.value)}
+            size="small"
+            sx={{ minWidth: 160 }}
+          >
+            <MenuItem value="">Tous</MenuItem>
+            {NIVEAUX.filter((n) => n.value).map((n) => <MenuItem key={n.value} value={n.value}>{n.label}</MenuItem>)}
+          </TextField>
+          <TextField
+            select
+            label="Niveau Majalis"
+            value={niveauMajalisFilter}
+            onChange={(e) => setNiveauMajalisFilter(e.target.value)}
+            size="small"
+            sx={{ minWidth: 160 }}
+          >
+            <MenuItem value="">Tous</MenuItem>
+            {NIVEAUX.filter((n) => n.value).map((n) => <MenuItem key={n.value} value={n.value}>{n.label}</MenuItem>)}
+          </TextField>
         </Box>
       </Box>
 
@@ -326,7 +405,11 @@ export default function GestionMembres() {
                 <TableCell>Email</TableCell>
                 <TableCell>Rôle</TableCell>
                 <TableCell>Téléphone</TableCell>
-                  <TableCell>Catégorie</TableCell>
+                <TableCell>Catégorie</TableCell>
+                <TableCell>Cellule</TableCell>
+                <TableCell>Groupe sang.</TableCell>
+                <TableCell>N. Al-Quran</TableCell>
+                <TableCell>N. Majalis</TableCell>
                 <TableCell>Profession</TableCell>
                 <TableCell>Numéro carte</TableCell>
                 <TableCell>Statut</TableCell>
@@ -335,7 +418,7 @@ export default function GestionMembres() {
             </TableHead>
             <TableBody>
               {filteredList.length === 0 ? (
-                <TableRow><TableCell colSpan={9} align="center">Aucun membre</TableCell></TableRow>
+                <TableRow><TableCell colSpan={13} align="center">Aucun membre</TableCell></TableRow>
               ) : (
                 filteredList.map((u) => (
                   <TableRow key={u.id}>
@@ -366,9 +449,13 @@ export default function GestionMembres() {
                         if (cat === 'eleve') return 'Élève'
                         if (cat === 'etudiant') return 'Étudiant'
                         if (cat === 'professionnel') return 'Professionnel'
-                        return 'Professionnel' // Fallback
+                        return 'Professionnel'
                       })()}
                     </TableCell>
+                    <TableCell>{CELLULES.find((c) => c.value === u.cellule)?.label || (u.cellule || '—')}</TableCell>
+                    <TableCell>{u.groupe_sanguin || '—'}</TableCell>
+                    <TableCell>{NIVEAUX.find((n) => n.value === u.niveau_alquran)?.label || (u.niveau_alquran || '—')}</TableCell>
+                    <TableCell>{NIVEAUX.find((n) => n.value === u.niveau_majalis)?.label || (u.niveau_majalis || '—')}</TableCell>
                     <TableCell>{u.profession || '—'}</TableCell>
                     <TableCell>{u.numero_carte || '—'}</TableCell>
                     <TableCell><Chip label={u.est_actif ? 'Actif' : 'Inactif'} color={u.est_actif ? 'success' : 'default'} size="small" /></TableCell>
@@ -448,11 +535,7 @@ export default function GestionMembres() {
               select
               label="Catégorie"
               value={form.categorie || 'professionnel'}
-              onChange={(e) => {
-                const newValue = e.target.value || 'professionnel'
-                console.log('Catégorie changée:', newValue)
-                setForm((f) => ({ ...f, categorie: newValue }))
-              }}
+              onChange={(e) => setForm((f) => ({ ...f, categorie: e.target.value || 'professionnel' }))}
               fullWidth
               required
             >
@@ -460,9 +543,52 @@ export default function GestionMembres() {
               <MenuItem value="etudiant">Étudiant</MenuItem>
               <MenuItem value="professionnel">Professionnel</MenuItem>
             </TextField>
+            <TextField
+              select
+              label="Cellule"
+              value={form.cellule || ''}
+              onChange={(e) => { setForm((f) => ({ ...f, cellule: e.target.value })); setFieldErrors((fe) => ({ ...fe, cellule: undefined })) }}
+              fullWidth
+              error={!!fieldErrors.cellule}
+              helperText={fieldErrors.cellule}
+            >
+              {CELLULES.map((c) => <MenuItem key={c.value || 'none'} value={c.value}>{c.label}</MenuItem>)}
+            </TextField>
+            <TextField
+              select
+              label="Groupe sanguin"
+              value={form.groupe_sanguin || ''}
+              onChange={(e) => { setForm((f) => ({ ...f, groupe_sanguin: e.target.value })); setFieldErrors((fe) => ({ ...fe, groupe_sanguin: undefined })) }}
+              fullWidth
+              error={!!fieldErrors.groupe_sanguin}
+              helperText={fieldErrors.groupe_sanguin}
+            >
+              {GROUPES_SANGUINS.map((g) => <MenuItem key={g.value || 'none'} value={g.value}>{g.label}</MenuItem>)}
+            </TextField>
+            <TextField
+              select
+              label="Niveau Al-Quran"
+              value={form.niveau_alquran || ''}
+              onChange={(e) => { setForm((f) => ({ ...f, niveau_alquran: e.target.value })); setFieldErrors((fe) => ({ ...fe, niveau_alquran: undefined })) }}
+              fullWidth
+              error={!!fieldErrors.niveau_alquran}
+              helperText={fieldErrors.niveau_alquran}
+            >
+              {NIVEAUX.map((n) => <MenuItem key={n.value || 'none'} value={n.value}>{n.label}</MenuItem>)}
+            </TextField>
+            <TextField
+              select
+              label="Niveau Majalis"
+              value={form.niveau_majalis || ''}
+              onChange={(e) => { setForm((f) => ({ ...f, niveau_majalis: e.target.value })); setFieldErrors((fe) => ({ ...fe, niveau_majalis: undefined })) }}
+              fullWidth
+              error={!!fieldErrors.niveau_majalis}
+              helperText={fieldErrors.niveau_majalis}
+            >
+              {NIVEAUX.map((n) => <MenuItem key={n.value || 'none'} value={n.value}>{n.label}</MenuItem>)}
+            </TextField>
             <TextField label="Profession" value={form.profession} onChange={(e) => setForm((f) => ({ ...f, profession: e.target.value }))} fullWidth />
             <TextField label="Numéro de carte" value={form.numero_carte} onChange={(e) => setForm((f) => ({ ...f, numero_carte: e.target.value }))} fullWidth />
-            <TextField label="Numéro Wave" value={form.numero_wave} onChange={(e) => setForm((f) => ({ ...f, numero_wave: e.target.value }))} fullWidth />
             <TextField label="Adresse" value={form.adresse} onChange={(e) => setForm((f) => ({ ...f, adresse: e.target.value }))} multiline rows={2} fullWidth />
             <TextField
               select

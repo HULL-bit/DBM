@@ -20,6 +20,10 @@ export default function Register() {
     sexe: '',
     profession: '',
     categorie: '',
+    cellule: '',
+    groupe_sanguin: '',
+    niveau_alquran: '',
+    niveau_majalis: '',
   })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -39,6 +43,28 @@ export default function Register() {
   const SEXES = [
     { value: 'M', label: 'Masculin' },
     { value: 'F', label: 'Féminin' },
+  ]
+
+  const CELLULES = [
+    { value: '', label: 'Non renseigné' },
+    { value: 'dakar', label: 'Dakar' },
+    { value: 'touba_mbacke', label: 'Touba / Mbacké' },
+    { value: 'diaspora', label: 'Diaspora' },
+  ]
+  const GROUPES_SANGUINS = [
+    { value: '', label: 'Non renseigné' },
+    { value: 'A+', label: 'A+' }, { value: 'A-', label: 'A-' },
+    { value: 'B+', label: 'B+' }, { value: 'B-', label: 'B-' },
+    { value: 'AB+', label: 'AB+' }, { value: 'AB-', label: 'AB-' },
+    { value: 'O+', label: 'O+' }, { value: 'O-', label: 'O-' },
+  ]
+  const NIVEAUX = [
+    { value: '', label: 'Non renseigné' },
+    { value: 'faible', label: 'Faible' },
+    { value: 'debutant', label: 'Débutant' },
+    { value: 'moyen', label: 'Moyen' },
+    { value: 'intermediaire', label: 'Intermédiaire' },
+    { value: 'avance', label: 'Avancé' },
   ]
 
   const handleChange = (e) => {
@@ -219,6 +245,70 @@ export default function Register() {
               <MenuItem value="eleve">Élève</MenuItem>
               <MenuItem value="etudiant">Étudiant</MenuItem>
               <MenuItem value="professionnel">Professionnel</MenuItem>
+            </TextField>
+            <TextField
+              fullWidth
+              name="cellule"
+              select
+              label="Cellule"
+              value={form.cellule}
+              onChange={handleChange}
+              margin="dense"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.cellule}
+              helperText={fieldErrors.cellule || ''}
+            >
+              {CELLULES.map((c) => (
+                <MenuItem key={c.value || 'none'} value={c.value}>{c.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              name="groupe_sanguin"
+              select
+              label="Groupe sanguin"
+              value={form.groupe_sanguin}
+              onChange={handleChange}
+              margin="dense"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.groupe_sanguin}
+              helperText={fieldErrors.groupe_sanguin || ''}
+            >
+              {GROUPES_SANGUINS.map((g) => (
+                <MenuItem key={g.value || 'none'} value={g.value}>{g.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              name="niveau_alquran"
+              select
+              label="Niveau Al-Quran"
+              value={form.niveau_alquran}
+              onChange={handleChange}
+              margin="dense"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.niveau_alquran}
+              helperText={fieldErrors.niveau_alquran || ''}
+            >
+              {NIVEAUX.map((n) => (
+                <MenuItem key={n.value || 'none'} value={n.value}>{n.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              name="niveau_majalis"
+              select
+              label="Niveau Majalis"
+              value={form.niveau_majalis}
+              onChange={handleChange}
+              margin="dense"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.niveau_majalis}
+              helperText={fieldErrors.niveau_majalis || ''}
+            >
+              {NIVEAUX.map((n) => (
+                <MenuItem key={n.value || 'none'} value={n.value}>{n.label}</MenuItem>
+              ))}
             </TextField>
             <TextField fullWidth name="role" select label="Rôle" value={form.role} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
               {ROLES.map((r) => (
