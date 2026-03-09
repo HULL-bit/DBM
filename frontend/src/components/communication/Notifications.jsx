@@ -44,14 +44,34 @@ export default function Notifications() {
   const [message, setMessage] = useState({ type: '', text: '' })
   const [openCreate, setOpenCreate] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [form, setForm] = useState({ type_notification: 'info', titre: '', message: '', lien: '' })
+  const [form, setForm] = useState({ type_notification: 'info', titre: '', message: '', lien: '', destinataires: [] })
   const [fieldErrors, setFieldErrors] = useState({})
+  const [membres, setMembres] = useState([])
+  const [loadingMembres, setLoadingMembres] = useState(false)
 
   const loadList = () => {
     setLoading(true)
     api.get('/communication/notifications/').then(({ data }) => setList(data.results || data)).catch(() => setList([])).finally(() => setLoading(false))
   }
   useEffect(() => { loadList() }, [])
+
+  const loadMembres = () => {
+    if (!isAdmin) return
+    setLoadingMembres(true)
+    api.get('/auth/users/')
+      .then(({ data }) => {
+        const arr = data.results || data || []
+        setMembres(Array.isArray(arr) ? arr : [])
+      })
+      .catch(() => setMembres([]))
+      .finally(() => setLoadingMembres(false))
+  }
+
+  useEffect(() => {
+    if (openCreate && isAdmin && membres.length === 0 && !loadingMembres) {
+      loadMembres()
+    }
+  }, [openCreate]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleMarquerLue = async (id) => {
     try {
@@ -77,11 +97,14 @@ export default function Notifications() {
         titre: form.titre,
         message: form.message,
         lien: form.lien || '',
+        destinataires: Array.isArray(form.destinataires) && form.destinataires.length > 0
+          ? form.destinataires
+          : undefined,
       })
       const detail = data?.detail
       setMessage({ type: 'success', text: detail || '1 message envoyé à tous les membres.' })
       setOpenCreate(false)
-      setForm({ type_notification: 'info', titre: '', message: '', lien: '' })
+      setForm({ type_notification: 'info', titre: '', message: '', lien: '', destinataires: [] })
       loadList()
     } catch (err) {
       const data = err.response?.data
@@ -172,8 +195,45 @@ export default function Notifications() {
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                La notification sera envoyée à tous les membres.
+                Sélectionnez les destinataires (laissez vide pour envoyer à tous les membres).
               </Typography>
+              <TextField
+                select
+                fullWidth
+                label="Destinataires (membres)"
+                value={form.destinataires}
+                onChange={(e) => {
+                  const value = e.target.value
+                  const ids = Array.isArray(value) ? value.map((v) => Number(v)) : []
+                  setForm((f) => ({ ...f, destinataires: ids }))
+                }}
+                SelectProps={{
+                  multiple: true,
+                  renderValue: (selected) => {
+                    if (!selected || selected.length === 0) return 'Tous les membres'
+                    const labels = selected.map((id) => {
+                      const m = membres.find((u) => u.id === id)
+                      if (!m) return `#${id}`
+                      const nom = `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.username || `#${m.id}`
+                      return nom
+                    })
+                    return labels.join(', ')
+                  },
+                }}
+                helperText={loadingMembres ? 'Chargement des membres…' : (form.destinataires.length === 0 ? 'Vide = tous les membres' : `${form.destinataires.length} destinataire(s) sélectionné(s)`)}
+              >
+                {loadingMembres && (
+                  <MenuItem disabled><CircularProgress size={20} sx={{ mr: 1 }} /> Chargement…</MenuItem>
+                )}
+                {!loadingMembres && membres.map((m) => {
+                  const nom = `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.username || `#${m.id}`
+                  return (
+                    <MenuItem key={m.id} value={m.id}>
+                      {nom} — {m.telephone || m.email || ''}
+                    </MenuItem>
+                  )
+                })}
+              </TextField>
               <TextField select fullWidth label="Type" value={form.type_notification} onChange={(e) => setForm((f) => ({ ...f, type_notification: e.target.value }))}>
                 {TYPES.map((t) => <MenuItem key={t.value} value={t.value}>{t.label}</MenuItem>)}
               </TextField>

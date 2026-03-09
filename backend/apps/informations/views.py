@@ -4,6 +4,7 @@ from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny
 
 from .models import Groupe, Evenement, ParticipationEvenement, Publication, Annonce, GalerieMedia
+from apps.communication.push import send_push_to_user
 from .serializers import GroupeSerializer, EvenementSerializer, ParticipationEvenementSerializer, PublicationSerializer, AnnonceSerializer, GalerieMediaSerializer
 
 
@@ -35,7 +36,25 @@ class EvenementViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(cree_par=self.request.user)
+        evt = serializer.save(cree_par=self.request.user)
+
+        # Notifier tous les membres de la daara via la passerelle (WhatsApp / SMS)
+        from apps.accounts.models import CustomUser
+        from django.conf import settings
+
+        if getattr(settings, "PUSH_ENABLED", False):
+            membres = CustomUser.objects.filter(is_active=True).only('id', 'first_name', 'last_name', 'username', 'telephone')
+            texte = f"[EVENEMENT] {evt.titre}\n\n{evt.description or ''}"
+            if getattr(evt, "date_debut", None) or getattr(evt, "lieu", None):
+                details = []
+                if getattr(evt, "date_debut", None):
+                    details.append(f"Date : {evt.date_debut}")
+                if getattr(evt, "lieu", None):
+                    details.append(f"Lieu : {evt.lieu}")
+                if details:
+                    texte += "\n\n" + " | ".join(details)
+            for m in membres:
+                send_push_to_user(m, texte, contexte='evenement')
 
     @action(detail=True, methods=['post'])
     def s_inscrire(self, request, pk=None):

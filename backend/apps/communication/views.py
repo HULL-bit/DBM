@@ -6,6 +6,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from apps.accounts.permissions import IsAdminOrJewrinCommunication
 
 from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification
+from .push import send_push_to_user
 from .serializers import MessageSerializer, CategorieForumSerializer, SujetForumSerializer, ReponseForumSerializer, NotificationSerializer
 
 
@@ -386,7 +387,12 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
-        """Créer une notification : envoyée à tous les membres (utilisateurs actifs)."""
+        """Créer une notification.
+
+        - Par défaut : envoyée à tous les membres (utilisateurs actifs)
+        - Optionnel : si `destinataires` est fourni (liste d'IDs utilisateur),
+          la notification est envoyée uniquement à ces membres.
+        """
         if not (request.user.is_staff or getattr(request.user, 'role', None) == 'admin'):
             return super().create(request, *args, **kwargs)
         from apps.accounts.models import CustomUser
@@ -394,30 +400,64 @@ class NotificationViewSet(viewsets.ModelViewSet):
         titre = request.data.get('titre', '')
         message = request.data.get('message', '')
         lien = request.data.get('lien', '')
+        destinataires = request.data.get('destinataires')  # attendu: liste d'IDs
         if not titre or not message:
             return Response(
                 {'detail': 'Titre et message requis.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        # Tous les utilisateurs actifs = tous les membres (bulk_create pour performance)
-        destinataires = list(CustomUser.objects.filter(is_active=True).values_list('id', flat=True))
-        if not destinataires:
+
+        # Si une liste explicite de destinataires est fournie, on la respecte
+        user_ids = None
+        if isinstance(destinataires, (list, tuple)):
+            # Nettoyer / caster en int et enlever les doublons
+            cleaned_ids = []
+            for v in destinataires:
+                try:
+                    cleaned_ids.append(int(v))
+                except (TypeError, ValueError):
+                    continue
+            cleaned_ids = list(sorted(set(cleaned_ids)))
+            if cleaned_ids:
+                user_ids = list(
+                    CustomUser.objects.filter(is_active=True, id__in=cleaned_ids)
+                    .values_list('id', flat=True)
+                )
+
+        # Sinon, fallback : tous les utilisateurs actifs = tous les membres
+        if user_ids is None:
+            user_ids = list(CustomUser.objects.filter(is_active=True).values_list('id', flat=True))
+
+        if not user_ids:
             return Response(
                 {'detail': 'Aucun membre à notifier.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
         batch = [
             Notification(
-                utilisateur_id=uid,
+                utilisateur_id=user_id,
                 type_notification=type_notification,
                 titre=titre,
                 message=message,
                 lien=lien or '',
             )
-            for uid in destinataires
+            for user_id in user_ids
         ]
         Notification.objects.bulk_create(batch)
         nb_membres = len(batch)
+
+        # Notification externe (WhatsApp / SMS via passerelle) :
+        # - type "evenement" ou "systeme" ou "finance"
+        # - et uniquement pour les membres sélectionnés / tous les membres actifs selon user_ids
+        from apps.accounts.models import CustomUser  # import local pour éviter les boucles
+        if type_notification in ['evenement', 'systeme', 'finance']:
+            utilisateurs = CustomUser.objects.filter(id__in=user_ids).only('id', 'first_name', 'last_name', 'username', 'telephone')
+            texte = f"[{type_notification.upper()}] {titre}\n\n{message}"
+            if lien:
+                texte += f"\n\nPlus d'infos : {lien}"
+            for u in utilisateurs:
+                send_push_to_user(u, texte, contexte='notification')
+
         return Response(
             {'detail': f'1 message envoyé à {nb_membres} membre(s).', 'count': nb_membres},
             status=status.HTTP_201_CREATED
