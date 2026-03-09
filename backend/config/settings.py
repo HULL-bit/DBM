@@ -163,7 +163,7 @@ DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 # Notifications externes (passerelle WhatsApp / SMS)
 PUSH_ENABLED = os.environ.get('PUSH_ENABLED', 'False').lower() == 'true'
 PUSH_GATEWAY_URL = os.environ.get('PUSH_GATEWAY_URL', 'https://dbmgt-sxc2.onrender.com')
-PUSH_GATEWAY_TOKEN = os.environ.get('PUSH_GATEWAY_TOKEN', '')
+PUSH_GATEWAY_TOKEN = os.environ.get('PUSH_GATEWAY_TOKEN', 'super_token_dbm_2025')
 
 # Limite d'upload pour les PDF de la bibliothèque (10 Mo)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
