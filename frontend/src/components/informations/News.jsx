@@ -194,20 +194,29 @@ export default function News() {
                 </Typography>
 
                 {(post.images || []).length > 0 && (
-                  <Box sx={{ mt: 2 }}>
-                    <ImageList cols={isMobile ? 1 : Math.min(3, (post.images || []).length)} gap={8} rowHeight={isMobile ? 220 : 180} sx={{ m: 0 }}>
-                      {(post.images || []).slice(0, isMobile ? 3 : 6).map((img) => (
-                        <ImageListItem key={img.id}>
-                          <Box
-                            component="img"
-                            src={getMediaUrl(img.image)}
-                            alt=""
-                            loading="lazy"
-                            sx={{ width: '100%', height: '100%', objectFit: 'cover', borderRadius: 1 }}
-                          />
-                        </ImageListItem>
-                      ))}
-                    </ImageList>
+                  <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                    {(post.images || []).slice(0, isMobile ? 2 : 3).map((img) => (
+                      <Box key={img.id} sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #eee', p: 0.75, bgcolor: '#fafafa' }}>
+                        <Box
+                          component="img"
+                          src={getMediaUrl(img.image)}
+                          alt=""
+                          loading="lazy"
+                          sx={{ width: '100%', objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
+                          onLoad={(e) => {
+                            const el = e.target
+                            const w = el.naturalWidth
+                            const h = el.naturalHeight
+                            setImageInfos((prev) => ({ ...prev, [img.id]: { w, h } }))
+                          }}
+                        />
+                        {imageInfos[img.id] && (
+                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
+                            {imageInfos[img.id].w} × {imageInfos[img.id].h} px
+                          </Typography>
+                        )}
+                      </Box>
+                    ))}
                   </Box>
                 )}
               </CardContent>
@@ -331,12 +340,12 @@ export default function News() {
                 <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {(openDetails.images || []).map((img) => (
                     <Box key={img.id} sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #eee', p: 1, bgcolor: '#fafafa' }}>
-                      <Box
+                        <Box
                         component="img"
                         src={getMediaUrl(img.image)}
                         alt=""
                         loading="lazy"
-                        sx={{ width: '100%', maxHeight: 480, objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
+                        sx={{ width: '100%', objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
                         onLoad={(e) => {
                           const el = e.target
                           const w = el.naturalWidth
