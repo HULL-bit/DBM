@@ -8,6 +8,7 @@ import DashboardAdmin from './components/dashboard/DashboardAdmin'
 import DashboardMembre from './components/dashboard/DashboardMembre'
 import DashboardJewrin from './components/dashboard/DashboardJewrin'
 import Evenements from './components/informations/Evenements'
+import News from './components/informations/News'
 import Cotisations from './components/finance/Cotisations'
 import LeveesFonds from './components/finance/LeveesFonds'
 import ProgrammeKamil from './components/culturelle/ProgrammeKamil'
@@ -69,6 +70,7 @@ function AppRoutes() {
         <Route path="membre" element={<ProtectedRoute roles={['membre']}><DashboardMembre /></ProtectedRoute>} />
         <Route path="jewrin" element={<ProtectedRoute roles={JEWRINE_ROLES}><DashboardJewrin /></ProtectedRoute>} />
         <Route path="informations/evenements" element={<Evenements />} />
+        <Route path="informations/news" element={<News />} />
         <Route path="finance/cotisations" element={<Cotisations />} />
         <Route path="finance/levees-fonds" element={<LeveesFonds />} />
         <Route path="culturelle/kamil" element={<ProgrammeKamil />} />

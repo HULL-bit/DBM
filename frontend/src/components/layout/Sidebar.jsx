@@ -16,6 +16,7 @@ import { ChevronLeft, ChevronRight, Home as HomeIcon } from '@mui/icons-material
 import {
   Dashboard as DashboardIcon,
   Event as EventIcon,
+  Feed as FeedIcon,
   AccountBalance as FinanceIcon,
   MenuBook as KamilIcon,
   CheckCircle as ValidIcon,
@@ -48,7 +49,7 @@ const COLORS = {
 
 const SIDEBAR_WIDTH = 280
 const SIDEBAR_COLLAPSED = 72
-const SIDEBAR_MOBILE_WIDTH = 240
+const SIDEBAR_MOBILE_WIDTH = 220
 
 // Menus regroupés par section (admin, membre, jewrin)
 const sectionsAdmin = [
@@ -60,7 +61,7 @@ const sectionsAdmin = [
       { label: 'Gestion membres', path: '/admin/membres', icon: <PeopleIcon /> },
     ],
   },
-  { title: 'Informations', items: [{ label: 'Événements', path: '/informations/evenements', icon: <EventIcon /> }] },
+  { title: 'Informations', items: [{ label: 'Événements', path: '/informations/evenements', icon: <EventIcon /> }, { label: 'News', path: '/informations/news', icon: <FeedIcon /> }] },
   {
     title: 'Finance',
     items: [
@@ -99,7 +100,7 @@ const sectionsMembre = [
       { label: 'Tableau de bord', path: '/membre', icon: <DashboardIcon /> },
     ],
   },
-  { title: 'Informations', items: [{ label: 'Événements', path: '/informations/evenements', icon: <EventIcon /> }] },
+  { title: 'Informations', items: [{ label: 'Événements', path: '/informations/evenements', icon: <EventIcon /> }, { label: 'News', path: '/informations/news', icon: <FeedIcon /> }] },
   {
     title: 'Finance',
     items: [
@@ -146,7 +147,7 @@ const sectionsJewrin = [
       { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon /> },
     ],
   },
-  { title: 'Informations', items: [{ label: 'Événements', path: '/informations/evenements', icon: <EventIcon /> }] },
+  { title: 'Informations', items: [{ label: 'Événements', path: '/informations/evenements', icon: <EventIcon /> }, { label: 'News', path: '/informations/news', icon: <FeedIcon /> }] },
   {
     title: 'Communication',
     items: [
@@ -159,7 +160,7 @@ const sectionsJewrin = [
   { title: 'Comptes', items: [{ label: 'Mon profil', path: '/comptes/profil', icon: <PersonIcon /> }] },
 ]
 
-function MenuItemBtn({ item, selected, collapsed, onNavigate, onClose }) {
+function MenuItemBtn({ item, selected, collapsed, onNavigate, onClose, isMobile }) {
   const isAccueil = item.path === '/accueil'
   const btn = (
     <ListItemButton
@@ -170,10 +171,10 @@ function MenuItemBtn({ item, selected, collapsed, onNavigate, onClose }) {
       href={undefined}
       sx={{
         borderRadius: 2,
-        mb: 0.5,
-        minHeight: 48,
+        mb: isMobile ? 0.25 : 0.5,
+        minHeight: isMobile ? 44 : 48,
         justifyContent: collapsed ? 'center' : 'flex-start',
-        px: collapsed ? 1.5 : 2,
+        px: collapsed ? (isMobile ? 1.25 : 1.5) : (isMobile ? 1.75 : 2),
         transition: 'all 0.28s cubic-bezier(0.4, 0, 0.2, 1)',
         textDecoration: 'none',
         color: 'inherit',
@@ -185,7 +186,7 @@ function MenuItemBtn({ item, selected, collapsed, onNavigate, onClose }) {
         },
         '&:hover': {
           backgroundColor: `${COLORS.or}20`,
-          transform: 'translateX(4px)',
+          transform: isMobile ? 'none' : 'translateX(4px)',
         },
       }}
     >
@@ -221,7 +222,7 @@ function MenuItemBtn({ item, selected, collapsed, onNavigate, onClose }) {
   )
 }
 
-function SidebarContent({ sections, location, navigate, collapsed, onClose }) {
+function SidebarContent({ sections, location, navigate, collapsed, onClose, isMobile }) {
   return (
     <List dense sx={{ px: collapsed ? 0 : 1, py: 0 }} disablePadding>
       {sections.map((group) => (
@@ -251,6 +252,7 @@ function SidebarContent({ sections, location, navigate, collapsed, onClose }) {
                   item={item}
                   selected={selected}
                   collapsed={collapsed}
+                  isMobile={isMobile}
                   onNavigate={navigate}
                   onClose={onClose}
                 />
@@ -293,9 +295,9 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
       {/* En-tête sidebar — logo visible quand le menu est ouvert */}
       <Box
         sx={{
-          p: collapsed ? 1.5 : 2,
+          p: collapsed ? 1.25 : 1.75,
           borderBottom: `1px solid ${COLORS.or}66`,
-          minHeight: 80,
+          minHeight: 72,
           display: 'flex',
           flexDirection: collapsed ? 'column' : 'row',
           alignItems: 'center',
@@ -309,7 +311,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
           src={logo}
           alt="Daara Barakatul Mahaahidi"
           sx={{
-            height: collapsed ? 40 : 44,
+            height: collapsed ? 36 : 40,
             width: 'auto',
             flexShrink: 0,
             objectFit: 'contain',
@@ -347,7 +349,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
 
       {/* Liste menu — scroll si besoin */}
       <Box sx={{ flex: 1, overflowY: 'auto', overflowX: 'hidden', py: 1 }}>
-        <SidebarContent sections={sections} location={location} navigate={navigate} collapsed={collapsed} onClose={onClose} />
+        <SidebarContent sections={sections} location={location} navigate={navigate} collapsed={collapsed} onClose={onClose} isMobile={isMobile} />
       </Box>
     </Box>
   )
@@ -362,10 +364,13 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
         sx={{
           '& .MuiDrawer-paper': {
             width: SIDEBAR_MOBILE_WIDTH,
-            maxWidth: '78vw',
+            maxWidth: '72vw',
             boxSizing: 'border-box',
-            background: COLORS.beigeClair,
+            background: `linear-gradient(180deg, ${COLORS.beigeClair} 0%, ${COLORS.beige} 100%)`,
             borderRight: `2px solid ${COLORS.or}`,
+            borderTopRightRadius: 18,
+            borderBottomRightRadius: 18,
+            overflow: 'hidden',
           },
         }}
       >

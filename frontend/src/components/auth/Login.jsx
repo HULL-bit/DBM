@@ -12,6 +12,7 @@ export default function Login() {
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showUsername, setShowUsername] = useState(true)
   const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
@@ -71,6 +72,7 @@ export default function Login() {
           <form onSubmit={handleSubmit}>
             <TextField
               fullWidth
+              type={showUsername ? 'text' : 'password'}
               label="Nom d'utilisateur"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
@@ -78,6 +80,19 @@ export default function Login() {
               required
               autoComplete="username"
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowUsername((s) => !s)}
+                      edge="end"
+                      aria-label={showUsername ? "Masquer le nom d'utilisateur" : "Afficher le nom d'utilisateur"}
+                    >
+                      {showUsername ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <TextField
               fullWidth

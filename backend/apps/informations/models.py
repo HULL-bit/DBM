@@ -149,3 +149,78 @@ class GalerieMedia(models.Model):
 
     def __str__(self):
         return self.titre
+
+
+class NewsPost(models.Model):
+    auteur = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='news_posts')
+    titre = models.CharField(max_length=200)
+    contenu = models.TextField()
+    est_publie = models.BooleanField(default=True)
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Actualité'
+        verbose_name_plural = 'Actualités'
+        ordering = ['-date_creation']
+
+    def __str__(self):
+        return self.titre
+
+
+class NewsImage(models.Model):
+    post = models.ForeignKey(NewsPost, on_delete=models.CASCADE, related_name='images')
+    image = models.ImageField(upload_to='news/')
+    ordre = models.IntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Image (actualité)'
+        verbose_name_plural = 'Images (actualité)'
+        ordering = ['ordre', 'id']
+
+    def __str__(self):
+        return f"Image {self.id} — {self.post_id}"
+
+
+class NewsLike(models.Model):
+    post = models.ForeignKey(NewsPost, on_delete=models.CASCADE, related_name='likes')
+    membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='news_likes')
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['post', 'membre']
+        verbose_name = 'Like (actualité)'
+        verbose_name_plural = 'Likes (actualité)'
+
+    def __str__(self):
+        return f"{self.membre_id} ♥ {self.post_id}"
+
+
+class NewsBookmark(models.Model):
+    post = models.ForeignKey(NewsPost, on_delete=models.CASCADE, related_name='bookmarks')
+    membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='news_bookmarks')
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['post', 'membre']
+        verbose_name = 'Enregistrement (actualité)'
+        verbose_name_plural = 'Enregistrements (actualité)'
+
+    def __str__(self):
+        return f"{self.membre_id} 🔖 {self.post_id}"
+
+
+class NewsComment(models.Model):
+    post = models.ForeignKey(NewsPost, on_delete=models.CASCADE, related_name='comments')
+    membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='news_comments')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+    texte = models.TextField()
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Commentaire (actualité)'
+        verbose_name_plural = 'Commentaires (actualité)'
+        ordering = ['date_creation']
+
+    def __str__(self):
+        return f"Commentaire {self.id} — {self.post_id}"
