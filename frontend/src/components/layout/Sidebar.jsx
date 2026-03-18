@@ -48,6 +48,7 @@ const COLORS = {
 
 const SIDEBAR_WIDTH = 280
 const SIDEBAR_COLLAPSED = 72
+const SIDEBAR_MOBILE_WIDTH = 240
 
 // Menus regroupés par section (admin, membre, jewrin)
 const sectionsAdmin = [
@@ -360,8 +361,8 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
         onOpen={() => {}}
         sx={{
           '& .MuiDrawer-paper': {
-            width: SIDEBAR_WIDTH,
-            maxWidth: '85vw',
+            width: SIDEBAR_MOBILE_WIDTH,
+            maxWidth: '78vw',
             boxSizing: 'border-box',
             background: COLORS.beigeClair,
             borderRight: `2px solid ${COLORS.or}`,

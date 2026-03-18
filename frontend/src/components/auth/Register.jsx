@@ -1,12 +1,15 @@
 import { useState } from 'react'
 import { useNavigate, Link as RouterLink } from 'react-router-dom'
-import { Box, Card, CardContent, TextField, Button, Typography, Alert, MenuItem, Link } from '@mui/material'
+import { Box, Card, CardContent, TextField, Button, Typography, Alert, MenuItem, Link, IconButton, InputAdornment, useMediaQuery, useTheme } from '@mui/material'
 import logo from '/logo.png'
 import { useAuth } from '../../context/AuthContext'
+import { Visibility, VisibilityOff } from '@mui/icons-material'
 
 export default function Register() {
   const navigate = useNavigate()
   const { register } = useAuth()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const [form, setForm] = useState({
     username: '',
     email: '',
@@ -28,6 +31,8 @@ export default function Register() {
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [fieldErrors, setFieldErrors] = useState({})
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false)
 
   const ROLES = [
     { value: 'admin', label: 'Administrateur' },
@@ -121,7 +126,7 @@ export default function Register() {
   }
 
   return (
-    <Box className="bg-auth bg-pattern" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+    <Box className="bg-auth bg-pattern" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: { xs: 1.5, sm: 2 } }}>
       <Card
         className="glass-card"
         sx={{
@@ -138,10 +143,10 @@ export default function Register() {
           },
         }}
       >
-        <CardContent sx={{ p: 3.5 }}>
+        <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
           <Box sx={{ textAlign: 'center', mb: 2 }}>
-            <Box component="img" src={logo} alt="Logo" sx={{ height: 72 }} />
-            <Typography variant="h5" className="title-script" sx={{ mt: 1 }}>
+            <Box component="img" src={logo} alt="Logo" sx={{ height: { xs: 60, sm: 72 } }} />
+            <Typography variant={isMobile ? 'h6' : 'h5'} className="title-script" sx={{ mt: 1 }}>
               Inscription
             </Typography>
           </Box>
@@ -153,7 +158,7 @@ export default function Register() {
               label="Nom d'utilisateur"
               value={form.username}
               onChange={handleChange}
-              margin="dense"
+              margin={isMobile ? 'dense' : 'dense'}
               required
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
               error={!!fieldErrors.username}
@@ -175,7 +180,7 @@ export default function Register() {
             <TextField
               fullWidth
               name="password"
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               label="Mot de passe"
               value={form.password}
               onChange={handleChange}
@@ -184,11 +189,24 @@ export default function Register() {
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
               error={!!fieldErrors.password}
               helperText={fieldErrors.password || 'Minimum 8 caractères'}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword((s) => !s)}
+                      edge="end"
+                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <TextField
               fullWidth
               name="password_confirmation"
-              type="password"
+              type={showPasswordConfirm ? 'text' : 'password'}
               label="Confirmation du mot de passe"
               value={form.password_confirmation}
               onChange={handleChange}
@@ -197,6 +215,19 @@ export default function Register() {
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
               error={!!fieldErrors.password_confirmation}
               helperText={fieldErrors.password_confirmation || ''}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPasswordConfirm((s) => !s)}
+                      edge="end"
+                      aria-label={showPasswordConfirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    >
+                      {showPasswordConfirm ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <TextField fullWidth name="first_name" label="Prénom" value={form.first_name} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
             <TextField fullWidth name="last_name" label="Nom" value={form.last_name} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
@@ -321,7 +352,7 @@ export default function Register() {
               variant="contained"
               sx={{
                 mt: 2,
-                py: 1.5,
+                py: { xs: 1.25, sm: 1.5 },
                 borderRadius: 2,
                 fontWeight: 600,
                 background: 'linear-gradient(135deg, #2D5F3F 0%, #3A7750 100%)',

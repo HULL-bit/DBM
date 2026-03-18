@@ -1,14 +1,18 @@
 import { useState } from 'react'
 import { useNavigate, Link as RouterLink } from 'react-router-dom'
-import { Box, Card, CardContent, TextField, Button, Typography, Alert, Link } from '@mui/material'
+import { Box, Card, CardContent, TextField, Button, Typography, Alert, Link, IconButton, InputAdornment, useMediaQuery, useTheme } from '@mui/material'
 import logo from '/logo.png'
 import { useAuth } from '../../context/AuthContext'
+import { Visibility, VisibilityOff } from '@mui/icons-material'
 
 export default function Login() {
   const navigate = useNavigate()
   const { login } = useAuth()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const [username, setUsername] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
 
@@ -32,7 +36,7 @@ export default function Login() {
   }
 
   return (
-    <Box className="bg-auth bg-pattern" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: 2 }}>
+    <Box className="bg-auth bg-pattern" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: { xs: 1.5, sm: 2 } }}>
       <Card
         className="glass-card"
         sx={{
@@ -49,10 +53,10 @@ export default function Login() {
           },
         }}
       >
-        <CardContent sx={{ p: 3.5 }}>
-          <Box sx={{ textAlign: 'center', mb: 3 }}>
-            <Box component="img" src={logo} alt="Logo" sx={{ height: 88, mb: 1.5 }} />
-            <Typography variant="h4" className="title-script" sx={{ mb: 0.5 }}>
+        <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
+          <Box sx={{ textAlign: 'center', mb: { xs: 2, sm: 3 } }}>
+            <Box component="img" src={logo} alt="Logo" sx={{ height: { xs: 68, sm: 88 }, mb: 1.5 }} />
+            <Typography variant={isMobile ? 'h5' : 'h4'} className="title-script" sx={{ mb: 0.5 }}>
               Daara Barakatul Mahaahidi
             </Typography>
             <Typography variant="body1" className="subtitle-elegant" sx={{ color: '#5C4033', fontSize: '1rem' }}>
@@ -70,21 +74,34 @@ export default function Login() {
               label="Nom d'utilisateur"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              margin="normal"
+              margin={isMobile ? 'dense' : 'normal'}
               required
               autoComplete="username"
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
             />
             <TextField
               fullWidth
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               label="Mot de passe"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              margin="normal"
+              margin={isMobile ? 'dense' : 'normal'}
               required
               autoComplete="current-password"
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword((s) => !s)}
+                      edge="end"
+                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
             />
             <Button
               type="submit"
@@ -95,7 +112,7 @@ export default function Login() {
               sx={{
                 mt: 3,
                 mb: 2,
-                py: 1.5,
+                py: { xs: 1.25, sm: 1.5 },
                 borderRadius: 2,
                 fontSize: '1rem',
                 fontWeight: 600,

@@ -451,6 +451,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
         # - et uniquement pour les membres sélectionnés / tous les membres actifs selon user_ids
         from apps.accounts.models import CustomUser  # import local pour éviter les boucles
         if type_notification in ['evenement', 'systeme', 'finance']:
+            from django.conf import settings
+            if getattr(settings, "DEBUG", False):
+                print(f"[PUSH] Notification type={type_notification}, user_ids={user_ids}")
             utilisateurs = CustomUser.objects.filter(id__in=user_ids).only('id', 'first_name', 'last_name', 'username', 'telephone')
             texte = f"[{type_notification.upper()}] {titre}\n\n{message}"
             if lien:

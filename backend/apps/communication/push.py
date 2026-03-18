@@ -35,6 +35,9 @@ def _post_to_gateway(payload: dict) -> bool:
   """
   url = getattr(settings, "PUSH_GATEWAY_URL", "")
   if not url:
+    # Debug simple pour comprendre pourquoi rien ne part
+    if getattr(settings, "DEBUG", False):
+      print("[PUSH] PUSH_GATEWAY_URL manquant, aucun envoi effectué.")
     return False
   headers = {"Content-Type": "application/json"}
   token = getattr(settings, "PUSH_GATEWAY_TOKEN", "")
@@ -43,9 +46,15 @@ def _post_to_gateway(payload: dict) -> bool:
   try:
     data = json.dumps(payload).encode("utf-8")
     req = urllib_request.Request(url, data=data, headers=headers, method="POST")
+    if getattr(settings, "DEBUG", False):
+      print(f"[PUSH] Appel passerelle {url} avec payload={payload}")
     with urllib_request.urlopen(req, timeout=10) as resp:
       return resp.status in (200, 201, 202)
   except (urllib_error.URLError, urllib_error.HTTPError, TimeoutError, Exception):
+    if getattr(settings, "DEBUG", False):
+      import traceback
+      print("[PUSH] ERREUR lors de l'appel à la passerelle :")
+      traceback.print_exc()
     return False
 
 
