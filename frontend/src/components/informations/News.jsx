@@ -47,6 +47,8 @@ export default function News() {
   const [comments, setComments] = useState([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [newComment, setNewComment] = useState('')
+  const [openDetails, setOpenDetails] = useState(null) // post
+  const [imageInfos, setImageInfos] = useState({})
 
   const loadList = () => {
     setLoading(true)
@@ -224,9 +226,12 @@ export default function News() {
                   <Chip size="small" label={`${post.nb_comments ?? 0}`} sx={{ bgcolor: `${COLORS.or}30` }} />
                 </Box>
 
-                <IconButton onClick={() => handleToggleBookmark(post)} sx={{ color: post.is_bookmarked ? COLORS.vert : 'inherit' }}>
-                  {post.is_bookmarked ? <Bookmark /> : <BookmarkBorder />}
-                </IconButton>
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Button size="small" onClick={() => setOpenDetails(post)}>Détails</Button>
+                  <IconButton onClick={() => handleToggleBookmark(post)} sx={{ color: post.is_bookmarked ? COLORS.vert : 'inherit' }}>
+                    {post.is_bookmarked ? <Bookmark /> : <BookmarkBorder />}
+                  </IconButton>
+                </Box>
               </CardActions>
             </Card>
           ))}
@@ -303,6 +308,56 @@ export default function News() {
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenComments(null)}>Fermer</Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Details dialog */}
+      <Dialog open={!!openDetails} onClose={() => setOpenDetails(null)} maxWidth="md" fullWidth fullScreen={isMobile}>
+        <DialogTitle>Détails de l’actualité</DialogTitle>
+        <DialogContent>
+          {openDetails && (
+            <Box sx={{ py: 1 }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.vert, mb: 0.5 }}>
+                {openDetails.titre || '—'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {openDetails.auteur_nom || '—'} • {openDetails.date_creation ? new Date(openDetails.date_creation).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 2, whiteSpace: 'pre-wrap' }}>
+                {openDetails.contenu || 'Aucun texte.'}
+              </Typography>
+
+              {(openDetails.images || []).length > 0 && (
+                <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+                  {(openDetails.images || []).map((img) => (
+                    <Box key={img.id} sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #eee', p: 1, bgcolor: '#fafafa' }}>
+                      <Box
+                        component="img"
+                        src={getMediaUrl(img.image)}
+                        alt=""
+                        loading="lazy"
+                        sx={{ width: '100%', maxHeight: 480, objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
+                        onLoad={(e) => {
+                          const el = e.target
+                          const w = el.naturalWidth
+                          const h = el.naturalHeight
+                          setImageInfos((prev) => ({ ...prev, [img.id]: { w, h } }))
+                        }}
+                      />
+                      {imageInfos[img.id] && (
+                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
+                          {imageInfos[img.id].w} × {imageInfos[img.id].h} px
+                        </Typography>
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+            </Box>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenDetails(null)}>Fermer</Button>
         </DialogActions>
       </Dialog>
     </Box>

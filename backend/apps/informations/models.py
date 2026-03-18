@@ -153,8 +153,8 @@ class GalerieMedia(models.Model):
 
 class NewsPost(models.Model):
     auteur = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='news_posts')
-    titre = models.CharField(max_length=200)
-    contenu = models.TextField()
+    titre = models.CharField(max_length=200, blank=True)
+    contenu = models.TextField(blank=True)
     est_publie = models.BooleanField(default=True)
     date_creation = models.DateTimeField(auto_now_add=True)
     date_modification = models.DateTimeField(auto_now=True)
