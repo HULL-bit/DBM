@@ -202,7 +202,7 @@ export default function News() {
                           src={getMediaUrl(img.image)}
                           alt=""
                           loading="lazy"
-                          sx={{ width: '100%', objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
+                          sx={{ width: '100%', maxHeight: isMobile ? '55vh' : '45vh', objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
                           onLoad={(e) => {
                             const el = e.target
                             const w = el.naturalWidth
@@ -345,7 +345,7 @@ export default function News() {
                         src={getMediaUrl(img.image)}
                         alt=""
                         loading="lazy"
-                        sx={{ width: '100%', objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
+                        sx={{ width: '100%', maxHeight: isMobile ? '70vh' : '75vh', objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
                         onLoad={(e) => {
                           const el = e.target
                           const w = el.naturalWidth

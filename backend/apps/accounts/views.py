@@ -109,6 +109,7 @@ class UserList(generics.ListAPIView):
     # Admin Django (is_staff) OU admin logique (role='admin')
     permission_classes = [IsAuthenticated, IsAdminRoleOrStaff]
     filterset_fields = ['role', 'est_actif', 'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis']
+    pagination_class = None  # Désactiver pagination pour afficher tous les membres
 
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
