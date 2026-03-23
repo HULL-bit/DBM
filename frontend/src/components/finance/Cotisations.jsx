@@ -185,7 +185,18 @@ export default function Cotisations() {
         }
         
         await api.post('/finance/cotisations/create-multiple/', payload)
-        setMessage({ type: 'success', text: `${form.membres_selectionnes.length} cotisations créées avec succès.` })
+        
+        // Gérer la réponse avec les cotisations créées et ignorées
+        const responseData = response.data
+        const created = responseData.created_count || 0
+        const skipped = responseData.skipped_count || 0
+        const total = responseData.total_processed || form.membres_selectionnes.length
+        
+        let successMessage = `${created} cotisation(s) créée(s) avec succès.`
+        if (skipped > 0) {
+          successMessage += ` ${skipped} ignorée(s) (déjà existante(s)).`
+        }
+        setMessage({ type: 'success', text: successMessage })
       } else {
         // Création unitaire classique
         const payload = {
@@ -691,7 +702,10 @@ export default function Cotisations() {
                       <Button
                         size="small"
                         variant="outlined"
-                        onClick={() => setForm((f) => ({ ...f, membres_selectionnes: [] }))}
+                        onClick={() => {
+                          setForm((f) => ({ ...f, membres_selectionnes: [] }))
+                          setFormErrors((fe) => ({ ...fe, membre: undefined }))
+                        }}
                         sx={{ borderColor: 'error.main', color: 'error.main' }}
                       >
                         Tout désélectionner

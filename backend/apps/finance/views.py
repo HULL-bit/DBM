@@ -58,6 +58,7 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
     def create_multiple(self, request):
         """Créer des cotisations pour plusieurs membres en une seule fois"""
         from apps.accounts.models import CustomUser
+        from django.db import IntegrityError
         
         membres_ids = request.data.get('membres', [])
         cotisation_data = request.data.get('cotisation', {})
@@ -73,6 +74,7 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
         serializer.is_valid(raise_exception=True)
         
         created_cotisations = []
+        skipped_count = 0
         errors = []
         
         for membre_id in membres_ids:
@@ -85,8 +87,35 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
                 membre_serializer = self.get_serializer(data=data_for_membre)
                 
                 if membre_serializer.is_valid():
-                    membre_serializer.save()
-                    created_cotisations.append(membre_serializer.instance)
+                    try:
+                        # Vérifier si une cotisation existe déjà pour ce membre/mois/année/type
+                        existing = CotisationMensuelle.objects.filter(
+                            membre=membre,
+                            mois=cotisation_data.get('mois'),
+                            annee=cotisation_data.get('annee'),
+                            type_cotisation=cotisation_data.get('type_cotisation', 'mensualite')
+                        ).first()
+                        
+                        if existing:
+                            # Déjà une cotisation pour ce mois - on la skip
+                            skipped_count += 1
+                            errors.append({
+                                'membre_id': membre_id,
+                                'membre_nom': membre.get_full_name(),
+                                'error': f'Déjà une cotisation pour le mois {cotisation_data.get("mois")}/{cotisation_data.get("annee")}'
+                            })
+                        else:
+                            # Créer nouvelle cotisation
+                            membre_serializer.save()
+                            created_cotisations.append(membre_serializer.instance)
+                    except IntegrityError as e:
+                        # Gérer les erreurs de contrainte unique
+                        skipped_count += 1
+                        errors.append({
+                            'membre_id': membre_id,
+                            'membre_nom': membre.get_full_name(),
+                            'error': 'Une cotisation existe déjà pour cette période'
+                        })
                 else:
                     errors.append({
                         'membre_id': membre_id,
@@ -104,13 +133,16 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
                     'error': str(e)
                 })
         
-        if created_cotisations:
+        if created_cotisations or skipped_count > 0:
             response_data = {
                 'created_count': len(created_cotisations),
-                'cotisations': CotisationMensuelleSerializer(created_cotisations, many=True).data,
+                'skipped_count': skipped_count,
+                'total_processed': len(membres_ids),
+                'cotisations': CotisationMensuelleSerializer(created_cotisations, many=True).data if created_cotisations else [],
             }
             if errors:
                 response_data['errors'] = errors
+                # Retourner 207 même si certaines ont réussi
                 return Response(response_data, status=status.HTTP_207_MULTI_STATUS)
             return Response(response_data, status=status.HTTP_201_CREATED)
         else:
