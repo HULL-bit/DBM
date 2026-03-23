@@ -23,9 +23,101 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'create_multiple']:
             return [IsAdminOrJewrinFinance()]
         return [IsAuthenticated()]
+
+    def create(self, request, *args, **kwargs):
+        """Créer une ou plusieurs cotisations en une seule fois"""
+        data = request.data
+        
+        # Si c'est une création multiple (liste de membres)
+        if isinstance(data, list):
+            serializer_data = []
+            for item in data:
+                serializer = self.get_serializer(data=item)
+                serializer.is_valid(raise_exception=True)
+                serializer_data.append(serializer)
+            
+            cotisations = []
+            for serializer in serializer_data:
+                self.perform_create(serializer)
+                cotisations.append(serializer.instance)
+            
+            headers = self.get_success_headers(serializer_data[0].data if serializer_data else {})
+            return Response(CotisationMensuelleSerializer(cotisations, many=True).data, status=status.HTTP_201_CREATED, headers=headers)
+        else:
+            # Création unitaire classique
+            serializer = self.get_serializer(data=data)
+            serializer.is_valid(raise_exception=True)
+            self.perform_create(serializer)
+            headers = self.get_success_headers(serializer.data)
+            return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
+
+    @action(detail=False, methods=['post'], url_path='create-multiple')
+    def create_multiple(self, request):
+        """Créer des cotisations pour plusieurs membres en une seule fois"""
+        from apps.accounts.models import CustomUser
+        
+        membres_ids = request.data.get('membres', [])
+        cotisation_data = request.data.get('cotisation', {})
+        
+        if not membres_ids or not isinstance(membres_ids, list):
+            return Response(
+                {'detail': 'Veuillez sélectionner au moins un membre.'},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+        
+        # Valider les données de base
+        serializer = self.get_serializer(data=cotisation_data)
+        serializer.is_valid(raise_exception=True)
+        
+        created_cotisations = []
+        errors = []
+        
+        for membre_id in membres_ids:
+            try:
+                # Vérifier que le membre existe
+                membre = CustomUser.objects.get(pk=membre_id, is_active=True)
+                
+                # Préparer les données pour ce membre
+                data_for_membre = {**cotisation_data, 'membre': membre_id}
+                membre_serializer = self.get_serializer(data=data_for_membre)
+                
+                if membre_serializer.is_valid():
+                    membre_serializer.save()
+                    created_cotisations.append(membre_serializer.instance)
+                else:
+                    errors.append({
+                        'membre_id': membre_id,
+                        'membre_nom': membre.get_full_name(),
+                        'errors': membre_serializer.errors
+                    })
+            except CustomUser.DoesNotExist:
+                errors.append({
+                    'membre_id': membre_id,
+                    'error': 'Membre non trouvé'
+                })
+            except Exception as e:
+                errors.append({
+                    'membre_id': membre_id,
+                    'error': str(e)
+                })
+        
+        if created_cotisations:
+            response_data = {
+                'created_count': len(created_cotisations),
+                'cotisations': CotisationMensuelleSerializer(created_cotisations, many=True).data,
+            }
+            if errors:
+                response_data['errors'] = errors
+                return Response(response_data, status=status.HTTP_207_MULTI_STATUS)
+            return Response(response_data, status=status.HTTP_201_CREATED)
+        else:
+            return Response(
+                {'detail': 'Aucune cotisation n\'a pu être créée.', 'errors': errors},
+                status=status.HTTP_400_BAD_REQUEST
+            )
 
     def perform_update(self, serializer):
         instance = serializer.save()

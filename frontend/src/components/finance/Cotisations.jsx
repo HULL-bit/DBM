@@ -62,6 +62,7 @@ export default function Cotisations() {
   const [payerForm, setPayerForm] = useState({ reference_wave: '', mode_paiement: 'wave' })
   const [form, setForm] = useState({
     membre: '',
+    membres_selectionnes: [], // Pour la sélection multiple
     montant: 1000,
     mois: new Date().getMonth() + 1,
     annee: new Date().getFullYear(),
@@ -95,6 +96,7 @@ export default function Cotisations() {
     const now = new Date()
     setForm({
       membre: '',
+      membres_selectionnes: [],
       montant: 1000,
       mois: now.getMonth() + 1,
       annee: now.getFullYear(),
@@ -131,40 +133,83 @@ export default function Cotisations() {
 
   const handleSave = async () => {
     const errors = {}
-    if (!form.membre && !editingId) errors.membre = 'Sélectionnez un membre.'
-    if (!form.mois) errors.mois = 'Mois requis.'
-    if (!form.annee) errors.annee = 'Année requise.'
-    if (!form.date_echeance) errors.date_echeance = 'Date d\'échéance requise.'
-    if (form.type_cotisation === 'assignation' && !String(form.objet_assignation || '').trim()) {
-      errors.objet_assignation = 'Objet de l\'assignation requis (ex : Magal, Gamou, …).'
+    const isMultiple = form.membres_selectionnes && form.membres_selectionnes.length > 0
+    
+    // Validation pour création multiple
+    if (isMultiple) {
+      if (!form.mois) errors.mois = 'Mois requis.'
+      if (!form.annee) errors.annee = 'Année requise.'
+      if (!form.date_echeance) errors.date_echeance = 'Date d\'échéance requise.'
+      if (form.type_cotisation === 'assignation' && !String(form.objet_assignation || '').trim()) {
+        errors.objet_assignation = 'Objet de l\'assignation requis (ex : Magal, Gamou, …).'
+      }
+    } else {
+      // Validation pour création unitaire
+      if (!form.membre && !editingId) errors.membre = 'Sélectionnez un membre.'
+      if (!form.mois) errors.mois = 'Mois requis.'
+      if (!form.annee) errors.annee = 'Année requise.'
+      if (!form.date_echeance) errors.date_echeance = 'Date d\'échéance requise.'
+      if (form.type_cotisation === 'assignation' && !String(form.objet_assignation || '').trim()) {
+        errors.objet_assignation = 'Objet de l\'assignation requis (ex : Magal, Gamou, …).'
+      }
     }
+    
     setFormErrors(errors)
     if (Object.keys(errors).length > 0) {
       setMessage({ type: 'error', text: 'Veuillez corriger les champs en rouge.' })
       return
     }
+    
     setSaving(true)
     setMessage({ type: '', text: '' })
     try {
-      const payload = {
-        membre: form.membre || (list.find((c) => c.id === editingId)?.membre),
-        montant: Number(form.montant),
-        mois: Number(form.mois),
-        annee: Number(form.annee),
-        date_echeance: form.date_echeance,
-        statut: form.statut,
-        type_cotisation: form.type_cotisation,
-        objet_assignation: form.type_cotisation === 'assignation' ? form.objet_assignation || '' : '',
-        mode_paiement: form.mode_paiement,
-        notes: form.notes || '',
-      }
-      if (editingId) {
-        await api.patch(`/finance/cotisations/${editingId}/`, payload)
-        setMessage({ type: 'success', text: 'Cotisation modifiée.' })
+      const isMultipleCreation = form.membres_selectionnes && form.membres_selectionnes.length > 0
+      
+      if (isMultipleCreation) {
+        // Création multiple pour plusieurs membres
+        const cotisationData = {
+          montant: Number(form.montant),
+          mois: Number(form.mois),
+          annee: Number(form.annee),
+          date_echeance: form.date_echeance,
+          statut: form.statut,
+          type_cotisation: form.type_cotisation,
+          objet_assignation: form.type_cotisation === 'assignation' ? form.objet_assignation || '' : '',
+          mode_paiement: form.mode_paiement,
+          notes: form.notes || '',
+        }
+        
+        const payload = {
+          membres: form.membres_selectionnes,
+          cotisation: cotisationData,
+        }
+        
+        await api.post('/finance/cotisations/create-multiple/', payload)
+        setMessage({ type: 'success', text: `${form.membres_selectionnes.length} cotisations créées avec succès.` })
       } else {
-        await api.post('/finance/cotisations/', payload)
-        setMessage({ type: 'success', text: 'Cotisation créée.' })
+        // Création unitaire classique
+        const payload = {
+          membre: form.membre || (list.find((c) => c.id === editingId)?.membre),
+          montant: Number(form.montant),
+          mois: Number(form.mois),
+          annee: Number(form.annee),
+          date_echeance: form.date_echeance,
+          statut: form.statut,
+          type_cotisation: form.type_cotisation,
+          objet_assignation: form.type_cotisation === 'assignation' ? form.objet_assignation || '' : '',
+          mode_paiement: form.mode_paiement,
+          notes: form.notes || '',
+        }
+        
+        if (editingId) {
+          await api.patch(`/finance/cotisations/${editingId}/`, payload)
+          setMessage({ type: 'success', text: 'Cotisation modifiée.' })
+        } else {
+          await api.post('/finance/cotisations/', payload)
+          setMessage({ type: 'success', text: 'Cotisation créée.' })
+        }
       }
+      
       loadList()
       setOpenForm(false)
       setEditingId(null)
@@ -604,26 +649,109 @@ export default function Cotisations() {
         </TableContainer>
       )}
 
-      <Dialog open={openForm} onClose={() => { setOpenForm(false); setEditingId(null) }} maxWidth="sm" fullWidth>
+      <Dialog open={openForm} onClose={() => { setOpenForm(false); setEditingId(null) }} maxWidth="md" fullWidth>
         <DialogTitle>{editingId ? 'Modifier la cotisation' : 'Créer une cotisation'}</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             {!editingId && (
-              <TextField
-                select
-                label="Membre"
-                value={form.membre}
-                onChange={(e) => {
-                  setForm((f) => ({ ...f, membre: e.target.value }))
-                  setFormErrors((fe) => ({ ...fe, membre: undefined }))
-                }}
-                required
-                fullWidth
-                error={!!formErrors.membre}
-                helperText={formErrors.membre || ''}
-              >
-                {users.map((u) => <MenuItem key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.email})</MenuItem>)}
-              </TextField>
+              <Box key="member-selection" sx={{ p: 2, bgcolor: '#f5f5f5', borderRadius: 1 }}>
+                <Typography variant="subtitle2" sx={{ mb: 1, color: COLORS.vert }}>Mode de création</Typography>
+                <TextField
+                  select
+                  label="Type de création"
+                  value={form.membres_selectionnes?.length > 0 ? 'multiple' : 'single'}
+                  onChange={(e) => {
+                    if (e.target.value === 'multiple') {
+                      setForm((f) => ({ ...f, membres_selectionnes: users.map(u => u.id), membre: '' }))
+                    } else {
+                      setForm((f) => ({ ...f, membres_selectionnes: [], membre: '' }))
+                    }
+                  }}
+                  fullWidth
+                  sx={{ mb: 2 }}
+                >
+                  <MenuItem value="single">Un seul membre</MenuItem>
+                  <MenuItem value="multiple">Plusieurs membres (tous ou sélection)</MenuItem>
+                </TextField>
+                
+                {form.membres_selectionnes?.length > 0 ? (
+                  <Box key="multiple-mode">
+                    <Typography variant="body2" sx={{ mb: 1, fontWeight: 600 }}>
+                      Membres sélectionnés ({form.membres_selectionnes.length} / {users.length})
+                    </Typography>
+                    <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap' }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => setForm((f) => ({ ...f, membres_selectionnes: users.map(u => u.id) }))}
+                        sx={{ borderColor: COLORS.vert, color: COLORS.vert }}
+                      >
+                        Tout sélectionner
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        onClick={() => setForm((f) => ({ ...f, membres_selectionnes: [] }))}
+                        sx={{ borderColor: 'error.main', color: 'error.main' }}
+                      >
+                        Tout désélectionner
+                      </Button>
+                    </Box>
+                    <Box sx={{ maxHeight: 200, overflow: 'auto', border: '1px solid #ddd', borderRadius: 1, p: 1 }}>
+                      {users.map((u) => (
+                        <Box
+                          key={u.id}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                            p: 1,
+                            borderRadius: 1,
+                            bgcolor: form.membres_selectionnes.includes(u.id) ? `${COLORS.vert}15` : 'transparent',
+                            '&:hover': { bgcolor: `${COLORS.vert}08` },
+                          }}
+                        >
+                          <input
+                            type="checkbox"
+                            checked={form.membres_selectionnes.includes(u.id)}
+                            onChange={(e) => {
+                              if (e.target.checked) {
+                                setForm((f) => ({ ...f, membres_selectionnes: [...f.membres_selectionnes, u.id] }))
+                              } else {
+                                setForm((f) => ({
+                                  ...f,
+                                  membres_selectionnes: f.membres_selectionnes.filter((id) => id !== u.id),
+                                }))
+                              }
+                            }}
+                            style={{ accentColor: COLORS.vert }}
+                          />
+                          <Typography variant="body2" sx={{ flex: 1 }}>
+                            {u.first_name} {u.last_name} - {u.email}
+                          </Typography>
+                        </Box>
+                      ))}
+                    </Box>
+                  </Box>
+                ) : (
+                  <TextField
+                    key="single-mode"
+                    select
+                    label="Membre"
+                    value={form.membre}
+                    onChange={(e) => {
+                      setForm((f) => ({ ...f, membre: e.target.value }))
+                      setFormErrors((fe) => ({ ...fe, membre: undefined }))
+                    }}
+                    required
+                    fullWidth
+                    error={!!formErrors.membre}
+                    helperText={formErrors.membre || ''}
+                  >
+                    {users.map((u) => <MenuItem key={u.id} value={u.id}>{u.first_name} {u.last_name} ({u.email})</MenuItem>)}
+                  </TextField>
+                )}
+              </Box>
             )}
             <TextField
               select

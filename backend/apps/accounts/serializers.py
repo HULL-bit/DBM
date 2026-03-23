@@ -7,6 +7,12 @@ User = get_user_model()
 
 class UserSerializer(serializers.ModelSerializer):
     role_display = serializers.CharField(source='get_role_display', read_only=True)
+    password = serializers.CharField(
+        write_only=True,
+        required=False,
+        min_length=8,
+        help_text='Laisser vide pour ne pas changer le mot de passe'
+    )
 
     def validate_categorie(self, value):
         """Normaliser et valider la catégorie"""
@@ -29,13 +35,26 @@ class UserSerializer(serializers.ModelSerializer):
         # Si invalide, utiliser le défaut
         return 'professionnel'
 
+    def update(self, instance, validated_data):
+        """Mettre à jour l'utilisateur, y compris le mot de passe si fourni"""
+        password = validated_data.pop('password', None)
+        if password:
+            instance.set_password(password)
+        
+        # Mettre à jour les autres champs
+        for attr, value in validated_data.items():
+            setattr(instance, attr, value)
+        
+        instance.save()
+        return instance
+
     class Meta:
         model = User
         fields = [
             'id', 'username', 'email', 'first_name', 'last_name',
             'telephone', 'adresse', 'sexe', 'profession', 'categorie',
             'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis',
-            'role', 'role_display', 'photo',
+            'role', 'role_display', 'photo', 'password',
             'date_inscription', 'est_actif', 'numero_wave', 'numero_carte',
             'specialite', 'biographie',
             'cotisations_payees', 'chapitres_lus', 'evenements_participes',
