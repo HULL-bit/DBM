@@ -34,16 +34,7 @@ export default function Register() {
   const [showPassword, setShowPassword] = useState(false)
   const [showPasswordConfirm, setShowPasswordConfirm] = useState(false)
 
-  const ROLES = [
-    { value: 'admin', label: 'Administrateur' },
-    { value: 'membre', label: 'Membre' },
-    { value: 'jewrine_conservatoire', label: 'Jewrine Conservatoire' },
-    { value: 'jewrine_finance', label: 'Jewrine Finance' },
-    { value: 'jewrine_culturelle', label: 'Jewrine Culturelle' },
-    { value: 'jewrine_sociale', label: 'Jewrine Sociale' },
-    { value: 'jewrine_communication', label: 'Jewrine Communication' },
-    { value: 'jewrine_organisation', label: 'Jewrine Organisation' },
-  ]
+
 
   const SEXES = [
     { value: 'M', label: 'Masculin' },
@@ -100,7 +91,7 @@ export default function Register() {
     }
     setLoading(true)
     try {
-      const { password_confirmation, ...payload } = form
+      const { password_confirmation, role, ...payload } = form
       await register(payload)
       navigate('/login')
     } catch (err) {
@@ -341,11 +332,7 @@ export default function Register() {
                 <MenuItem key={n.value || 'none'} value={n.value}>{n.label}</MenuItem>
               ))}
             </TextField>
-            <TextField fullWidth name="role" select label="Rôle" value={form.role} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}>
-              {ROLES.map((r) => (
-                <MenuItem key={r.value} value={r.value}>{r.label}</MenuItem>
-              ))}
-            </TextField>
+
             <Button
               type="submit"
               fullWidth

@@ -92,7 +92,7 @@ class UserCreateSerializer(serializers.ModelSerializer):
             'username', 'email', 'password', 'first_name', 'last_name',
             'telephone', 'adresse', 'sexe', 'profession', 'categorie',
             'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis',
-            'role', 'numero_wave', 'numero_carte',
+            'numero_wave', 'numero_carte',
             'specialite', 'biographie',
         ]
 
