@@ -202,7 +202,26 @@ class Kourel(models.Model):
     nom = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     membres = models.ManyToManyField(CustomUser, related_name='kourels', blank=True)
-    maitre_de_coeur = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='kourels_diriges')
+    responsable = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='kourels_responsable',
+        help_text="Responsable principal du kourel"
+    )
+    maitre_de_coeur = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='kourels_diriges',
+        help_text="1er Maître de cœur"
+    )
+    maitre_de_coeur_2 = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='kourels_diriges_2',
+        help_text="2ème Maître de cœur"
+    )
+    jewrine = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True,
+        related_name='kourels_jewrine',
+        help_text="Jewrine responsable de ce kourel"
+    )
     ordre = models.IntegerField(default=0)
 
     class Meta:

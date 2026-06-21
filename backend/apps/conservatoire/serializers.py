@@ -90,20 +90,35 @@ class AlbumPhotoSerializer(serializers.ModelSerializer):
 class KourelSerializer(serializers.ModelSerializer):
     membres_noms = serializers.SerializerMethodField()
     nb_membres = serializers.SerializerMethodField()
+    responsable_nom = serializers.SerializerMethodField()
     maitre_de_coeur_nom = serializers.SerializerMethodField()
+    maitre_de_coeur_2_nom = serializers.SerializerMethodField()
+    jewrine_nom = serializers.SerializerMethodField()
 
     class Meta:
         model = Kourel
         fields = '__all__'
 
     def get_membres_noms(self, obj):
-        return [u.get_full_name() for u in obj.membres.all()]
+        return [
+            {'id': u.id, 'nom': u.get_full_name(), 'photo': u.photo.url if u.photo else None}
+            for u in obj.membres.all()
+        ]
 
     def get_nb_membres(self, obj):
         return obj.membres.count()
 
+    def get_responsable_nom(self, obj):
+        return obj.responsable.get_full_name() if obj.responsable else None
+
     def get_maitre_de_coeur_nom(self, obj):
         return obj.maitre_de_coeur.get_full_name() if obj.maitre_de_coeur else None
+
+    def get_maitre_de_coeur_2_nom(self, obj):
+        return obj.maitre_de_coeur_2.get_full_name() if obj.maitre_de_coeur_2 else None
+
+    def get_jewrine_nom(self, obj):
+        return obj.jewrine.get_full_name() if obj.jewrine else None
 
 
 class PresenceSeanceSerializer(serializers.ModelSerializer):
