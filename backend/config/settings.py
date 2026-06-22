@@ -171,10 +171,20 @@ FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = DEBUG
-CORS_ALLOWED_ORIGINS = [
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-] if not DEBUG else []
+
+_extra_origins = [
+    o.strip()
+    for o in os.environ.get('CORS_ALLOWED_ORIGINS', '').split(',')
+    if o.strip()
+]
+
+CORS_ALLOWED_ORIGINS = (
+    [
+        'http://localhost:5173',
+        'http://127.0.0.1:5173',
+        'https://dbm-0yic.onrender.com',
+    ] + _extra_origins
+) if not DEBUG else []
 
 # REST Framework
 REST_FRAMEWORK = {
