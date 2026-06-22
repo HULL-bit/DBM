@@ -22,7 +22,7 @@ import {
   CircularProgress,
   Grid,
 } from '@mui/material'
-import { Add, Edit, Delete } from '@mui/icons-material'
+import { Add, Edit, Delete, ArrowBack } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -35,7 +35,7 @@ const STATUTS = [
   { value: 'reportee', label: 'Reportée' },
 ]
 
-export default function Reunions() {
+export default function Reunions({ onBack }) {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
   // Activités / réunions
@@ -365,9 +365,16 @@ export default function Reunions() {
   return (
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
-        <Box>
-          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }} gutterBottom>Organisation</Typography>
-          <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>Suivi des activités et des matériels du daara</Typography>
+        <Box display="flex" alignItems="center" gap={1.5}>
+          {onBack && (
+            <IconButton onClick={onBack} sx={{ color: COLORS.vert }}>
+              <ArrowBack />
+            </IconButton>
+          )}
+          <Box>
+            <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }} gutterBottom>Réunions & Activités</Typography>
+            <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>Suivi des activités et gestion des réunions</Typography>
+          </Box>
         </Box>
         {isAdmin && (
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

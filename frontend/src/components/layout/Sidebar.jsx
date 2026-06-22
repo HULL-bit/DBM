@@ -88,7 +88,7 @@ const sectionsAdmin = [
   { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon /> }] },
   { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon /> }] },
   { title: 'Scientifique', items: [{ label: 'Cours & Formation', path: '/scientifique/cours', icon: <ScientifiqueIcon /> }] },
-  { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation/reunions', icon: <OrgIcon /> }] },
+  { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation', icon: <OrgIcon /> }] },
   { title: 'Comptes', items: [{ label: 'Mon profil', path: '/comptes/profil', icon: <PersonIcon /> }] },
 ]
 
@@ -127,7 +127,7 @@ const sectionsMembre = [
   { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon /> }] },
   { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon /> }] },
   { title: 'Scientifique', items: [{ label: 'Cours', path: '/scientifique/cours', icon: <ScientifiqueIcon /> }] },
-  { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation/reunions', icon: <OrgIcon /> }] },
+  { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation', icon: <OrgIcon /> }] },
   { title: 'Comptes', items: [{ label: 'Mon profil', path: '/comptes/profil', icon: <PersonIcon /> }] },
 ]
 
