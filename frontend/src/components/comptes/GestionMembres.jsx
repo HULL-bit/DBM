@@ -66,12 +66,21 @@ const catLabel = (cat) => {
 
 const roleInfo = (role) => ROLES.find(r => r.value === role) || { label: role, color: C.vert }
 
-function StatBar({ label, value, color }) {
+function MiniStatCard({ label, value, pct, sub, color }) {
   return (
-    <Box sx={{ textAlign: 'center', px: { xs: 1.5, md: 2.5 } }}>
-      <Typography variant="h5" sx={{ fontWeight: 800, color, fontFamily: '"Cormorant Garamond", serif', lineHeight: 1 }}>{value}</Typography>
-      <Typography variant="caption" sx={{ color: '#777', fontWeight: 500 }}>{label}</Typography>
-    </Box>
+    <Card sx={{ borderRadius: 2.5, border: `1px solid ${color}20`, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', height: '100%' }}>
+      <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+        <Typography variant="h4" sx={{ fontWeight: 800, color, fontFamily: '"Cormorant Garamond", serif', lineHeight: 1 }}>{value}</Typography>
+        <Typography variant="caption" sx={{ color: '#666', fontWeight: 500, display: 'block', mt: 0.25 }}>{label}</Typography>
+        {sub !== undefined && <Typography variant="caption" sx={{ color: '#999', fontSize: '0.68rem' }}>{sub}</Typography>}
+        {pct != null && (
+          <Box mt={1}>
+            <LinearProgress variant="determinate" value={Math.min(pct, 100)}
+              sx={{ height: 4, borderRadius: 2, bgcolor: `${color}15`, '& .MuiLinearProgress-bar': { bgcolor: color, borderRadius: 2 } }} />
+          </Box>
+        )}
+      </CardContent>
+    </Card>
   )
 }
 
@@ -221,6 +230,13 @@ export default function GestionMembres() {
   const totalActifs = list.filter(u => u.est_actif).length
   const totalInactifs = list.length - totalActifs
   const tauxActifs = list.length ? Math.round((totalActifs / list.length) * 100) : 0
+  const totalHommes = list.filter(u => u.sexe === 'M').length
+  const totalFemmes = list.filter(u => u.sexe === 'F').length
+  const totalEleves = list.filter(u => normCat(u.categorie) === 'eleve').length
+  const totalEtudiants = list.filter(u => normCat(u.categorie) === 'etudiant').length
+  const totalProfessionnels = list.filter(u => normCat(u.categorie) === 'professionnel').length
+  const pctHommes = list.length ? Math.round((totalHommes / list.length) * 100) : 0
+  const pctFemmes = list.length ? Math.round((totalFemmes / list.length) * 100) : 0
 
   return (
     <Box>
@@ -245,30 +261,41 @@ export default function GestionMembres() {
         </Button>
       </Box>
 
-      {/* Stats bar */}
+      {/* Stats cards */}
       {!loading && (
-        <Card sx={{ mb: 2.5, borderRadius: 3, boxShadow: '0 2px 12px rgba(0,0,0,0.06)', border: `1px solid ${C.vert}18` }}>
-          <CardContent sx={{ py: 1.5, px: 3 }}>
-            <Box display="flex" flexWrap="wrap" gap={0} alignItems="center">
-              <StatBar label="Total membres" value={list.length} color={C.vert} />
-              <Box sx={{ width: 1, height: 36, bgcolor: '#E0E0E0', mx: 1 }} />
-              <StatBar label="Actifs" value={totalActifs} color={C.vertClair} />
-              <Box sx={{ width: 1, height: 36, bgcolor: '#E0E0E0', mx: 1 }} />
-              <StatBar label="Inactifs" value={totalInactifs} color="#999" />
-              <Box sx={{ flex: 1, minWidth: 140, ml: 3 }}>
-                <Box display="flex" justifyContent="space-between" mb={0.5}>
-                  <Typography variant="caption" sx={{ color: '#666' }}>Taux d'activité</Typography>
-                  <Typography variant="caption" sx={{ fontWeight: 700, color: C.vert }}>{tauxActifs}%</Typography>
-                </Box>
-                <LinearProgress
-                  variant="determinate"
-                  value={tauxActifs}
-                  sx={{ height: 7, borderRadius: 4, bgcolor: `${C.vert}18`, '& .MuiLinearProgress-bar': { bgcolor: C.vert, borderRadius: 4 } }}
-                />
-              </Box>
-            </Box>
-          </CardContent>
-        </Card>
+        <Grid container spacing={2} mb={2.5}>
+          <Grid item xs={6} sm={3} md={3}>
+            <MiniStatCard label="Total membres" value={list.length} color={C.vert} sub={`${totalActifs} actifs · ${totalInactifs} inactifs`} pct={tauxActifs} />
+          </Grid>
+          <Grid item xs={6} sm={3} md={3}>
+            <MiniStatCard label="Hommes" value={totalHommes} color={C.vert} sub={`${pctHommes}% des membres`} pct={pctHommes} />
+          </Grid>
+          <Grid item xs={6} sm={3} md={3}>
+            <MiniStatCard label="Femmes" value={totalFemmes} color={C.or} sub={`${pctFemmes}% des membres`} pct={pctFemmes} />
+          </Grid>
+          <Grid item xs={6} sm={3} md={3}>
+            <Card sx={{ borderRadius: 2.5, border: `1px solid ${C.vert}20`, boxShadow: '0 2px 8px rgba(0,0,0,0.05)', height: '100%' }}>
+              <CardContent sx={{ p: 2, '&:last-child': { pb: 2 } }}>
+                <Typography variant="caption" sx={{ color: '#666', fontWeight: 600, display: 'block', mb: 1 }}>Catégories</Typography>
+                {[
+                  { label: 'Élèves', value: totalEleves, color: C.vert },
+                  { label: 'Étudiants', value: totalEtudiants, color: C.vertClair },
+                  { label: 'Professionnels', value: totalProfessionnels, color: C.or },
+                ].map(({ label, value, color }) => (
+                  <Box key={label} mb={0.75}>
+                    <Box display="flex" justifyContent="space-between" mb={0.3}>
+                      <Typography variant="caption" sx={{ color: '#555', fontWeight: 500 }}>{label}</Typography>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color }}>{value}</Typography>
+                    </Box>
+                    <LinearProgress variant="determinate"
+                      value={list.length ? Math.min((value / list.length) * 100, 100) : 0}
+                      sx={{ height: 3.5, borderRadius: 2, bgcolor: `${color}15`, '& .MuiLinearProgress-bar': { bgcolor: color, borderRadius: 2 } }} />
+                  </Box>
+                ))}
+              </CardContent>
+            </Card>
+          </Grid>
+        </Grid>
       )}
 
       {/* Search + filter toggle */}

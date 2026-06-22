@@ -289,52 +289,40 @@ export default function Bibliotheque() {
 
   return (
     <Box sx={{ minHeight: '100%', pb: 4, px: { xs: 1.5, sm: 2 }, pt: { xs: 1, sm: 0 } }}>
-      {/* En-tête dynamique */}
+      {/* En-tête */}
       <Box
         sx={{
-          background: `linear-gradient(135deg, ${COLORS.vert} 0%, ${COLORS.vertFonce} 50%, ${alpha(COLORS.vert, 0.95)} 100%)`,
-          color: 'white',
+          background: 'linear-gradient(135deg, #F0F8F4 0%, #FDF9EE 100%)',
           borderRadius: { xs: 2, sm: 3 },
-          p: { xs: 2, sm: 3 },
           mb: { xs: 2, sm: 3 },
-          position: 'relative',
           overflow: 'hidden',
-          boxShadow: `0 8px 32px ${alpha(COLORS.vert, 0.35)}`,
-          '&::before': {
-            content: '""',
-            position: 'absolute',
-            top: 0,
-            left: 0,
-            right: 0,
-            bottom: 0,
-            background: `radial-gradient(circle at 20% 80%, ${COLORS.or}33 0%, transparent 50%)`,
-            pointerEvents: 'none',
-          },
+          boxShadow: `0 4px 20px rgba(45,95,63,0.10)`,
+          border: `1px solid ${COLORS.vert}18`,
         }}
       >
-        <Box sx={{ position: 'relative', display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2 }}>
+        <Box sx={{ height: 4, background: `linear-gradient(90deg, ${COLORS.vertFonce}, ${COLORS.vert} 55%, ${COLORS.or})` }} />
+        <Box sx={{ p: { xs: 2, sm: 3 }, display: 'flex', flexDirection: { xs: 'column', sm: 'row' }, alignItems: { xs: 'stretch', sm: 'center' }, justifyContent: 'space-between', gap: 2 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: { xs: 1.5, sm: 2 }, flex: 1, minWidth: 0 }}>
             <Box
               sx={{
                 width: { xs: 44, sm: 56 },
                 height: { xs: 44, sm: 56 },
                 borderRadius: 2,
-                bgcolor: alpha('#fff', 0.2),
+                bgcolor: COLORS.vert,
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
                 flexShrink: 0,
-                animation: 'pulse 2s ease-in-out infinite',
-                '@keyframes pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.8 } },
+                boxShadow: `0 4px 14px ${COLORS.vert}30`,
               }}
             >
-              <AutoStories sx={{ fontSize: { xs: 26, sm: 32 } }} />
+              <AutoStories sx={{ fontSize: { xs: 26, sm: 32 }, color: '#fff' }} />
             </Box>
             <Box sx={{ minWidth: 0 }}>
-              <Typography variant={isMobile ? 'h5' : 'h4'} fontWeight={800} sx={{ letterSpacing: '-0.02em', textShadow: '0 1px 2px rgba(0,0,0,0.2)', fontSize: { xs: '1.25rem', sm: 'inherit' } }}>
+              <Typography variant={isMobile ? 'h5' : 'h4'} fontWeight={800} sx={{ letterSpacing: '-0.02em', color: COLORS.vertFonce, fontSize: { xs: '1.25rem', sm: 'inherit' } }}>
                 Bibliothèque
               </Typography>
-              <Typography variant="body2" sx={{ opacity: 0.95, mt: 0.5, fontSize: { xs: '0.8rem', sm: 'inherit' } }}>
+              <Typography variant="body2" sx={{ color: '#777', mt: 0.5, fontSize: { xs: '0.8rem', sm: 'inherit' } }}>
                 Lisez en ligne ou téléchargez ALQURAN et QASSIDA
               </Typography>
             </Box>
@@ -346,19 +334,15 @@ export default function Bibliotheque() {
               onClick={() => handleOpenForm()}
               fullWidth={isMobile}
               sx={{
-                bgcolor: COLORS.or,
-                color: COLORS.vertFonce,
+                bgcolor: COLORS.vert,
+                color: '#fff',
                 fontWeight: 700,
                 px: 2.5,
                 py: { xs: 1.5, sm: 1.25 },
                 minHeight: 44,
                 borderRadius: 2,
-                boxShadow: `0 4px 14px ${alpha(COLORS.or, 0.5)}`,
-                '&:hover': {
-                  bgcolor: alpha(COLORS.or, 0.9),
-                  boxShadow: `0 6px 20px ${alpha(COLORS.or, 0.5)}`,
-                  transform: 'translateY(-1px)',
-                },
+                boxShadow: `0 4px 14px ${COLORS.vert}30`,
+                '&:hover': { bgcolor: COLORS.vertFonce, transform: 'translateY(-1px)' },
                 transition: 'all 0.25s ease',
               }}
             >

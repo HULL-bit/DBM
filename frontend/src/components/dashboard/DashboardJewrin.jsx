@@ -115,27 +115,29 @@ export default function DashboardJewrin() {
       {/* Hero */}
       <Card sx={{
         mb: 3, borderRadius: 3, overflow: 'hidden',
-        background: `linear-gradient(135deg, ${C.vertFonce} 0%, ${C.vert} 55%, ${C.vertClair} 100%)`,
-        boxShadow: `0 6px 24px ${C.vert}35`,
+        background: 'linear-gradient(135deg, #F0F8F4 0%, #FDF9EE 100%)',
+        boxShadow: '0 4px 20px rgba(45,95,63,0.10)',
+        border: `1px solid ${C.vert}18`,
       }}>
+        <Box sx={{ height: 4, background: `linear-gradient(90deg, ${C.vertFonce}, ${C.vert} 55%, ${C.or})` }} />
         <CardContent sx={{ p: { xs: 2.5, md: 3 } }}>
           <Box display="flex" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={2}>
             <Box display="flex" alignItems="center" gap={2}>
-              <Avatar sx={{ bgcolor: C.or, color: C.vertFonce, width: 48, height: 48, fontWeight: 700, fontSize: '1.2rem' }}>
+              <Avatar sx={{ bgcolor: C.vert, color: '#fff', width: 50, height: 50, fontWeight: 700, fontSize: '1.2rem', boxShadow: `0 4px 14px ${C.vert}30` }}>
                 {user?.first_name?.[0]}{user?.last_name?.[0]}
               </Avatar>
               <Box>
-                <Typography variant="h5" sx={{ color: '#fff', fontFamily: '"Dancing Script", "Cormorant Garamond", serif', fontWeight: 700, lineHeight: 1.2 }}>
+                <Typography variant="h5" sx={{ color: C.vertFonce, fontFamily: '"Dancing Script", "Cormorant Garamond", serif', fontWeight: 700, lineHeight: 1.2 }}>
                   Bienvenue, {formatName()}
                 </Typography>
-                <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.7)' }}>Jewrin — {todayFormatted}</Typography>
+                <Typography variant="caption" sx={{ color: '#888' }}>Jewrin — {todayFormatted}</Typography>
               </Box>
             </Box>
             {alertsCount > 0 && (
               <Chip
                 icon={<Warning sx={{ fontSize: 15 }} />}
                 label={`${alertsCount} élément${alertsCount > 1 ? 's' : ''} à traiter`}
-                sx={{ bgcolor: 'rgba(255,107,53,0.9)', color: '#fff', fontWeight: 700, border: 'none' }}
+                sx={{ bgcolor: '#FEF3E7', color: '#E65100', fontWeight: 700, border: '1px solid #FFCC80' }}
               />
             )}
           </Box>
