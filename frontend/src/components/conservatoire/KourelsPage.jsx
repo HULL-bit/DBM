@@ -10,13 +10,44 @@ import { useAuth } from '../../context/AuthContext'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
+const ROLE_COLORS = {
+  maitre: C.or,
+  responsable: C.vert,
+  suivi: '#00695C',
+  jewrine: '#6A1B9A',
+}
+
 function initials(u) {
   if (!u) return '?'
   return `${(u.first_name || '')[0] || ''}${(u.last_name || '')[0] || ''}`.toUpperCase() || '?'
 }
+function initialsFromName(nom) {
+  if (!nom) return '?'
+  const parts = nom.trim().split(' ')
+  if (parts.length === 1) return (parts[0][0] || '?').toUpperCase()
+  return `${parts[0][0] || ''}${parts[parts.length - 1][0] || ''}`.toUpperCase() || '?'
+}
 function fullName(u) {
   if (!u) return '—'
   return `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username || `#${u.id}`
+}
+
+// Encadrement chip shown in CircularMembersView
+function EncadrementChip({ nom, label, color }) {
+  if (!nom) return null
+  return (
+    <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, minWidth: 64 }}>
+      <Avatar sx={{ width: 40, height: 40, bgcolor: color, color: 'white', fontSize: '0.75rem', fontWeight: 700, border: `2px solid white`, boxShadow: `0 2px 8px ${color}50` }}>
+        {initialsFromName(nom)}
+      </Avatar>
+      <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: '0.62rem', lineHeight: 1.2, textAlign: 'center', fontWeight: 600 }}>
+        {label}
+      </Typography>
+      <Typography variant="caption" sx={{ color: C.vertFonce, fontSize: '0.65rem', lineHeight: 1.2, textAlign: 'center', maxWidth: 72, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        {nom}
+      </Typography>
+    </Box>
+  )
 }
 
 function CircularMembersView({ kourel, allUsers }) {
@@ -35,83 +66,205 @@ function CircularMembersView({ kourel, allUsers }) {
 
   const nonMaitre = members.filter(m => m.id !== maitreId)
 
-  return (
-    <Box sx={{ position: 'relative', width: SIZE, height: SIZE, mx: 'auto', userSelect: 'none' }}>
-      {/* Outer dashed circle */}
-      <Box sx={{
-        position: 'absolute', inset: 0,
-        border: `2px dashed ${C.or}50`, borderRadius: '50%',
-      }} />
-      {/* Inner circle */}
-      <Box sx={{
-        position: 'absolute',
-        left: CENTER - RADIUS_INNER, top: CENTER - RADIUS_INNER,
-        width: RADIUS_INNER * 2, height: RADIUS_INNER * 2,
-        border: `1.5px solid ${C.vert}30`, borderRadius: '50%',
-      }} />
+  // Encadrement roles from the kourel object (name fields)
+  const encadrementRoles = [
+    { nom: kourel.maitre_de_coeur_nom, label: 'Maître de cœur', color: ROLE_COLORS.maitre },
+    { nom: kourel.responsable_nom, label: 'Responsable', color: ROLE_COLORS.responsable },
+    { nom: kourel.maitre_de_coeur_2_nom, label: 'Maître 2 / Suivi', color: ROLE_COLORS.suivi },
+    { nom: kourel.jewrine_nom, label: 'Jewrine', color: ROLE_COLORS.jewrine },
+  ].filter(r => !!r.nom)
 
-      {/* Lines from center to members */}
-      <svg style={{ position: 'absolute', inset: 0, width: SIZE, height: SIZE, overflow: 'visible', pointerEvents: 'none' }}>
-        {nonMaitre.map((_, i) => {
+  return (
+    <Box>
+      {/* SVG Circle */}
+      <Box sx={{ position: 'relative', width: SIZE, height: SIZE, mx: 'auto', userSelect: 'none' }}>
+        {/* Outer dashed circle */}
+        <Box sx={{
+          position: 'absolute', inset: 0,
+          border: `2px dashed ${C.or}50`, borderRadius: '50%',
+        }} />
+        {/* Inner circle */}
+        <Box sx={{
+          position: 'absolute',
+          left: CENTER - RADIUS_INNER, top: CENTER - RADIUS_INNER,
+          width: RADIUS_INNER * 2, height: RADIUS_INNER * 2,
+          border: `1.5px solid ${C.vert}30`, borderRadius: '50%',
+        }} />
+
+        {/* Lines from center to members */}
+        <svg style={{ position: 'absolute', inset: 0, width: SIZE, height: SIZE, overflow: 'visible', pointerEvents: 'none' }}>
+          {nonMaitre.map((_, i) => {
+            const angle = (2 * Math.PI * i) / Math.max(nonMaitre.length, 1) - Math.PI / 2
+            const x2 = CENTER + RADIUS_OUTER * Math.cos(angle)
+            const y2 = CENTER + RADIUS_OUTER * Math.sin(angle)
+            return (
+              <line key={i} x1={CENTER} y1={CENTER} x2={x2} y2={y2}
+                stroke={`${C.or}40`} strokeWidth={1.5} strokeDasharray="4 4" />
+            )
+          })}
+        </svg>
+
+        {/* Maître — center */}
+        <Box sx={{ position: 'absolute', left: CENTER - 36, top: CENTER - 44, zIndex: 3, textAlign: 'center' }}>
+          <Box sx={{ position: 'relative', display: 'inline-block' }}>
+            <Avatar sx={{
+              width: 72, height: 72, bgcolor: C.or, color: 'white', fontSize: '1.1rem', fontWeight: 700,
+              border: `4px solid ${C.vert}`, boxShadow: `0 4px 16px ${C.vert}40`,
+            }}>
+              {initials(maitre)}
+            </Avatar>
+            <Star sx={{
+              position: 'absolute', top: -8, right: -8, fontSize: 20, color: C.or,
+              filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
+            }} />
+          </Box>
+          <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: C.vert, fontWeight: 700, lineHeight: 1.2, fontSize: '0.7rem', maxWidth: 80 }}>
+            {maitre ? fullName(maitre) : '—'}
+          </Typography>
+          <Typography variant="caption" sx={{ display: 'block', color: C.or, fontSize: '0.65rem' }}>Maître</Typography>
+        </Box>
+
+        {/* Members around the circle */}
+        {nonMaitre.map((m, i) => {
           const angle = (2 * Math.PI * i) / Math.max(nonMaitre.length, 1) - Math.PI / 2
-          const x2 = CENTER + RADIUS_OUTER * Math.cos(angle)
-          const y2 = CENTER + RADIUS_OUTER * Math.sin(angle)
+          const x = CENTER + RADIUS_OUTER * Math.cos(angle) - 24
+          const y = CENTER + RADIUS_OUTER * Math.sin(angle) - 32
           return (
-            <line key={i} x1={CENTER} y1={CENTER} x2={x2} y2={y2}
-              stroke={`${C.or}40`} strokeWidth={1.5} strokeDasharray="4 4" />
+            <Tooltip key={m.id} title={fullName(m)} placement="top" arrow>
+              <Box sx={{ position: 'absolute', left: x, top: y, zIndex: 2, textAlign: 'center', width: 48 }}>
+                <Avatar sx={{
+                  width: 44, height: 44, bgcolor: C.vert, color: 'white', fontSize: '0.75rem', fontWeight: 600,
+                  border: `2.5px solid white`, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
+                  mx: 'auto',
+                }}>
+                  {initials(m)}
+                </Avatar>
+                <Typography variant="caption" sx={{ display: 'block', mt: 0.25, color: C.vertFonce, fontSize: '0.6rem', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 48 }}>
+                  {m.first_name || ''}
+                </Typography>
+              </Box>
+            </Tooltip>
           )
         })}
-      </svg>
 
-      {/* Maître — center */}
-      <Box sx={{ position: 'absolute', left: CENTER - 36, top: CENTER - 44, zIndex: 3, textAlign: 'center' }}>
-        <Box sx={{ position: 'relative', display: 'inline-block' }}>
-          <Avatar sx={{
-            width: 72, height: 72, bgcolor: C.or, color: 'white', fontSize: '1.1rem', fontWeight: 700,
-            border: `4px solid ${C.vert}`, boxShadow: `0 4px 16px ${C.vert}40`,
-          }}>
-            {initials(maitre)}
-          </Avatar>
-          <Star sx={{
-            position: 'absolute', top: -8, right: -8, fontSize: 20, color: C.or,
-            filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))',
-          }} />
-        </Box>
-        <Typography variant="caption" sx={{ display: 'block', mt: 0.5, color: C.vert, fontWeight: 700, lineHeight: 1.2, fontSize: '0.7rem', maxWidth: 80 }}>
-          {maitre ? fullName(maitre) : '—'}
-        </Typography>
-        <Typography variant="caption" sx={{ display: 'block', color: C.or, fontSize: '0.65rem' }}>Maître</Typography>
+        {nonMaitre.length === 0 && !maitre && (
+          <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+            <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>Aucun membre</Typography>
+          </Box>
+        )}
       </Box>
 
-      {/* Members around the circle */}
-      {nonMaitre.map((m, i) => {
-        const angle = (2 * Math.PI * i) / Math.max(nonMaitre.length, 1) - Math.PI / 2
-        const x = CENTER + RADIUS_OUTER * Math.cos(angle) - 24
-        const y = CENTER + RADIUS_OUTER * Math.sin(angle) - 32
-        return (
-          <Tooltip key={m.id} title={fullName(m)} placement="top" arrow>
-            <Box sx={{ position: 'absolute', left: x, top: y, zIndex: 2, textAlign: 'center', width: 48 }}>
-              <Avatar sx={{
-                width: 44, height: 44, bgcolor: C.vert, color: 'white', fontSize: '0.75rem', fontWeight: 600,
-                border: `2.5px solid white`, boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-                mx: 'auto',
-              }}>
-                {initials(m)}
-              </Avatar>
-              <Typography variant="caption" sx={{ display: 'block', mt: 0.25, color: C.vertFonce, fontSize: '0.6rem', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: 48 }}>
-                {m.first_name || ''}
-              </Typography>
-            </Box>
-          </Tooltip>
-        )
-      })}
-
-      {nonMaitre.length === 0 && !maitre && (
-        <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-          <Typography variant="body2" color="text.secondary" sx={{ textAlign: 'center' }}>Aucun membre</Typography>
+      {/* Encadrement row */}
+      {encadrementRoles.length > 0 && (
+        <Box sx={{ mt: 2 }}>
+          <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', color: 'text.secondary', fontWeight: 600, letterSpacing: 0.5, mb: 1.5, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+            Encadrement
+          </Typography>
+          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap', mt: 0.5 }}>
+            {encadrementRoles.map((r, i) => (
+              <EncadrementChip key={i} nom={r.nom} label={r.label} color={r.color} />
+            ))}
+          </Box>
         </Box>
       )}
     </Box>
+  )
+}
+
+function KourelCard({ k, isSelected, allUsers, isAdmin, onSelect, onEdit, onDelete }) {
+  const members = (() => {
+    const ids = Array.isArray(k.membres) ? k.membres.map(x => (typeof x === 'object' ? x?.id : x)).filter(Boolean) : []
+    return ids.map(id => allUsers.find(u => u.id === id)).filter(Boolean)
+  })()
+  const maitre = allUsers.find(u => u.id === k.maitre_de_coeur)
+
+  // Small badges for encadrement
+  const encadrementBadges = [
+    { nom: k.responsable_nom, color: ROLE_COLORS.responsable, label: 'Resp.' },
+    { nom: k.maitre_de_coeur_2_nom, color: ROLE_COLORS.suivi, label: 'Suivi' },
+    { nom: k.jewrine_nom, color: ROLE_COLORS.jewrine, label: 'Jew.' },
+  ].filter(b => !!b.nom)
+
+  return (
+    <Card
+      onClick={onSelect}
+      sx={{
+        cursor: 'pointer', borderRadius: 2.5,
+        border: `2px solid ${isSelected ? C.or : 'transparent'}`,
+        boxShadow: isSelected ? `0 0 0 2px ${C.or}40` : 1,
+        transition: 'all 0.2s',
+        '&:hover': { border: `2px solid ${C.or}`, transform: 'translateY(-2px)', boxShadow: 3 },
+      }}
+    >
+      <Box sx={{ height: 4, bgcolor: isSelected ? C.or : `${C.vert}60` }} />
+      <CardContent sx={{ p: 2 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: C.vert }}>{k.nom}</Typography>
+          <Box sx={{ display: 'flex', gap: 0.5 }}>
+            {isAdmin && (
+              <>
+                <IconButton size="small" onClick={e => { e.stopPropagation(); onEdit() }} sx={{ color: C.vert }}><Edit fontSize="small" /></IconButton>
+                <IconButton size="small" color="error" onClick={e => { e.stopPropagation(); onDelete() }}><Delete fontSize="small" /></IconButton>
+              </>
+            )}
+          </Box>
+        </Box>
+
+        {/* Maitre */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          <Star sx={{ fontSize: 14, color: C.or }} />
+          <Typography variant="caption" color="text.secondary">
+            Maître : <strong>{maitre ? fullName(maitre) : (k.maitre_de_coeur_nom || '—')}</strong>
+          </Typography>
+        </Box>
+
+        {/* Member avatars preview */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
+          {members.slice(0, 6).map(m => (
+            <Tooltip key={m.id} title={fullName(m)} arrow>
+              <Avatar sx={{ width: 28, height: 28, fontSize: '0.65rem', bgcolor: C.vert, border: '2px solid white' }}>
+                {initials(m)}
+              </Avatar>
+            </Tooltip>
+          ))}
+          {members.length > 6 && (
+            <Avatar sx={{ width: 28, height: 28, fontSize: '0.6rem', bgcolor: `${C.or}80`, color: C.vertFonce }}>
+              +{members.length - 6}
+            </Avatar>
+          )}
+          <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+            {k.nb_membres ?? members.length} membre(s)
+          </Typography>
+        </Box>
+
+        {/* Encadrement badges */}
+        {encadrementBadges.length > 0 && (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
+            {encadrementBadges.map((b, i) => (
+              <Chip
+                key={i}
+                label={`${b.label} ${b.nom}`}
+                size="small"
+                sx={{
+                  bgcolor: `${b.color}18`,
+                  color: b.color,
+                  fontSize: '0.6rem',
+                  height: 20,
+                  fontWeight: 600,
+                  border: `1px solid ${b.color}40`,
+                  '& .MuiChip-label': { px: 0.75 },
+                }}
+              />
+            ))}
+          </Box>
+        )}
+
+        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
+          <Chip label="Voir le cercle" size="small" icon={<ArrowForward sx={{ fontSize: '14px !important' }} />}
+            sx={{ bgcolor: `${C.vert}10`, color: C.vert, fontSize: '0.7rem', cursor: 'pointer' }} />
+        </Box>
+      </CardContent>
+    </Card>
   )
 }
 
@@ -127,7 +280,10 @@ export default function KourelsPage({ onBack }) {
   const [saving, setSaving] = useState(false)
   const [openForm, setOpenForm] = useState(false)
   const [editId, setEditId] = useState(null)
-  const [form, setForm] = useState({ nom: '', description: '', membres: [], maitre_de_coeur: '' })
+  const [form, setForm] = useState({
+    nom: '', description: '', membres: [],
+    maitre_de_coeur: '', responsable: '', maitre_de_coeur_2: '', jewrine: '',
+  })
   const [deleteTarget, setDeleteTarget] = useState(null)
   const [loadingDetail, setLoadingDetail] = useState(false)
 
@@ -149,16 +305,29 @@ export default function KourelsPage({ onBack }) {
   }
 
   const openAdd = () => {
-    setEditId(null); setForm({ nom: '', description: '', membres: [], maitre_de_coeur: '' }); setOpenForm(true)
+    setEditId(null)
+    setForm({ nom: '', description: '', membres: [], maitre_de_coeur: '', responsable: '', maitre_de_coeur_2: '', jewrine: '' })
+    setOpenForm(true)
   }
+
   const openEdit = async (k) => {
     setEditId(k.id)
     let membres = Array.isArray(k.membres) ? k.membres.map(x => (typeof x === 'object' ? x?.id : x)).filter(Boolean) : []
+    let fullData = k
     if (!membres.length) {
       const { data } = await api.get(`/conservatoire/kourels/${k.id}/`).catch(() => ({ data: k }))
+      fullData = data
       membres = (data.membres || []).map(x => (typeof x === 'object' ? x?.id : x)).filter(Boolean)
     }
-    setForm({ nom: k.nom, description: k.description || '', membres, maitre_de_coeur: k.maitre_de_coeur || '' })
+    setForm({
+      nom: fullData.nom,
+      description: fullData.description || '',
+      membres,
+      maitre_de_coeur: fullData.maitre_de_coeur || '',
+      responsable: fullData.responsable || '',
+      maitre_de_coeur_2: fullData.maitre_de_coeur_2 || '',
+      jewrine: fullData.jewrine || '',
+    })
     setOpenForm(true)
   }
 
@@ -166,7 +335,15 @@ export default function KourelsPage({ onBack }) {
     if (!form.nom) { setMsg({ type: 'error', text: 'Nom requis.' }); return }
     setSaving(true); setMsg({ type: '', text: '' })
     try {
-      const payload = { nom: form.nom, description: form.description, membres: form.membres, maitre_de_coeur: form.maitre_de_coeur || null }
+      const payload = {
+        nom: form.nom,
+        description: form.description,
+        membres: form.membres,
+        maitre_de_coeur: form.maitre_de_coeur || null,
+        responsable: form.responsable || null,
+        maitre_de_coeur_2: form.maitre_de_coeur_2 || null,
+        jewrine: form.jewrine || null,
+      }
       if (editId) {
         await api.patch(`/conservatoire/kourels/${editId}/`, payload)
         setMsg({ type: 'success', text: 'Kourel modifié.' })
@@ -203,7 +380,6 @@ export default function KourelsPage({ onBack }) {
     }))
   }
 
-  // Resolve member IDs for display
   const resolveMembers = (k) => {
     const ids = Array.isArray(k.membres) ? k.membres.map(x => (typeof x === 'object' ? x?.id : x)).filter(Boolean) : []
     return ids.map(id => allUsers.find(u => u.id === id)).filter(Boolean)
@@ -243,72 +419,19 @@ export default function KourelsPage({ onBack }) {
               </Box>
             ) : (
               <Grid container spacing={2}>
-                {kourels.map(k => {
-                  const members = resolveMembers(k)
-                  const maitre = allUsers.find(u => u.id === k.maitre_de_coeur)
-                  const isSelected = selected?.id === k.id
-                  return (
-                    <Grid item xs={12} sm={selected ? 12 : 6} md={selected ? 12 : 4} key={k.id}>
-                      <Card
-                        onClick={() => { setSelected(null); setTimeout(() => loadDetail(k.id), 50) }}
-                        sx={{
-                          cursor: 'pointer', borderRadius: 2.5,
-                          border: `2px solid ${isSelected ? C.or : 'transparent'}`,
-                          boxShadow: isSelected ? `0 0 0 2px ${C.or}40` : 1,
-                          transition: 'all 0.2s',
-                          '&:hover': { border: `2px solid ${C.or}`, transform: 'translateY(-2px)', boxShadow: 3 },
-                        }}
-                      >
-                        <Box sx={{ height: 4, bgcolor: isSelected ? C.or : `${C.vert}60` }} />
-                        <CardContent sx={{ p: 2 }}>
-                          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-                            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: C.vert }}>{k.nom}</Typography>
-                            <Box sx={{ display: 'flex', gap: 0.5 }}>
-                              {isAdmin && (
-                                <>
-                                  <IconButton size="small" onClick={e => { e.stopPropagation(); openEdit(k) }} sx={{ color: C.vert }}><Edit fontSize="small" /></IconButton>
-                                  <IconButton size="small" color="error" onClick={e => { e.stopPropagation(); setDeleteTarget(k.id) }}><Delete fontSize="small" /></IconButton>
-                                </>
-                              )}
-                            </Box>
-                          </Box>
-
-                          {/* Maitre */}
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-                            <Star sx={{ fontSize: 14, color: C.or }} />
-                            <Typography variant="caption" color="text.secondary">
-                              Maître : <strong>{maitre ? fullName(maitre) : '—'}</strong>
-                            </Typography>
-                          </Box>
-
-                          {/* Member avatars preview */}
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-                            {members.slice(0, 6).map(m => (
-                              <Tooltip key={m.id} title={fullName(m)} arrow>
-                                <Avatar sx={{ width: 28, height: 28, fontSize: '0.65rem', bgcolor: C.vert, border: '2px solid white' }}>
-                                  {initials(m)}
-                                </Avatar>
-                              </Tooltip>
-                            ))}
-                            {members.length > 6 && (
-                              <Avatar sx={{ width: 28, height: 28, fontSize: '0.6rem', bgcolor: `${C.or}80`, color: C.vertFonce }}>
-                                +{members.length - 6}
-                              </Avatar>
-                            )}
-                            <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-                              {k.nb_membres ?? members.length} membre(s)
-                            </Typography>
-                          </Box>
-
-                          <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
-                            <Chip label="Voir le cercle" size="small" icon={<ArrowForward sx={{ fontSize: '14px !important' }} />}
-                              sx={{ bgcolor: `${C.vert}10`, color: C.vert, fontSize: '0.7rem', cursor: 'pointer' }} />
-                          </Box>
-                        </CardContent>
-                      </Card>
-                    </Grid>
-                  )
-                })}
+                {kourels.map(k => (
+                  <Grid item xs={12} sm={selected ? 12 : 6} md={selected ? 12 : 4} key={k.id}>
+                    <KourelCard
+                      k={k}
+                      isSelected={selected?.id === k.id}
+                      allUsers={allUsers}
+                      isAdmin={isAdmin}
+                      onSelect={() => { setSelected(null); setTimeout(() => loadDetail(k.id), 50) }}
+                      onEdit={() => openEdit(k)}
+                      onDelete={() => setDeleteTarget(k.id)}
+                    />
+                  </Grid>
+                ))}
               </Grid>
             )}
           </Grid>
@@ -333,7 +456,7 @@ export default function KourelsPage({ onBack }) {
                     <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress sx={{ color: C.vert }} /></Box>
                   ) : (
                     <>
-                      {/* Circular view */}
+                      {/* Circular view + Encadrement row */}
                       <Box sx={{ py: 2 }}>
                         <CircularMembersView kourel={selected} allUsers={allUsers} />
                       </Box>
@@ -397,6 +520,24 @@ export default function KourelsPage({ onBack }) {
             </Grid>
             <Grid item xs={12}>
               <TextField select fullWidth label="Maître de cœur" value={form.maitre_de_coeur} onChange={e => setForm(f => ({ ...f, maitre_de_coeur: e.target.value ? Number(e.target.value) : '' }))}>
+                <MenuItem value="">— Aucun —</MenuItem>
+                {allUsers.map(u => <MenuItem key={u.id} value={u.id}>{fullName(u)}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField select fullWidth label="Responsable" value={form.responsable} onChange={e => setForm(f => ({ ...f, responsable: e.target.value ? Number(e.target.value) : '' }))}>
+                <MenuItem value="">— Aucun —</MenuItem>
+                {allUsers.map(u => <MenuItem key={u.id} value={u.id}>{fullName(u)}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField select fullWidth label="Maître 2 / Suivi" value={form.maitre_de_coeur_2} onChange={e => setForm(f => ({ ...f, maitre_de_coeur_2: e.target.value ? Number(e.target.value) : '' }))}>
+                <MenuItem value="">— Aucun —</MenuItem>
+                {allUsers.map(u => <MenuItem key={u.id} value={u.id}>{fullName(u)}</MenuItem>)}
+              </TextField>
+            </Grid>
+            <Grid item xs={12}>
+              <TextField select fullWidth label="Jewrine" value={form.jewrine} onChange={e => setForm(f => ({ ...f, jewrine: e.target.value ? Number(e.target.value) : '' }))}>
                 <MenuItem value="">— Aucun —</MenuItem>
                 {allUsers.map(u => <MenuItem key={u.id} value={u.id}>{fullName(u)}</MenuItem>)}
               </TextField>
