@@ -191,53 +191,36 @@ export default function ActivitesReligieuses() {
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
-      ) : isAdmin ? (
-        <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.or}` }}>
-          <Table size="small">
-            <TableHead>
-              <TableRow sx={{ bgcolor: `${COLORS.vert}12` }}>
-                <TableCell>Titre</TableCell>
-                <TableCell>Type</TableCell>
-                <TableCell>Date</TableCell>
-                <TableCell>Lieu</TableCell>
-                <TableCell>Animateur</TableCell>
-                <TableCell align="right">Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {list.length === 0 ? (
-                <TableRow><TableCell colSpan={6} align="center">Aucune activité</TableCell></TableRow>
-              ) : (
-                list.map((a) => (
-                  <TableRow key={a.id}>
-                    <TableCell>{a.titre}</TableCell>
-                    <TableCell><Chip size="small" label={a.type_display || a.type_activite} /></TableCell>
-                    <TableCell>{new Date(a.date_activite).toLocaleString('fr-FR')}</TableCell>
-                    <TableCell>{a.lieu}</TableCell>
-                    <TableCell>{a.animateur_nom || '—'}</TableCell>
-                    <TableCell align="right">
-                      <IconButton size="small" onClick={() => handleOpenEdit(a)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                      <IconButton size="small" onClick={() => setOpenDelete(a)} color="error"><Delete /></IconButton>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
       ) : (
         <Grid container spacing={2}>
           {list.length === 0 ? (
             <Grid item xs={12}><Typography color="text.secondary">Aucune activité programmée.</Typography></Grid>
           ) : (
             list.map((a) => (
-              <Grid item xs={12} md={6} key={a.id}>
-                <Card sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
+              <Grid item xs={12} sm={6} md={4} key={a.id}>
+                <Card sx={{
+                  borderRadius: 2.5, height: '100%', borderTop: `4px solid ${COLORS.or}`,
+                  transition: 'box-shadow 0.2s', '&:hover': { boxShadow: 4 },
+                }}>
                   <CardContent>
-                    <Chip label={a.type_display || a.type_activite} size="small" sx={{ mb: 1 }} />
-                    <Typography variant="h6">{a.titre}</Typography>
-                    <Typography variant="body2" color="text.secondary">{a.lieu}</Typography>
-                    <Typography variant="caption" display="block">{new Date(a.date_activite).toLocaleString('fr-FR')} — {a.animateur_nom}</Typography>
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
+                      <Chip label={a.type_display || a.type_activite} size="small" sx={{ bgcolor: `${COLORS.vert}15`, color: COLORS.vert, fontWeight: 600 }} />
+                      {isAdmin && (
+                        <Box sx={{ display: 'flex', gap: 0.25 }}>
+                          <IconButton size="small" onClick={() => handleOpenEdit(a)} sx={{ color: COLORS.vert }}><Edit fontSize="small" /></IconButton>
+                          <IconButton size="small" onClick={() => setOpenDelete(a)} color="error"><Delete fontSize="small" /></IconButton>
+                        </Box>
+                      )}
+                    </Box>
+                    <Typography variant="h6" sx={{ color: COLORS.vert, fontWeight: 700, mb: 0.5 }}>{a.titre}</Typography>
+                    {a.description && <Typography variant="body2" color="text.secondary" sx={{ mb: 1, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{a.description}</Typography>}
+                    <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>📍 {a.lieu}</Typography>
+                    <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.5 }}>
+                      {new Date(a.date_activite).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' })}
+                      {a.duree ? ` · ${a.duree} min` : ''}
+                    </Typography>
+                    {a.animateur_nom && <Typography variant="caption" display="block" color="text.secondary">Animateur : {a.animateur_nom}</Typography>}
+                    {a.lien_visio && <Button size="small" href={a.lien_visio} target="_blank" rel="noopener noreferrer" sx={{ mt: 1, color: COLORS.vert, p: 0, fontSize: '0.75rem' }}>📹 Rejoindre en visio</Button>}
                   </CardContent>
                 </Card>
               </Grid>

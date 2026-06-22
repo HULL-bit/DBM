@@ -2,6 +2,9 @@ import { useState, useEffect } from 'react'
 import {
   Box,
   Typography,
+  Grid,
+  Card,
+  CardContent,
   Table,
   TableBody,
   TableCell,
@@ -578,86 +581,89 @@ export default function Cotisations() {
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+      ) : filteredList.length === 0 ? (
+        <Box sx={{ textAlign: 'center', py: 8 }}>
+          <Payment sx={{ fontSize: 56, color: 'action.disabled', mb: 2 }} />
+          <Typography color="text.secondary" variant="h6">Aucune cotisation</Typography>
+        </Box>
       ) : (
-        <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.or}` }}>
-          <Table>
-            <TableHead>
-              <TableRow sx={{ bgcolor: `${COLORS.vert}12` }}>
-                {isAdmin && <TableCell>Membre</TableCell>}
-                <TableCell>Type</TableCell>
-                <TableCell>Objet</TableCell>
-                <TableCell>Mois / Année</TableCell>
-                <TableCell>Montant (FCFA)</TableCell>
-                <TableCell>Statut</TableCell>
-                <TableCell>Date échéance</TableCell>
-                <TableCell>Date paiement</TableCell>
-                <TableCell>Paiement</TableCell>
-                {isAdmin ? <TableCell align="right">Actions</TableCell> : <TableCell align="right">Payer</TableCell>}
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {filteredList.length === 0 ? (
-                <TableRow><TableCell colSpan={isAdmin ? 9 : 8} align="center">Aucune cotisation</TableCell></TableRow>
-              ) : (
-                filteredList.map((c) => (
-                  <TableRow key={c.id}>
-                    {isAdmin && <TableCell>{c.membre_nom || c.membre || `#${c.membre}`}</TableCell>}
-                    <TableCell>{c.type_cotisation === 'assignation' ? 'Assignation' : 'Mensualité'}</TableCell>
-                    <TableCell>{c.type_cotisation === 'assignation' ? (c.objet_assignation || '—') : '—'}</TableCell>
-                    <TableCell>{c.mois}/{c.annee}</TableCell>
-                    <TableCell>{c.montant}</TableCell>
-                    <TableCell><Chip label={c.statut_display || c.statut} color={statutColor(c.statut)} size="small" /></TableCell>
-                    <TableCell>{c.date_echeance ? new Date(c.date_echeance).toLocaleDateString('fr-FR') : '—'}</TableCell>
-                    <TableCell>{c.date_paiement ? new Date(c.date_paiement).toLocaleDateString('fr-FR') : '—'}</TableCell>
-                    <TableCell>
-                      {c.mode_paiement === 'liquide'
-                        ? 'Espèces'
-                        : c.mode_paiement === 'autre'
-                          ? 'Autre'
-                          : 'Wave'}
-                      {c.reference_wave ? ` — ${c.reference_wave}` : ''}
-                    </TableCell>
-                    {isAdmin ? (
-                      <TableCell align="right">
-                        {/* Pour les admins : afficher le bouton Payer seulement si la cotisation leur appartient ET qu'elle n'est pas payée */}
-                        {Number(c.membre) === Number(user?.id) && canPayCotisation(c) && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            startIcon={<Payment />}
-                            onClick={() => handleOpenPayer(c)}
-                            sx={{ mr: 1, bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
-                          >
-                            Payer
-                          </Button>
-                        )}
-                        {Number(c.membre) === Number(user?.id) && String(c.statut || '').toLowerCase() === 'payee' && <Chip label="Payée" color="success" size="small" sx={{ mr: 1 }} />}
-                        <IconButton size="small" onClick={() => handleOpenEdit(c)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                        <IconButton size="small" onClick={() => setOpenDelete(c)} color="error"><Delete /></IconButton>
-                      </TableCell>
-                    ) : (
-                      <TableCell align="right">
-                        {/* Pour les membres : afficher le bouton Payer si la cotisation n'est pas payée */}
-                        {canPayCotisation(c) && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            startIcon={<Payment />}
-                            onClick={() => handleOpenPayer(c)}
-                            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
-                          >
-                            Payer
-                          </Button>
-                        )}
-                        {String(c.statut || '').toLowerCase() === 'payee' && <Chip label="Payée" color="success" size="small" />}
-                      </TableCell>
+        <Grid container spacing={2}>
+          {filteredList.map((c) => {
+            const isAssignation = c.type_cotisation === 'assignation'
+            const isPaid = String(c.statut || '').toLowerCase() === 'payee'
+            const canPay = canPayCotisation(c)
+            const isMine = Number(c.membre) === Number(user?.id)
+            return (
+              <Grid item xs={12} sm={6} lg={4} key={c.id}>
+                <Card sx={{
+                  borderRadius: 2.5, height: '100%', display: 'flex', flexDirection: 'column',
+                  borderTop: `4px solid ${isPaid ? '#2E7D32' : isAssignation ? '#E65100' : COLORS.or}`,
+                  transition: 'box-shadow 0.2s', '&:hover': { boxShadow: 4 },
+                }}>
+                  <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.25, p: 2 }}>
+                    {/* Top row */}
+                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
+                        <Chip
+                          label={isAssignation ? (c.objet_assignation || 'Assignation') : 'Mensualité'}
+                          size="small"
+                          sx={{ bgcolor: isAssignation ? '#FBE9E7' : `${COLORS.or}25`, color: isAssignation ? '#E65100' : COLORS.vertFonce, fontWeight: 700, fontSize: '0.7rem' }}
+                        />
+                        <Chip label={c.statut_display || c.statut} color={statutColor(c.statut)} size="small" />
+                      </Box>
+                      {isAdmin && (
+                        <Box sx={{ display: 'flex', gap: 0.25 }}>
+                          <IconButton size="small" onClick={() => handleOpenEdit(c)} sx={{ color: COLORS.vert }}><Edit fontSize="small" /></IconButton>
+                          <IconButton size="small" onClick={() => setOpenDelete(c)} color="error"><Delete fontSize="small" /></IconButton>
+                        </Box>
+                      )}
+                    </Box>
+
+                    {/* Member name (admin only) */}
+                    {isAdmin && (
+                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.vert }}>
+                        {c.membre_nom || `#${c.membre}`}
+                      </Typography>
                     )}
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </TableContainer>
+
+                    {/* Amount */}
+                    <Typography variant="h6" sx={{ fontWeight: 800, color: isPaid ? '#2E7D32' : COLORS.vertFonce, fontFamily: '"Cormorant Garamond", serif' }}>
+                      {Number(c.montant || 0).toLocaleString('fr-FR')} FCFA
+                    </Typography>
+
+                    {/* Period */}
+                    <Typography variant="body2" color="text.secondary">
+                      {MOIS_LABELS[c.mois]} {c.annee}
+                      {c.date_echeance ? ` · Échéance : ${new Date(c.date_echeance).toLocaleDateString('fr-FR')}` : ''}
+                    </Typography>
+
+                    {/* Payment info */}
+                    {isPaid && c.date_paiement && (
+                      <Typography variant="caption" sx={{ color: '#2E7D32' }}>
+                        Payée le {new Date(c.date_paiement).toLocaleDateString('fr-FR')}
+                        {c.mode_paiement === 'wave' ? ' · Wave' : c.mode_paiement === 'liquide' ? ' · Espèces' : ' · Autre'}
+                        {c.reference_wave ? ` (${c.reference_wave})` : ''}
+                      </Typography>
+                    )}
+
+                    {/* Actions */}
+                    <Box sx={{ mt: 'auto', pt: 1 }}>
+                      {(isMine || !isAdmin) && canPay && (
+                        <Button
+                          fullWidth size="small" variant="contained" startIcon={<Payment />}
+                          onClick={() => handleOpenPayer(c)}
+                          sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce }, borderRadius: 1.5 }}
+                        >
+                          Payer
+                        </Button>
+                      )}
+                    </Box>
+                  </CardContent>
+                </Card>
+              </Grid>
+            )
+          })}
+        </Grid>
       )}
 
       <Dialog open={openForm} onClose={() => { setOpenForm(false); setEditingId(null) }} maxWidth="md" fullWidth>

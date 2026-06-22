@@ -258,42 +258,41 @@ export default function ValidationsKamil() {
                 </Grid>
               </Grid>
             )}
-            <TableContainer component={Paper} sx={{ borderRadius: 2, borderLeft: `4px solid ${COLORS.or}` }}>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: `${COLORS.vert}12` }}>
-                    <TableCell><strong>JUKKI</strong></TableCell>
-                    <TableCell><strong>Membre assigné</strong></TableCell>
-                    <TableCell><strong>Statut</strong></TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {list.map((j) => (
-                    <TableRow key={j.id}>
-                      <TableCell><strong>JUKKI {j.numero}</strong></TableCell>
-                      <TableCell>{j.membre_nom || '—'}</TableCell>
-                      <TableCell>
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                          {j.est_valide ? (
-                            <Chip label="Validé" color="success" size="small" icon={<CheckCircle />} />
-                          ) : (
-                            <Chip label="Non validé" color="default" size="small" />
-                          )}
-                          <IconButton
-                            size="small"
-                            onClick={() => handleOpenStatusDialog(j)}
-                            sx={{ color: COLORS.vert }}
-                            disabled={j.id?.toString().startsWith('missing-')}
-                          >
-                            <Edit fontSize="small" />
-                          </IconButton>
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+            <Grid container spacing={1.5}>
+              {list.map((j) => (
+                <Grid item xs={6} sm={4} md={3} lg={2} key={j.id}>
+                  <Card sx={{
+                    borderRadius: 2, borderTop: `3px solid ${j.est_valide ? '#2E7D32' : COLORS.or}`,
+                    bgcolor: j.est_valide ? '#F1F8F1' : 'background.paper',
+                    height: '100%',
+                  }}>
+                    <CardContent sx={{ p: 1.5, '&:last-child': { pb: 1.5 } }}>
+                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
+                        <Typography variant="caption" sx={{ fontWeight: 700, color: COLORS.vert, fontSize: '0.8rem' }}>
+                          JUKKI {j.numero}
+                        </Typography>
+                        <IconButton
+                          size="small"
+                          onClick={() => handleOpenStatusDialog(j)}
+                          sx={{ color: COLORS.vert, p: 0.25 }}
+                          disabled={j.id?.toString().startsWith('missing-')}
+                        >
+                          <Edit sx={{ fontSize: 14 }} />
+                        </IconButton>
+                      </Box>
+                      <Typography variant="caption" display="block" color="text.secondary" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', mb: 0.5, fontSize: '0.7rem' }}>
+                        {j.membre_nom || '—'}
+                      </Typography>
+                      {j.est_valide ? (
+                        <Chip label="✓ Validé" color="success" size="small" sx={{ fontSize: '0.65rem', height: 20 }} />
+                      ) : (
+                        <Chip label="En attente" size="small" variant="outlined" sx={{ fontSize: '0.65rem', height: 20 }} />
+                      )}
+                    </CardContent>
+                  </Card>
+                </Grid>
+              ))}
+            </Grid>
           </Box>
           )
         })
