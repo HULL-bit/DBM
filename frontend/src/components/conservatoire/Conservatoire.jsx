@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react'
 import { Box, Grid, Card, CardContent, Typography, CircularProgress, Chip } from '@mui/material'
-import { LibraryBooks, Folder, Groups, Event, EventAvailable, PhotoLibrary } from '@mui/icons-material'
+import { LibraryBooks, Folder, Groups, Event, EventAvailable, PhotoLibrary, Inventory2 } from '@mui/icons-material'
 import api from '../../services/api'
 import DocumentsPage from './DocumentsPage'
 import RepertoirePage from './RepertoirePage'
@@ -8,6 +8,7 @@ import KourelsPage from './KourelsPage'
 import SeancesPage from './SeancesPage'
 import PresencesPage from './PresencesPage'
 import GaleriePage from './GaleriePage'
+import MaterielsPage from '../organisation/MaterielsPage'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
@@ -18,6 +19,7 @@ const MODULES = [
   { key: 'seances', Icon: Event, title: 'Séances', desc: 'Répétitions et prestations avec khassidas', countKey: 'seances' },
   { key: 'presences', Icon: EventAvailable, title: 'Présences', desc: 'Suivi des présences, statistiques et export', countKey: null },
   { key: 'galerie', Icon: PhotoLibrary, title: 'Galerie', desc: 'Albums photos et événements', countKey: 'galerie' },
+  { key: 'materiels', Icon: Inventory2, title: 'Matériels', desc: 'Inventaire et gestion des équipements conservatoire', countKey: null },
 ]
 
 export default function Conservatoire() {
@@ -46,6 +48,7 @@ export default function Conservatoire() {
   if (page === 'seances') return <SeancesPage onBack={back} />
   if (page === 'presences') return <PresencesPage onBack={back} />
   if (page === 'galerie') return <GaleriePage onBack={back} />
+  if (page === 'materiels') return <MaterielsPage module="conservatoire" onBack={back} />
 
   return (
     <Box>

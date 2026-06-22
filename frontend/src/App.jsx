@@ -19,6 +19,8 @@ import Messagerie from './components/communication/Messagerie'
 import Notifications from './components/communication/Notifications'
 import ProjetsSociaux from './components/sociale/ProjetsSociaux'
 import Reunions from './components/organisation/Reunions'
+import EvenementsOrganisation from './components/organisation/EvenementsOrganisation'
+import MaterielsPage from './components/organisation/MaterielsPage'
 import Conservatoire from './components/conservatoire/Conservatoire'
 import Bibliotheque from './components/bibliotheque/Bibliotheque'
 import Cours from './components/scientifique/Cours'
@@ -81,6 +83,8 @@ function AppRoutes() {
         <Route path="communication/notifications" element={<Notifications />} />
         <Route path="sociale/projets" element={<ProjetsSociaux />} />
         <Route path="organisation/reunions" element={<Reunions />} />
+        <Route path="organisation/evenements" element={<EvenementsOrganisation />} />
+        <Route path="organisation/materiels" element={<MaterielsPage />} />
         <Route path="conservatoire" element={<Conservatoire />} />
         <Route path="bibliotheque" element={<Bibliotheque />} />
         <Route path="scientifique/cours" element={<Cours />} />

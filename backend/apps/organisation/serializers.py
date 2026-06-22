@@ -1,13 +1,8 @@
 from rest_framework import serializers
 from .models import (
-    TypeReunion,
-    Reunion,
-    ProcesVerbal,
-    Decision,
-    Vote,
-    StructureOrganisation,
-    RapportActivite,
-    Materiel,
+    TypeReunion, Reunion, ProcesVerbal, Decision, Vote,
+    StructureOrganisation, RapportActivite, Materiel,
+    EvenementOrganise, JourneeEvenement, KourelInvite,
 )
 
 
@@ -76,6 +71,45 @@ class RapportActiviteSerializer(serializers.ModelSerializer):
 
 
 class MaterielSerializer(serializers.ModelSerializer):
+    module_display = serializers.CharField(source='get_module_display', read_only=True)
+
     class Meta:
         model = Materiel
         fields = '__all__'
+
+
+class KourelInviteSerializer(serializers.ModelSerializer):
+    kourel_nom = serializers.CharField(source='kourel.nom', read_only=True)
+
+    class Meta:
+        model = KourelInvite
+        fields = '__all__'
+
+
+class JourneeEvenementSerializer(serializers.ModelSerializer):
+    kourels_invites = KourelInviteSerializer(many=True, read_only=True)
+    nb_kourels = serializers.SerializerMethodField()
+
+    class Meta:
+        model = JourneeEvenement
+        fields = '__all__'
+
+    def get_nb_kourels(self, obj):
+        return obj.kourels_invites.count()
+
+
+class EvenementOrganiseSerializer(serializers.ModelSerializer):
+    type_display = serializers.CharField(source='get_type_evenement_display', read_only=True)
+    nb_journees = serializers.SerializerMethodField()
+    created_by_nom = serializers.SerializerMethodField()
+
+    class Meta:
+        model = EvenementOrganise
+        fields = '__all__'
+        read_only_fields = ['created_by', 'created_at']
+
+    def get_nb_journees(self, obj):
+        return obj.journees.count()
+
+    def get_created_by_nom(self, obj):
+        return obj.created_by.get_full_name() if obj.created_by else ''

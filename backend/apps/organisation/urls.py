@@ -11,6 +11,9 @@ router.register(r'organisation/votes', views.VoteViewSet)
 router.register(r'organisation/structures', views.StructureOrganisationViewSet)
 router.register(r'organisation/rapports', views.RapportActiviteViewSet)
 router.register(r'organisation/materiels', views.MaterielViewSet)
+router.register(r'organisation/evenements', views.EvenementOrganiseViewSet)
+router.register(r'organisation/journees', views.JourneeEvenementViewSet)
+router.register(r'organisation/kourels-invites', views.KourelInviteViewSet)
 
 urlpatterns = [
     path('', include(router.urls)),

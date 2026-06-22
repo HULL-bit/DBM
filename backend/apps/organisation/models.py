@@ -221,9 +221,17 @@ class Materiel(models.Model):
     Permet de suivre les quantités et l'état pour avoir des statistiques simples.
     """
 
+    MODULE_CHOICES = [
+        ('conservatoire', 'Conservatoire'),
+        ('culturelle', 'Culturelle'),
+        ('organisation', 'Organisation'),
+        ('generale', 'Générale'),
+    ]
+
     nom = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     categorie = models.CharField(max_length=100, blank=True, help_text="Ex: Sono, Micro, Bâche…")
+    module = models.CharField(max_length=50, choices=MODULE_CHOICES, default='generale')
     quantite_totale = models.PositiveIntegerField(default=0)
     quantite_disponible = models.PositiveIntegerField(default=0)
     quantite_defectueuse = models.PositiveIntegerField(default=0)
@@ -236,7 +244,69 @@ class Materiel(models.Model):
     class Meta:
         verbose_name = "Matériel"
         verbose_name_plural = "Matériels"
-        ordering = ['nom']
+        ordering = ['module', 'nom']
 
     def __str__(self):
-        return f"{self.nom} ({self.quantite_totale})"
+        return f"{self.nom} ({self.module}) — {self.quantite_totale}"
+
+
+class EvenementOrganise(models.Model):
+    TYPE_CHOICES = [
+        ('magal', 'Magal'),
+        ('gamou', 'Gamou'),
+        ('ziarra', 'Ziarra'),
+        ('conference', 'Conférence'),
+        ('autre', 'Autre'),
+    ]
+
+    nom = models.CharField(max_length=200)
+    type_evenement = models.CharField(max_length=50, choices=TYPE_CHOICES, default='autre')
+    annee = models.IntegerField(default=2025)
+    description = models.TextField(blank=True)
+    lieu = models.CharField(max_length=200, blank=True)
+    notes = models.TextField(blank=True)
+    created_by = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='evenements_organises')
+    created_at = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = "Événement Organisé"
+        verbose_name_plural = "Événements Organisés"
+        ordering = ['-annee', 'nom']
+
+    def __str__(self):
+        return f"{self.nom} ({self.annee})"
+
+
+class JourneeEvenement(models.Model):
+    evenement = models.ForeignKey(EvenementOrganise, on_delete=models.CASCADE, related_name='journees')
+    nom = models.CharField(max_length=100, help_text="Ex: 17 Safar")
+    date = models.DateField(null=True, blank=True)
+    ordre = models.IntegerField(default=0)
+    notes = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Journée d'Événement"
+        verbose_name_plural = "Journées d'Événement"
+        ordering = ['ordre', 'date', 'nom']
+
+    def __str__(self):
+        return f"{self.evenement.nom} — {self.nom}"
+
+
+class KourelInvite(models.Model):
+    journee = models.ForeignKey(JourneeEvenement, on_delete=models.CASCADE, related_name='kourels_invites')
+    kourel = models.ForeignKey('conservatoire.Kourel', on_delete=models.CASCADE, related_name='invitations')
+    ordre = models.IntegerField(default=0)
+    heure_debut = models.TimeField(null=True, blank=True)
+    duree = models.IntegerField(default=60, help_text="Durée en minutes")
+    programme = models.TextField(blank=True, help_text="Programme de prestation")
+    appreciation = models.TextField(blank=True, help_text="Appréciation conservatoire")
+    note = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="Note /20")
+
+    class Meta:
+        verbose_name = "Kourel Invité"
+        verbose_name_plural = "Kourels Invités"
+        ordering = ['ordre', 'heure_debut']
+
+    def __str__(self):
+        return f"{self.kourel.nom} — {self.journee.nom}"

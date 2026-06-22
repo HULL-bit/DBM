@@ -1,30 +1,21 @@
 from django.db.models import Sum
 
 from rest_framework import viewsets
-from rest_framework.permissions import IsAuthenticated, IsAdminUser
+from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from apps.accounts.permissions import IsAdminOrJewrinOrganisation
 
 from .models import (
-    TypeReunion,
-    Reunion,
-    ProcesVerbal,
-    Decision,
-    Vote,
-    StructureOrganisation,
-    RapportActivite,
-    Materiel,
+    TypeReunion, Reunion, ProcesVerbal, Decision, Vote,
+    StructureOrganisation, RapportActivite, Materiel,
+    EvenementOrganise, JourneeEvenement, KourelInvite,
 )
 from .serializers import (
-    TypeReunionSerializer,
-    ReunionSerializer,
-    ProcesVerbalSerializer,
-    DecisionSerializer,
-    VoteSerializer,
-    StructureOrganisationSerializer,
-    RapportActiviteSerializer,
-    MaterielSerializer,
+    TypeReunionSerializer, ReunionSerializer, ProcesVerbalSerializer,
+    DecisionSerializer, VoteSerializer, StructureOrganisationSerializer,
+    RapportActiviteSerializer, MaterielSerializer,
+    EvenementOrganiseSerializer, JourneeEvenementSerializer, KourelInviteSerializer,
 )
 
 
@@ -118,9 +109,10 @@ class RapportActiviteViewSet(viewsets.ModelViewSet):
 
 
 class MaterielViewSet(viewsets.ModelViewSet):
-    queryset = Materiel.objects.all().order_by('nom')
+    queryset = Materiel.objects.all().order_by('module', 'nom')
     serializer_class = MaterielSerializer
     permission_classes = [IsAuthenticated]
+    filterset_fields = ['module', 'categorie']
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -129,10 +121,10 @@ class MaterielViewSet(viewsets.ModelViewSet):
 
     @action(detail=False, methods=['get'])
     def stats(self, request):
-        """
-        Statistiques globales et par catégorie sur les matériels du daara.
-        """
+        module = request.query_params.get('module', None)
         qs = self.get_queryset()
+        if module:
+            qs = qs.filter(module=module)
         aggregates = qs.aggregate(
             total_quantite=Sum('quantite_totale'),
             total_disponible=Sum('quantite_disponible'),
@@ -143,7 +135,6 @@ class MaterielViewSet(viewsets.ModelViewSet):
         total_defectueuse = aggregates['total_defectueuse'] or 0
         pourcentage_disponible = round(100 * total_disponible / total_quantite, 1) if total_quantite else 0
 
-        # Stats par catégorie (None et '' fusionnés en "Non classé")
         par_categorie_by_label = {}
         categories = qs.values_list('categorie', flat=True).distinct()
         for cat in categories:
@@ -178,12 +169,50 @@ class MaterielViewSet(viewsets.ModelViewSet):
             row['pourcentage_disponible'] = round(100 * row['total_disponible'] / t, 1) if t else 0
         par_categorie = list(par_categorie_by_label.values())
 
-        data = {
+        return Response({
             'total_types': qs.count(),
             'total_quantite': total_quantite,
             'total_disponible': total_disponible,
             'total_defectueuse': total_defectueuse,
             'pourcentage_disponible': pourcentage_disponible,
             'par_categorie': par_categorie,
-        }
-        return Response(data)
+        })
+
+
+class EvenementOrganiseViewSet(viewsets.ModelViewSet):
+    queryset = EvenementOrganise.objects.all()
+    serializer_class = EvenementOrganiseSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['type_evenement', 'annee']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrJewrinOrganisation()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(created_by=self.request.user)
+
+
+class JourneeEvenementViewSet(viewsets.ModelViewSet):
+    queryset = JourneeEvenement.objects.select_related('evenement').prefetch_related('kourels_invites__kourel').all()
+    serializer_class = JourneeEvenementSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['evenement']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrJewrinOrganisation()]
+        return [IsAuthenticated()]
+
+
+class KourelInviteViewSet(viewsets.ModelViewSet):
+    queryset = KourelInvite.objects.select_related('journee', 'kourel').all()
+    serializer_class = KourelInviteSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['journee', 'kourel']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrJewrinOrganisation()]
+        return [IsAuthenticated()]

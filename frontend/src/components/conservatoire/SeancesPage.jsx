@@ -425,9 +425,9 @@ export default function SeancesPage({ onBack }) {
                 <Box key={membreId} sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 1.5, bgcolor: v.statut === 'present' ? '#E8F5E9' : v.statut === 'absent_justifie' ? '#FFF3E0' : '#FFEBEE', borderRadius: 2 }}>
                   <Typography variant="body2" sx={{ minWidth: 140, fontWeight: 500 }}>{getUserName(membreId)}</Typography>
                   <TextField select size="small" value={v.statut} onChange={e => setPresencesForm(p => ({ ...p, [membreId]: { ...p[membreId], statut: e.target.value } }))} sx={{ minWidth: 190 }}>
-                    <MenuItem value="present">✅ Présent</MenuItem>
-                    <MenuItem value="absent_justifie">🟡 Absent justifié</MenuItem>
-                    <MenuItem value="absent_non_justifie">❌ Absent non justifié</MenuItem>
+                    <MenuItem value="present">Présent</MenuItem>
+                    <MenuItem value="absent_justifie">Absent justifié</MenuItem>
+                    <MenuItem value="absent_non_justifie">Absent non justifié</MenuItem>
                   </TextField>
                   {v.statut !== 'present' && (
                     <TextField size="small" placeholder="Justification..." value={v.remarque} onChange={e => setPresencesForm(p => ({ ...p, [membreId]: { ...p[membreId], remarque: e.target.value } }))} sx={{ flex: 1 }} />
