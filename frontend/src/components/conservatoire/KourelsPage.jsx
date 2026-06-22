@@ -1,10 +1,10 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Box, Typography, Grid, Card, CardContent, Button, IconButton, Avatar,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
   Alert, CircularProgress, Chip, Checkbox, Paper, Tooltip,
 } from '@mui/material'
-import { ArrowBack, Add, Edit, Delete, Groups, Star, Person, Close, ArrowForward, KeyboardArrowUp, KeyboardArrowDown } from '@mui/icons-material'
+import { ArrowBack, Add, Edit, Delete, Groups, Star, Person, Close, ArrowForward, KeyboardArrowUp, KeyboardArrowDown, PictureAsPdf } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -51,17 +51,24 @@ function EncadrementChip({ nom, label, color }) {
 }
 
 function CircularMembersView({ kourel, allUsers }) {
-  const SIZE = 320
+  const circleRef = useRef(null)
+  const [exporting, setExporting] = useState(false)
+
+  const SIZE = 340
   const CENTER = SIZE / 2
-  const RADIUS = 130
+  const RADIUS = 132
 
   const maitreId = kourel.maitre_de_coeur
 
   const memberIds = Array.isArray(kourel.membres) ? kourel.membres : []
-  // ALL members on the circle, in their array order (which determines position)
-  const members = memberIds
+  const rawMembers = memberIds
     .map(id => allUsers.find(u => u.id === (typeof id === 'object' ? id?.id : id)))
     .filter(Boolean)
+
+  // Maître always first (position 0 = top of circle)
+  const maitre = rawMembers.find(m => m.id === maitreId)
+  const others = rawMembers.filter(m => m.id !== maitreId)
+  const members = maitre ? [maitre, ...others] : rawMembers
 
   const N = Math.max(members.length, 1)
 
@@ -71,94 +78,155 @@ function CircularMembersView({ kourel, allUsers }) {
     { nom: kourel.jewrine_nom, label: 'Jewrine', color: ROLE_COLORS.jewrine },
   ].filter(r => !!r.nom)
 
+  const handleExportPdf = async () => {
+    if (!circleRef.current) return
+    setExporting(true)
+    try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf'),
+      ])
+      const canvas = await html2canvas(circleRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 3,
+        useCORS: true,
+        logging: false,
+      })
+      const imgData = canvas.toDataURL('image/png')
+      const pdf = new jsPDF({ orientation: 'portrait', unit: 'mm', format: 'a4' })
+      const pdfW = pdf.internal.pageSize.getWidth()
+      const pdfH = pdf.internal.pageSize.getHeight()
+      const imgW = canvas.width / 3
+      const imgH = canvas.height / 3
+      const ratio = Math.min((pdfW - 20) / imgW, (pdfH - 40) / imgH)
+      const x = (pdfW - imgW * ratio) / 2
+      // Title
+      pdf.setFontSize(16)
+      pdf.setTextColor(30, 64, 41)
+      pdf.text(`Kourel : ${kourel.nom}`, pdfW / 2, 18, { align: 'center' })
+      pdf.setFontSize(10)
+      pdf.setTextColor(120, 120, 120)
+      pdf.text(`Membres : ${members.length}`, pdfW / 2, 25, { align: 'center' })
+      pdf.addImage(imgData, 'PNG', x, 30, imgW * ratio, imgH * ratio)
+      // Member list below
+      let yPos = 32 + imgH * ratio
+      if (yPos < pdfH - 40) {
+        pdf.setFontSize(9)
+        pdf.setTextColor(30, 64, 41)
+        members.forEach((m, i) => {
+          const label = `${i + 1}. ${fullName(m)}${m.id === maitreId ? '  ★ Maître de cœur' : ''}`
+          pdf.text(label, 15, yPos + 7 + i * 5.5)
+        })
+      }
+      pdf.save(`kourel_${kourel.nom.replace(/\s+/g, '_')}.pdf`)
+    } catch (err) {
+      console.error('Export PDF error', err)
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <Box>
-      {/* Circle */}
-      <Box sx={{ position: 'relative', width: SIZE, height: SIZE, mx: 'auto', userSelect: 'none' }}>
-        {/* Outer circle */}
-        <Box sx={{ position: 'absolute', inset: 0, border: `2px dashed ${C.or}50`, borderRadius: '50%' }} />
+      {/* Export button */}
+      <Box display="flex" justifyContent="flex-end" mb={1}>
+        <Button
+          size="small"
+          startIcon={exporting ? <CircularProgress size={14} sx={{ color: C.vert }} /> : <PictureAsPdf />}
+          onClick={handleExportPdf}
+          disabled={exporting || members.length === 0}
+          sx={{ color: C.vert, borderColor: `${C.vert}40`, borderRadius: 2, fontSize: '0.75rem' }}
+          variant="outlined"
+        >
+          {exporting ? 'Export…' : 'Exporter PDF'}
+        </Button>
+      </Box>
 
-        {/* Kourel name at center */}
-        <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
-          <Typography sx={{ color: `${C.vert}60`, fontSize: '0.7rem', fontWeight: 700, textAlign: 'center', maxWidth: 80, lineHeight: 1.2, fontFamily: '"Cormorant Garamond", serif' }}>
-            {kourel.nom}
-          </Typography>
-        </Box>
+      {/* Circle (captured for PDF) */}
+      <Box ref={circleRef} sx={{ bgcolor: '#fff', pb: 2 }}>
+        <Box sx={{ position: 'relative', width: SIZE, height: SIZE, mx: 'auto', userSelect: 'none' }}>
+          {/* Outer circle */}
+          <Box sx={{ position: 'absolute', inset: 0, border: `2px dashed ${C.or}50`, borderRadius: '50%' }} />
 
-        {/* Lines from center to each member */}
-        <svg style={{ position: 'absolute', inset: 0, width: SIZE, height: SIZE, overflow: 'visible', pointerEvents: 'none' }}>
-          {members.map((_, i) => {
+          {/* Kourel name at center */}
+          <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center', pointerEvents: 'none' }}>
+            <Typography sx={{ color: `${C.vert}60`, fontSize: '0.7rem', fontWeight: 700, textAlign: 'center', maxWidth: 80, lineHeight: 1.2, fontFamily: '"Cormorant Garamond", serif' }}>
+              {kourel.nom}
+            </Typography>
+          </Box>
+
+          {/* Lines from center */}
+          <svg style={{ position: 'absolute', inset: 0, width: SIZE, height: SIZE, overflow: 'visible', pointerEvents: 'none' }}>
+            {members.map((_, i) => {
+              const angle = (2 * Math.PI * i) / N - Math.PI / 2
+              const x2 = CENTER + RADIUS * Math.cos(angle)
+              const y2 = CENTER + RADIUS * Math.sin(angle)
+              return (
+                <line key={i} x1={CENTER} y1={CENTER} x2={x2} y2={y2}
+                  stroke={`${C.or}40`} strokeWidth={1.5} strokeDasharray="4 4" />
+              )
+            })}
+          </svg>
+
+          {/* Members on circle */}
+          {members.map((m, i) => {
+            const isMaitre = m.id === maitreId
             const angle = (2 * Math.PI * i) / N - Math.PI / 2
-            const x2 = CENTER + RADIUS * Math.cos(angle)
-            const y2 = CENTER + RADIUS * Math.sin(angle)
+            const x = CENTER + RADIUS * Math.cos(angle) - (isMaitre ? 26 : 22)
+            const y = CENTER + RADIUS * Math.sin(angle) - (isMaitre ? 36 : 30)
             return (
-              <line key={i} x1={CENTER} y1={CENTER} x2={x2} y2={y2}
-                stroke={`${C.or}35`} strokeWidth={1.5} strokeDasharray="4 4" />
+              <Tooltip key={m.id} title={`${fullName(m)}${isMaitre ? ' — Maître de cœur' : ''}`} placement="top" arrow>
+                <Box sx={{ position: 'absolute', left: x, top: y, zIndex: 2, textAlign: 'center', width: isMaitre ? 52 : 44 }}>
+                  <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                    <Avatar sx={{
+                      width: isMaitre ? 50 : 40, height: isMaitre ? 50 : 40,
+                      bgcolor: isMaitre ? '#FFD700' : `${C.vert}CC`,
+                      color: isMaitre ? '#5a3e00' : '#fff',
+                      fontSize: isMaitre ? '0.85rem' : '0.72rem', fontWeight: 700,
+                      border: isMaitre ? `3px solid #DAA520` : '2px solid #fff',
+                      boxShadow: isMaitre ? '0 3px 16px rgba(218,165,32,0.6)' : '0 2px 6px rgba(0,0,0,0.12)',
+                      mx: 'auto',
+                    }}>
+                      {initials(m)}
+                    </Avatar>
+                    {isMaitre && (
+                      <Star sx={{ position: 'absolute', top: -5, right: -4, fontSize: 15, color: '#DAA520', filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.3))' }} />
+                    )}
+                  </Box>
+                  {isMaitre && (
+                    <Typography sx={{ display: 'block', mt: 0.25, color: '#b8860b', fontSize: '0.58rem', lineHeight: 1, fontWeight: 800, letterSpacing: 0.3 }}>
+                      Maître
+                    </Typography>
+                  )}
+                  <Typography sx={{ display: 'block', mt: isMaitre ? 0 : 0.25, color: C.vertFonce, fontSize: '0.6rem', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: isMaitre ? 52 : 44, fontWeight: isMaitre ? 700 : 400 }}>
+                    {m.first_name || ''}
+                  </Typography>
+                </Box>
+              </Tooltip>
             )
           })}
-        </svg>
 
-        {/* All members on circle */}
-        {members.map((m, i) => {
-          const isMaitre = m.id === maitreId
-          const angle = (2 * Math.PI * i) / N - Math.PI / 2
-          const x = CENTER + RADIUS * Math.cos(angle) - (isMaitre ? 26 : 22)
-          const y = CENTER + RADIUS * Math.sin(angle) - (isMaitre ? 34 : 30)
-          return (
-            <Tooltip key={m.id} title={`${fullName(m)}${isMaitre ? ' — Maître de cœur' : ''}`} placement="top" arrow>
-              <Box sx={{ position: 'absolute', left: x, top: y, zIndex: 2, textAlign: 'center', width: isMaitre ? 52 : 44 }}>
-                <Box sx={{ position: 'relative', display: 'inline-block' }}>
-                  <Avatar sx={{
-                    width: isMaitre ? 48 : 40, height: isMaitre ? 48 : 40,
-                    bgcolor: isMaitre ? C.or : `${C.vert}CC`,
-                    color: isMaitre ? C.vertFonce : '#fff',
-                    fontSize: isMaitre ? '0.85rem' : '0.72rem', fontWeight: 700,
-                    border: isMaitre ? `3px solid ${C.or}` : '2px solid #fff',
-                    boxShadow: isMaitre ? `0 3px 14px ${C.or}55` : '0 2px 6px rgba(0,0,0,0.12)',
-                    mx: 'auto',
-                  }}>
-                    {initials(m)}
-                  </Avatar>
-                  {isMaitre && (
-                    <Star sx={{
-                      position: 'absolute', top: -5, right: -3, fontSize: 14,
-                      color: C.or, filter: 'drop-shadow(0 1px 2px rgba(0,0,0,0.4))',
-                    }} />
-                  )}
-                </Box>
-                {isMaitre && (
-                  <Typography sx={{ display: 'block', mt: 0.25, color: C.or, fontSize: '0.58rem', lineHeight: 1, fontWeight: 700 }}>
-                    Maître
-                  </Typography>
-                )}
-                <Typography sx={{ display: 'block', mt: isMaitre ? 0 : 0.25, color: C.vertFonce, fontSize: '0.6rem', lineHeight: 1.1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', maxWidth: isMaitre ? 52 : 44, fontWeight: isMaitre ? 600 : 400 }}>
-                  {m.first_name || ''}
-                </Typography>
-              </Box>
-            </Tooltip>
-          )
-        })}
+          {members.length === 0 && (
+            <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <Typography variant="body2" color="text.secondary">Aucun membre</Typography>
+            </Box>
+          )}
+        </Box>
 
-        {members.length === 0 && (
-          <Box sx={{ position: 'absolute', inset: 0, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-            <Typography variant="body2" color="text.secondary">Aucun membre</Typography>
+        {/* Encadrement row */}
+        {encadrementRoles.length > 0 && (
+          <Box sx={{ mt: 2 }}>
+            <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', color: 'text.secondary', fontWeight: 600, letterSpacing: 0.5, mb: 1.5, textTransform: 'uppercase', fontSize: '0.65rem' }}>
+              Encadrement
+            </Typography>
+            <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
+              {encadrementRoles.map((r, idx) => (
+                <EncadrementChip key={idx} nom={r.nom} label={r.label} color={r.color} />
+              ))}
+            </Box>
           </Box>
         )}
       </Box>
-
-      {/* Encadrement row */}
-      {encadrementRoles.length > 0 && (
-        <Box sx={{ mt: 2 }}>
-          <Typography variant="caption" sx={{ display: 'block', textAlign: 'center', color: 'text.secondary', fontWeight: 600, letterSpacing: 0.5, mb: 1.5, textTransform: 'uppercase', fontSize: '0.65rem' }}>
-            Encadrement
-          </Typography>
-          <Box sx={{ display: 'flex', gap: 2, justifyContent: 'center', flexWrap: 'wrap' }}>
-            {encadrementRoles.map((r, i) => (
-              <EncadrementChip key={i} nom={r.nom} label={r.label} color={r.color} />
-            ))}
-          </Box>
-        </Box>
-      )}
     </Box>
   )
 }
