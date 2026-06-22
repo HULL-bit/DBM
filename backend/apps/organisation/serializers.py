@@ -79,11 +79,15 @@ class MaterielSerializer(serializers.ModelSerializer):
 
 
 class KourelInviteSerializer(serializers.ModelSerializer):
-    kourel_nom = serializers.CharField(source='kourel.nom', read_only=True)
+    kourel_nom = serializers.SerializerMethodField()
+    statut_display = serializers.CharField(source='get_statut_invitation_display', read_only=True)
 
     class Meta:
         model = KourelInvite
         fields = '__all__'
+
+    def get_kourel_nom(self, obj):
+        return obj.get_display_nom()
 
 
 class JourneeEvenementSerializer(serializers.ModelSerializer):

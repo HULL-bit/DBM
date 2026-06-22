@@ -294,19 +294,39 @@ class JourneeEvenement(models.Model):
 
 
 class KourelInvite(models.Model):
+    STATUT_CHOICES = [
+        ('en_attente', 'En attente'),
+        ('valide', 'Validé'),
+        ('desiste', 'Désisté'),
+    ]
+
     journee = models.ForeignKey(JourneeEvenement, on_delete=models.CASCADE, related_name='kourels_invites')
-    kourel = models.ForeignKey('conservatoire.Kourel', on_delete=models.CASCADE, related_name='invitations')
+    # FK optionnel : kourel interne au daara
+    kourel = models.ForeignKey(
+        'conservatoire.Kourel', on_delete=models.SET_NULL,
+        null=True, blank=True, related_name='invitations'
+    )
+    # Nom libre pour les kourels externes (non membres du daara)
+    nom_kourel = models.CharField(max_length=200, blank=True, help_text="Nom du kourel invité (si externe)")
     ordre = models.IntegerField(default=0)
     heure_debut = models.TimeField(null=True, blank=True)
     duree = models.IntegerField(default=60, help_text="Durée en minutes")
     programme = models.TextField(blank=True, help_text="Programme de prestation")
     appreciation = models.TextField(blank=True, help_text="Appréciation conservatoire")
     note = models.DecimalField(max_digits=4, decimal_places=1, null=True, blank=True, help_text="Note /20")
+    statut_invitation = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente')
 
     class Meta:
         verbose_name = "Kourel Invité"
         verbose_name_plural = "Kourels Invités"
         ordering = ['ordre', 'heure_debut']
 
+    def get_display_nom(self):
+        if self.nom_kourel:
+            return self.nom_kourel
+        if self.kourel:
+            return self.kourel.nom
+        return 'Kourel sans nom'
+
     def __str__(self):
-        return f"{self.kourel.nom} — {self.journee.nom}"
+        return f"{self.get_display_nom()} — {self.journee.nom}"
