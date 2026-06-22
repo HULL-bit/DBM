@@ -1,0 +1,363 @@
+import { useState } from 'react'
+import { useNavigate, Link as RouterLink } from 'react-router-dom'
+import { Box, Card, CardContent, TextField, Button, Typography, Alert, MenuItem, Link, IconButton, InputAdornment, useMediaQuery, useTheme } from '@mui/material'
+import logo from '/logo.png'
+import { useAuth } from '../../context/AuthContext'
+import { Visibility, VisibilityOff } from '@mui/icons-material'
+
+export default function Register() {
+  const navigate = useNavigate()
+  const { register } = useAuth()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
+  const [form, setForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    password_confirmation: '',
+    first_name: '',
+    last_name: '',
+    telephone: '',
+    adresse: '',
+    role: 'membre',
+    sexe: '',
+    profession: '',
+    categorie: '',
+    cellule: '',
+    groupe_sanguin: '',
+    niveau_alquran: '',
+    niveau_majalis: '',
+  })
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+  const [fieldErrors, setFieldErrors] = useState({})
+  const [showPassword, setShowPassword] = useState(false)
+  const [showPasswordConfirm, setShowPasswordConfirm] = useState(false)
+
+
+
+  const SEXES = [
+    { value: 'M', label: 'Masculin' },
+    { value: 'F', label: 'Féminin' },
+  ]
+
+  const CELLULES = [
+    { value: '', label: 'Non renseigné' },
+    { value: 'dakar', label: 'Dakar' },
+    { value: 'touba_mbacke', label: 'Touba / Mbacké' },
+    { value: 'diaspora', label: 'Diaspora' },
+  ]
+  const GROUPES_SANGUINS = [
+    { value: '', label: 'Non renseigné' },
+    { value: 'A+', label: 'A+' }, { value: 'A-', label: 'A-' },
+    { value: 'B+', label: 'B+' }, { value: 'B-', label: 'B-' },
+    { value: 'AB+', label: 'AB+' }, { value: 'AB-', label: 'AB-' },
+    { value: 'O+', label: 'O+' }, { value: 'O-', label: 'O-' },
+  ]
+  const NIVEAUX = [
+    { value: '', label: 'Non renseigné' },
+    { value: 'faible', label: 'Faible' },
+    { value: 'debutant', label: 'Débutant' },
+    { value: 'moyen', label: 'Moyen' },
+    { value: 'intermediaire', label: 'Intermédiaire' },
+    { value: 'avance', label: 'Avancé' },
+  ]
+
+  const handleChange = (e) => {
+    const { name, value } = e.target
+    setForm((f) => ({ ...f, [name]: value }))
+    setFieldErrors((fe) => ({ ...fe, [name]: undefined }))
+  }
+
+  const handleSubmit = async (e) => {
+    e.preventDefault()
+    setError('')
+    const errors = {}
+    if (!form.username) errors.username = "Nom d'utilisateur requis."
+    if (!form.email) errors.email = 'Email requis.'
+    if (!form.password) errors.password = 'Mot de passe requis.'
+    if (form.password && form.password.length < 8) errors.password = 'Le mot de passe doit contenir au moins 8 caractères.'
+    if (!form.password_confirmation) errors.password_confirmation = 'Confirmation requise.'
+    if (form.password && form.password_confirmation && form.password !== form.password_confirmation) {
+      errors.password_confirmation = 'Les deux mots de passe ne correspondent pas.'
+    }
+    if (!form.sexe) errors.sexe = 'Sexe requis.'
+    if (!form.categorie) errors.categorie = 'Catégorie requise.'
+
+    setFieldErrors(errors)
+    if (Object.keys(errors).length > 0) {
+      setError('Veuillez corriger les champs en rouge.')
+      return
+    }
+    setLoading(true)
+    try {
+      const { password_confirmation, role, ...payload } = form
+      await register(payload)
+      navigate('/login')
+    } catch (err) {
+      const data = err.response?.data
+      if (data && typeof data === 'object' && !Array.isArray(data)) {
+        const apiFieldErrors = {}
+        Object.entries(data).forEach(([key, value]) => {
+          if (Array.isArray(value) && value.length > 0) {
+            apiFieldErrors[key] = String(value[0])
+          } else if (typeof value === 'string') {
+            apiFieldErrors[key] = value
+          }
+        })
+        setFieldErrors((prev) => ({ ...prev, ...apiFieldErrors }))
+        setError('Veuillez corriger les champs en rouge.')
+      } else {
+        const msg = data ? (typeof data === 'object' ? JSON.stringify(data) : data) : "Erreur d'inscription"
+        setError(msg)
+      }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return (
+    <Box className="bg-auth bg-pattern" sx={{ minHeight: '100vh', display: 'flex', alignItems: 'center', justifyContent: 'center', p: { xs: 1.5, sm: 2 } }}>
+      <Card
+        className="glass-card"
+        sx={{
+          maxWidth: 500,
+          width: '100%',
+          borderLeft: '4px solid #C9A961',
+          borderRadius: 3,
+          overflow: 'hidden',
+          boxShadow: '0 12px 48px rgba(92, 64, 51, 0.12)',
+          transition: 'transform 0.35s ease, box-shadow 0.35s ease',
+          '&:hover': {
+            transform: 'translateY(-4px)',
+            boxShadow: '0 20px 56px rgba(92, 64, 51, 0.15)',
+          },
+        }}
+      >
+        <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
+          <Box sx={{ textAlign: 'center', mb: 2 }}>
+            <Box component="img" src={logo} alt="Logo" sx={{ height: { xs: 60, sm: 72 } }} />
+            <Typography variant={isMobile ? 'h6' : 'h5'} className="title-script" sx={{ mt: 1 }}>
+              Inscription
+            </Typography>
+          </Box>
+          {error && <Alert severity="error" sx={{ mb: 2, borderRadius: 2 }}>{error}</Alert>}
+          <form onSubmit={handleSubmit}>
+            <TextField
+              fullWidth
+              name="username"
+              label="Nom d'utilisateur"
+              value={form.username}
+              onChange={handleChange}
+              margin={isMobile ? 'dense' : 'dense'}
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.username}
+              helperText={fieldErrors.username || ''}
+            />
+            <TextField
+              fullWidth
+              name="email"
+              type="email"
+              label="Email"
+              value={form.email}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.email}
+              helperText={fieldErrors.email || ''}
+            />
+            <TextField
+              fullWidth
+              name="password"
+              type={showPassword ? 'text' : 'password'}
+              label="Mot de passe"
+              value={form.password}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.password}
+              helperText={fieldErrors.password || 'Minimum 8 caractères'}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPassword((s) => !s)}
+                      edge="end"
+                      aria-label={showPassword ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    >
+                      {showPassword ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField
+              fullWidth
+              name="password_confirmation"
+              type={showPasswordConfirm ? 'text' : 'password'}
+              label="Confirmation du mot de passe"
+              value={form.password_confirmation}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.password_confirmation}
+              helperText={fieldErrors.password_confirmation || ''}
+              InputProps={{
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      onClick={() => setShowPasswordConfirm((s) => !s)}
+                      edge="end"
+                      aria-label={showPasswordConfirm ? 'Masquer le mot de passe' : 'Afficher le mot de passe'}
+                    >
+                      {showPasswordConfirm ? <VisibilityOff /> : <Visibility />}
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              }}
+            />
+            <TextField fullWidth name="first_name" label="Prénom" value={form.first_name} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+            <TextField fullWidth name="last_name" label="Nom" value={form.last_name} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+            <TextField fullWidth name="telephone" label="Téléphone" value={form.telephone} onChange={handleChange} margin="dense" sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+            <TextField fullWidth name="adresse" label="Adresse" value={form.adresse} onChange={handleChange} margin="dense" multiline sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }} />
+            <TextField
+              fullWidth
+              name="sexe"
+              select
+              label="Sexe"
+              value={form.sexe}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.sexe}
+              helperText={fieldErrors.sexe || ''}
+            >
+              {SEXES.map((s) => (
+                <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              name="profession"
+              label="Profession"
+              value={form.profession}
+              onChange={handleChange}
+              margin="dense"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+            />
+            <TextField
+              fullWidth
+              name="categorie"
+              select
+              label="Catégorie"
+              value={form.categorie}
+              onChange={handleChange}
+              margin="dense"
+              required
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.categorie}
+              helperText={fieldErrors.categorie || 'Élève, Étudiant ou Professionnel'}
+            >
+              <MenuItem value="">— Aucune —</MenuItem>
+              <MenuItem value="eleve">Élève</MenuItem>
+              <MenuItem value="etudiant">Étudiant</MenuItem>
+              <MenuItem value="professionnel">Professionnel</MenuItem>
+            </TextField>
+            <TextField
+              fullWidth
+              name="cellule"
+              select
+              label="Cellule"
+              value={form.cellule}
+              onChange={handleChange}
+              margin="dense"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.cellule}
+              helperText={fieldErrors.cellule || ''}
+            >
+              {CELLULES.map((c) => (
+                <MenuItem key={c.value || 'none'} value={c.value}>{c.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              name="groupe_sanguin"
+              select
+              label="Groupe sanguin"
+              value={form.groupe_sanguin}
+              onChange={handleChange}
+              margin="dense"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.groupe_sanguin}
+              helperText={fieldErrors.groupe_sanguin || ''}
+            >
+              {GROUPES_SANGUINS.map((g) => (
+                <MenuItem key={g.value || 'none'} value={g.value}>{g.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              name="niveau_alquran"
+              select
+              label="Niveau Al-Quran"
+              value={form.niveau_alquran}
+              onChange={handleChange}
+              margin="dense"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.niveau_alquran}
+              helperText={fieldErrors.niveau_alquran || ''}
+            >
+              {NIVEAUX.map((n) => (
+                <MenuItem key={n.value || 'none'} value={n.value}>{n.label}</MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              fullWidth
+              name="niveau_majalis"
+              select
+              label="Niveau Majalis"
+              value={form.niveau_majalis}
+              onChange={handleChange}
+              margin="dense"
+              sx={{ '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
+              error={!!fieldErrors.niveau_majalis}
+              helperText={fieldErrors.niveau_majalis || ''}
+            >
+              {NIVEAUX.map((n) => (
+                <MenuItem key={n.value || 'none'} value={n.value}>{n.label}</MenuItem>
+              ))}
+            </TextField>
+
+            <Button
+              type="submit"
+              fullWidth
+              variant="contained"
+              sx={{
+                mt: 2,
+                py: { xs: 1.25, sm: 1.5 },
+                borderRadius: 2,
+                fontWeight: 600,
+                background: 'linear-gradient(135deg, #2D5F3F 0%, #3A7750 100%)',
+                '&:hover': { background: 'linear-gradient(135deg, #1e4029 0%, #2D5F3F 100%)', transform: 'translateY(-1px)' },
+              }}
+              disabled={loading}
+            >
+              {loading ? "Inscription..." : "S'inscrire"}
+            </Button>
+          </form>
+          <Typography variant="body2" sx={{ color: '#1A1A1A', textAlign: 'center', mt: 2 }}>
+            Déjà inscrit ? <Link component={RouterLink} to="/login" underline="hover" sx={{ color: '#2D5F3F', fontWeight: 600 }}>Se connecter</Link>
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#1A1A1A', textAlign: 'center', mt: 1 }}>
+            <Link component={RouterLink} to="/accueil" underline="hover" sx={{ color: '#2D5F3F' }}>← Retour à l'accueil</Link>
+          </Typography>
+        </CardContent>
+      </Card>
+    </Box>
+  )
+}
