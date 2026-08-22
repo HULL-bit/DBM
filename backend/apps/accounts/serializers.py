@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import ProfilComplementaire, Badge, AttributionBadge
+from .models import ProfilComplementaire, Badge, AttributionBadge, MatricePermissionRole, PermissionMembreOverride, JournalAudit
 
 User = get_user_model()
 
@@ -164,6 +164,44 @@ class UserMeSerializer(serializers.ModelSerializer):
         read_only_fields = [
             'id', 'username', 'role', 'role_display', 'photo_updated_at', 'date_inscription',
             'est_actif', 'cotisations_payees', 'chapitres_lus', 'evenements_participes',
+        ]
+
+
+class MatricePermissionRoleSerializer(serializers.ModelSerializer):
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+    rubrique_display = serializers.CharField(source='get_rubrique_display', read_only=True)
+
+    class Meta:
+        model = MatricePermissionRole
+        fields = [
+            'id', 'role', 'role_display', 'rubrique', 'rubrique_display',
+            'peut_voir', 'peut_creer', 'peut_modifier', 'peut_supprimer', 'peut_valider',
+        ]
+
+
+class PermissionMembreOverrideSerializer(serializers.ModelSerializer):
+    rubrique_display = serializers.CharField(source='get_rubrique_display', read_only=True)
+    membre_nom = serializers.CharField(source='user.get_full_name', read_only=True)
+
+    class Meta:
+        model = PermissionMembreOverride
+        fields = [
+            'id', 'user', 'membre_nom', 'rubrique', 'rubrique_display',
+            'peut_voir', 'peut_creer', 'peut_modifier', 'peut_supprimer', 'peut_valider',
+            'date_modification',
+        ]
+        read_only_fields = ['date_modification']
+
+
+class JournalAuditSerializer(serializers.ModelSerializer):
+    action_display = serializers.CharField(source='get_action_display', read_only=True)
+    utilisateur_nom = serializers.CharField(source='utilisateur.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = JournalAudit
+        fields = [
+            'id', 'utilisateur', 'utilisateur_nom', 'action', 'action_display', 'rubrique',
+            'objet_repr', 'description', 'adresse_ip', 'date', 'succes',
         ]
 
 

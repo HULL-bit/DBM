@@ -165,9 +165,23 @@ PUSH_ENABLED = os.environ.get('PUSH_ENABLED', 'False').lower() == 'true'
 PUSH_GATEWAY_URL = os.environ.get('PUSH_GATEWAY_URL', 'https://dbmgt-sxc2.onrender.com')
 PUSH_GATEWAY_TOKEN = os.environ.get('PUSH_GATEWAY_TOKEN', 'super_token_dbm_2025')
 
-# Limite d'upload pour les PDF de la bibliothèque (10 Mo)
-DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
-FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
+# Email (utilisé notamment pour la réinitialisation de mot de passe).
+# En dev (DEBUG=True) et si aucun EMAIL_HOST_USER n'est fourni, les emails sont
+# simplement affichés dans la console au lieu d'être envoyés réellement.
+if os.environ.get('EMAIL_HOST_USER'):
+    EMAIL_BACKEND = os.environ.get('EMAIL_BACKEND', 'django.core.mail.backends.smtp.EmailBackend')
+else:
+    EMAIL_BACKEND = 'django.core.mail.backends.console.EmailBackend'
+EMAIL_HOST = os.environ.get('EMAIL_HOST', 'smtp.gmail.com')
+EMAIL_PORT = int(os.environ.get('EMAIL_PORT', '587'))
+EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
+EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
+EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
+DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@daara-barakatul-mahaahidi.local')
+
+# Limite d'upload (PDF bibliothèque, pièces jointes de canaux : images/documents/audio/vidéo)
+DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
+FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 
 # CORS
 CORS_ALLOW_ALL_ORIGINS = DEBUG

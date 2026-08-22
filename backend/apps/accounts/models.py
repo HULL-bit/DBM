@@ -180,6 +180,120 @@ class Badge(models.Model):
         return f"{self.nom} ({self.get_categorie_display()})"
 
 
+RUBRIQUES = [
+    ('conservatoire', 'Conservatoire'),
+    ('culturelle', 'Culturelle'),
+    ('finance', 'Finance'),
+    ('sociale', 'Sociale'),
+    ('communication', 'Communication'),
+    ('organisation', 'Organisation'),
+    ('scientifique', 'Scientifique'),
+    ('bibliotheque', 'Bibliothèque'),
+    ('informations', 'Informations'),
+    ('comptes', 'Comptes / Membres'),
+]
+
+
+class MatricePermissionRole(models.Model):
+    """Permissions par défaut d'un rôle sur une rubrique. Configurable par l'admin général
+    depuis la page Rôles & Permissions."""
+    role = models.CharField(max_length=32, choices=CustomUser.ROLE_CHOICES)
+    rubrique = models.CharField(max_length=30, choices=RUBRIQUES)
+    peut_voir = models.BooleanField(default=True)
+    peut_creer = models.BooleanField(default=False)
+    peut_modifier = models.BooleanField(default=False)
+    peut_supprimer = models.BooleanField(default=False)
+    peut_valider = models.BooleanField(default=False)
+
+    class Meta:
+        unique_together = ['role', 'rubrique']
+        verbose_name = 'Matrice de Permission (par rôle)'
+        verbose_name_plural = 'Matrices de Permissions (par rôle)'
+        ordering = ['role', 'rubrique']
+
+    def __str__(self):
+        return f"{self.get_role_display()} — {self.get_rubrique_display()}"
+
+
+class PermissionMembreOverride(models.Model):
+    """Exception de permission pour un membre précis sur une rubrique donnée.
+    Une valeur à None signifie « hérite du rôle » ; True/False force l'accès."""
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='permissions_override')
+    rubrique = models.CharField(max_length=30, choices=RUBRIQUES)
+    peut_voir = models.BooleanField(null=True, blank=True)
+    peut_creer = models.BooleanField(null=True, blank=True)
+    peut_modifier = models.BooleanField(null=True, blank=True)
+    peut_supprimer = models.BooleanField(null=True, blank=True)
+    peut_valider = models.BooleanField(null=True, blank=True)
+    date_modification = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        unique_together = ['user', 'rubrique']
+        verbose_name = 'Exception de Permission (par membre)'
+        verbose_name_plural = 'Exceptions de Permissions (par membre)'
+        ordering = ['user', 'rubrique']
+
+    def __str__(self):
+        return f"{self.user.get_full_name()} — {self.get_rubrique_display()}"
+
+
+class JournalAudit(models.Model):
+    """Journal de sécurité / traçabilité des actions sensibles."""
+    ACTION_CHOICES = [
+        ('connexion', 'Connexion'),
+        ('echec_connexion', 'Échec de connexion'),
+        ('creation', 'Création'),
+        ('modification', 'Modification'),
+        ('suppression', 'Suppression'),
+        ('validation_paiement', 'Validation de paiement'),
+        ('changement_role', 'Changement de rôle'),
+        ('changement_permission', 'Changement de permission'),
+        ('reset_mot_de_passe', 'Réinitialisation de mot de passe'),
+        ('autre', 'Autre'),
+    ]
+
+    utilisateur = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='journal_audit')
+    action = models.CharField(max_length=30, choices=ACTION_CHOICES)
+    rubrique = models.CharField(max_length=30, blank=True)
+    objet_repr = models.CharField(max_length=255, blank=True)
+    description = models.TextField(blank=True)
+    adresse_ip = models.GenericIPAddressField(null=True, blank=True)
+    date = models.DateTimeField(auto_now_add=True)
+    succes = models.BooleanField(default=True)
+
+    class Meta:
+        verbose_name = "Entrée du Journal d'Audit"
+        verbose_name_plural = "Journal d'Audit"
+        ordering = ['-date']
+
+    def __str__(self):
+        who = self.utilisateur.username if self.utilisateur else 'Anonyme'
+        return f"{who} — {self.get_action_display()} — {self.date:%d/%m/%Y %H:%M}"
+
+
+class CodeReinitialisation(models.Model):
+    """Code à usage unique pour la réinitialisation de mot de passe (envoyé par WhatsApp)."""
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='codes_reinitialisation')
+    code = models.CharField(max_length=6)
+    date_creation = models.DateTimeField(auto_now_add=True)
+    date_expiration = models.DateTimeField()
+    utilise = models.BooleanField(default=False)
+    tentatives = models.IntegerField(default=0)
+
+    class Meta:
+        verbose_name = 'Code de Réinitialisation'
+        verbose_name_plural = 'Codes de Réinitialisation'
+        ordering = ['-date_creation']
+
+    def __str__(self):
+        return f"Code pour {self.user.username} ({'utilisé' if self.utilise else 'actif'})"
+
+    @property
+    def est_valide(self):
+        from django.utils import timezone
+        return not self.utilise and self.tentatives < 5 and timezone.now() < self.date_expiration
+
+
 class AttributionBadge(models.Model):
     user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='badges_obtenus')
     badge = models.ForeignKey(Badge, on_delete=models.CASCADE)

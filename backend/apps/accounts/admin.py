@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from .models import CustomUser, ProfilComplementaire, PreferencesNotification, HistoriqueConnexion, Badge, AttributionBadge
+from .models import CustomUser, ProfilComplementaire, PreferencesNotification, HistoriqueConnexion, Badge, AttributionBadge, CodeReinitialisation, MatricePermissionRole, PermissionMembreOverride, JournalAudit
 
 
 @admin.register(CustomUser)
@@ -40,3 +40,31 @@ class AttributionBadgeAdmin(admin.ModelAdmin):
 @admin.register(HistoriqueConnexion)
 class HistoriqueConnexionAdmin(admin.ModelAdmin):
     list_display = ['user', 'date_connexion', 'adresse_ip', 'succes']
+
+
+@admin.register(CodeReinitialisation)
+class CodeReinitialisationAdmin(admin.ModelAdmin):
+    list_display = ['user', 'date_creation', 'date_expiration', 'utilise', 'tentatives']
+    list_filter = ['utilise']
+    readonly_fields = ['code', 'date_creation']
+
+
+@admin.register(MatricePermissionRole)
+class MatricePermissionRoleAdmin(admin.ModelAdmin):
+    list_display = ['role', 'rubrique', 'peut_voir', 'peut_creer', 'peut_modifier', 'peut_supprimer', 'peut_valider']
+    list_filter = ['role', 'rubrique']
+
+
+@admin.register(PermissionMembreOverride)
+class PermissionMembreOverrideAdmin(admin.ModelAdmin):
+    list_display = ['user', 'rubrique', 'peut_voir', 'peut_creer', 'peut_modifier', 'peut_supprimer', 'peut_valider']
+    list_filter = ['rubrique']
+    search_fields = ['user__username', 'user__first_name', 'user__last_name']
+
+
+@admin.register(JournalAudit)
+class JournalAuditAdmin(admin.ModelAdmin):
+    list_display = ['date', 'utilisateur', 'action', 'rubrique', 'succes']
+    list_filter = ['action', 'succes', 'rubrique']
+    search_fields = ['utilisateur__username', 'objet_repr', 'description']
+    readonly_fields = [f.name for f in JournalAudit._meta.fields]
