@@ -231,7 +231,7 @@ function CircularMembersView({ kourel, allUsers }) {
   )
 }
 
-function KourelCard({ k, isSelected, allUsers, isAdmin, onSelect, onEdit, onDelete }) {
+function KourelCard({ k, isSelected, allUsers, canManage, onSelect, onEdit, onDelete }) {
   const members = (() => {
     const ids = Array.isArray(k.membres) ? k.membres.map(x => (typeof x === 'object' ? x?.id : x)).filter(Boolean) : []
     return ids.map(id => allUsers.find(u => u.id === id)).filter(Boolean)
@@ -261,7 +261,7 @@ function KourelCard({ k, isSelected, allUsers, isAdmin, onSelect, onEdit, onDele
         <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
           <Typography variant="subtitle1" sx={{ fontWeight: 700, color: C.vert }}>{k.nom}</Typography>
           <Box sx={{ display: 'flex', gap: 0.5 }}>
-            {isAdmin && (
+            {canManage && (
               <>
                 <IconButton size="small" onClick={e => { e.stopPropagation(); onEdit() }} sx={{ color: C.vert }}><Edit fontSize="small" /></IconButton>
                 <IconButton size="small" color="error" onClick={e => { e.stopPropagation(); onDelete() }}><Delete fontSize="small" /></IconButton>
@@ -455,7 +455,7 @@ export default function KourelsPage({ onBack }) {
           <Typography variant="h5" sx={{ color: C.vert, fontWeight: 700 }}>Kourels</Typography>
           <Typography variant="body2" color="text.secondary">{kourels.length} groupe(s) de chant</Typography>
         </Box>
-        {isAdmin && (
+        {canManage && (
           <Button variant="contained" startIcon={<Add />} onClick={openAdd}
             sx={{ bgcolor: C.vert, '&:hover': { bgcolor: C.vertFonce }, borderRadius: 2 }}>
             Nouveau Kourel
@@ -475,7 +475,7 @@ export default function KourelsPage({ onBack }) {
               <Box sx={{ textAlign: 'center', py: 8 }}>
                 <Groups sx={{ fontSize: 64, color: 'action.disabled', mb: 2 }} />
                 <Typography color="text.secondary" variant="h6">Aucun Kourel</Typography>
-                {isAdmin && <Typography color="text.secondary" variant="body2">Créez votre premier groupe de chant.</Typography>}
+                {canManage && <Typography color="text.secondary" variant="body2">Créez votre premier groupe de chant.</Typography>}
               </Box>
             ) : (
               <Grid container spacing={2}>
@@ -485,7 +485,7 @@ export default function KourelsPage({ onBack }) {
                       k={k}
                       isSelected={selected?.id === k.id}
                       allUsers={allUsers}
-                      isAdmin={isAdmin}
+                      canManage={canManage}
                       onSelect={() => { setSelected(null); setTimeout(() => loadDetail(k.id), 50) }}
                       onEdit={() => openEdit(k)}
                       onDelete={() => setDeleteTarget(k.id)}

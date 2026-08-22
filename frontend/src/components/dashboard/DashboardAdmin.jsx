@@ -80,17 +80,12 @@ export default function DashboardAdmin() {
   const { user } = useAuth()
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)
-  const [leveesFonds, setLeveesFonds] = useState([])
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [kamilStats, setKamilStats] = useState(null)
 
   useEffect(() => {
     Promise.all([
       api.get('/auth/admin/statistiques/').then(({ data }) => data).catch(() => ({ membres_actifs: 0, total_membres: 0, cotisations_payees_ce_mois: 0, evenements: 0 })),
-      api.get('/finance/levees-fonds/').then(({ data }) => {
-        const lf = data.results || data
-        return Array.isArray(lf) ? lf.filter(l => (l.statut_reel || l.statut) === 'active') : []
-      }).catch(() => []),
       api.get('/communication/messages/conversations/').then(({ data }) => {
         const convs = Array.isArray(data) ? data : []
         return convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
@@ -100,9 +95,8 @@ export default function DashboardAdmin() {
         const enAttente = Array.isArray(versements) ? versements.filter(v => v.statut === 'en_attente').length : 0
         return { en_attente: enAttente, total: Array.isArray(versements) ? versements.length : 0 }
       }).catch(() => null),
-    ]).then(([statsData, levees, unread, kamil]) => {
+    ]).then(([statsData, unread, kamil]) => {
       setStats(statsData)
-      setLeveesFonds(levees)
       setUnreadMessages(unread)
       setKamilStats(kamil)
     }).finally(() => setLoading(false))
@@ -187,9 +181,6 @@ export default function DashboardAdmin() {
           <KpiCard label="Événements" value={loading ? '…' : stats?.evenements ?? 0} icon={Event} color={C.vert} />
         </Grid>
         <Grid item xs={6} sm={4} md={3}>
-          <KpiCard label="Levées actives" value={loading ? '…' : leveesFonds.length} icon={AttachMoney} color={C.or} />
-        </Grid>
-        <Grid item xs={6} sm={4} md={3}>
           <KpiCard
             label="Messages non lus"
             value={loading ? '…' : unreadMessages}
@@ -227,7 +218,6 @@ export default function DashboardAdmin() {
               <Box display="flex" flexDirection="column" gap={1.2}>
                 <ActionBtn label="Gestion des membres" icon={People} onClick={() => navigate('/admin/membres')} primary />
                 <ActionBtn label="Gérer les cotisations" icon={AccountBalance} onClick={() => navigate('/finance/cotisations')} />
-                <ActionBtn label="Levées de fonds" icon={AttachMoney} onClick={() => navigate('/finance/levees-fonds')} badge={leveesFonds.length} />
                 <ActionBtn label="Gérer les événements" icon={Event} onClick={() => navigate('/informations/evenements')} />
               </Box>
             </CardContent>

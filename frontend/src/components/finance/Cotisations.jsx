@@ -23,6 +23,8 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
+  Tabs,
+  Tab,
 } from '@mui/material'
 import { Add, Edit, Delete, Payment, TableChart } from '@mui/icons-material'
 import api from '../../services/api'
@@ -54,7 +56,8 @@ const MOIS_LABELS = MOIS.reduce((acc, m) => {
 
 export default function Cotisations() {
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  // Admin global, jewrin général, ou chargé de finance (jewrine_finance) : mêmes droits que le backend (has_admin_access).
+  const isAdmin = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_finance'
   const [list, setList] = useState([])
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -187,10 +190,9 @@ export default function Cotisations() {
           cotisation: cotisationData,
         }
         
-        await api.post('/finance/cotisations/create-multiple/', payload)
-        
+        const { data: responseData } = await api.post('/finance/cotisations/create-multiple/', payload)
+
         // Gérer la réponse avec les cotisations créées et ignorées
-        const responseData = response.data
         const created = responseData.created_count || 0
         const skipped = responseData.skipped_count || 0
         const total = responseData.total_processed || form.membres_selectionnes.length
@@ -427,36 +429,41 @@ export default function Cotisations() {
 
       {!loading && list.length > 0 && (
         <>
-          <Box sx={{ mb: 2, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
-            <TextField
-              select
-              size="small"
-              label="Type"
+          <Box sx={{ mb: 2 }}>
+            <Tabs
               value={typeFilter}
-              onChange={(e) => setTypeFilter(e.target.value)}
-              sx={{ minWidth: 180 }}
+              onChange={(e, v) => { setTypeFilter(v); setObjetAssignationFilter('') }}
+              sx={{
+                minHeight: 40,
+                borderBottom: `1px solid ${COLORS.or}30`,
+                '& .MuiTab-root': { minHeight: 40, textTransform: 'none', fontWeight: 600 },
+                '& .Mui-selected': { color: `${COLORS.vert} !important` },
+                '& .MuiTabs-indicator': { bgcolor: COLORS.vert },
+              }}
             >
-              <MenuItem value="">Tous</MenuItem>
-              <MenuItem value="mensualite">Mensualité</MenuItem>
-              <MenuItem value="assignation">Assignation</MenuItem>
-            </TextField>
-            <TextField
-              select
-              size="small"
-              label="Assignation (Magal, Gamou, ...)"
-              value={objetAssignationFilter}
-              onChange={(e) => setObjetAssignationFilter(e.target.value)}
-              sx={{ minWidth: 220 }}
-            >
-              <MenuItem value="">Toutes</MenuItem>
-              <MenuItem value="MAGAL">MAGAL</MenuItem>
-              <MenuItem value="GAMOU">GAMOU</MenuItem>
-              <MenuItem value="KAZU RAJABB">KAZU RAJABB</MenuItem>
-              <MenuItem value="KOOR">KOOR</MenuItem>
-              <MenuItem value="SOCIAL">SOCIAL</MenuItem>
-              <MenuItem value="XELCOM">XELCOM</MenuItem>
-              <MenuItem value="AUTRES">AUTRES</MenuItem>
-            </TextField>
+              <Tab label="Toutes" value="" />
+              <Tab label="Mensualités" value="mensualite" />
+              <Tab label="Assignations" value="assignation" />
+            </Tabs>
+            {typeFilter === 'assignation' && (
+              <TextField
+                select
+                size="small"
+                label="Assignation (Magal, Gamou, ...)"
+                value={objetAssignationFilter}
+                onChange={(e) => setObjetAssignationFilter(e.target.value)}
+                sx={{ minWidth: 220, mt: 1.5 }}
+              >
+                <MenuItem value="">Toutes</MenuItem>
+                <MenuItem value="MAGAL">MAGAL</MenuItem>
+                <MenuItem value="GAMOU">GAMOU</MenuItem>
+                <MenuItem value="KAZU RAJABB">KAZU RAJABB</MenuItem>
+                <MenuItem value="KOOR">KOOR</MenuItem>
+                <MenuItem value="SOCIAL">SOCIAL</MenuItem>
+                <MenuItem value="XELCOM">XELCOM</MenuItem>
+                <MenuItem value="AUTRES">AUTRES</MenuItem>
+              </TextField>
+            )}
           </Box>
           <Box sx={{ mb: 3, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
             <Paper sx={{ p: 2, borderLeft: `4px solid ${COLORS.vert}`, borderRadius: 2 }}>
@@ -587,83 +594,83 @@ export default function Cotisations() {
           <Typography color="text.secondary" variant="h6">Aucune cotisation</Typography>
         </Box>
       ) : (
-        <Grid container spacing={2}>
-          {filteredList.map((c) => {
-            const isAssignation = c.type_cotisation === 'assignation'
-            const isPaid = String(c.statut || '').toLowerCase() === 'payee'
-            const canPay = canPayCotisation(c)
-            const isMine = Number(c.membre) === Number(user?.id)
-            return (
-              <Grid item xs={12} sm={6} lg={4} key={c.id}>
-                <Card sx={{
-                  borderRadius: 2.5, height: '100%', display: 'flex', flexDirection: 'column',
-                  borderTop: `4px solid ${isPaid ? '#2E7D32' : isAssignation ? '#E65100' : COLORS.or}`,
-                  transition: 'box-shadow 0.2s', '&:hover': { boxShadow: 4 },
-                }}>
-                  <CardContent sx={{ flex: 1, display: 'flex', flexDirection: 'column', gap: 1.25, p: 2 }}>
-                    {/* Top row */}
-                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
-                      <Box sx={{ display: 'flex', gap: 0.75, flexWrap: 'wrap' }}>
-                        <Chip
-                          label={isAssignation ? (c.objet_assignation || 'Assignation') : 'Mensualité'}
-                          size="small"
-                          sx={{ bgcolor: isAssignation ? '#FBE9E7' : `${COLORS.or}25`, color: isAssignation ? '#E65100' : COLORS.vertFonce, fontWeight: 700, fontSize: '0.7rem' }}
-                        />
-                        <Chip label={c.statut_display || c.statut} color={statutColor(c.statut)} size="small" />
-                      </Box>
-                      {isAdmin && (
-                        <Box sx={{ display: 'flex', gap: 0.25 }}>
-                          <IconButton size="small" onClick={() => handleOpenEdit(c)} sx={{ color: COLORS.vert }}><Edit fontSize="small" /></IconButton>
-                          <IconButton size="small" onClick={() => setOpenDelete(c)} color="error"><Delete fontSize="small" /></IconButton>
-                        </Box>
-                      )}
-                    </Box>
-
-                    {/* Member name (admin only) */}
+        <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${COLORS.or}30` }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ '& th': { fontWeight: 700, color: COLORS.vertFonce, bgcolor: `${COLORS.vert}08`, whiteSpace: 'nowrap' } }}>
+                {isAdmin && <TableCell>Membre</TableCell>}
+                <TableCell>Type</TableCell>
+                <TableCell>Période</TableCell>
+                <TableCell align="right">Montant</TableCell>
+                <TableCell>Statut</TableCell>
+                <TableCell>Paiement</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {filteredList.map((c) => {
+                const isAssignation = c.type_cotisation === 'assignation'
+                const isPaid = String(c.statut || '').toLowerCase() === 'payee'
+                const canPay = canPayCotisation(c)
+                const isMine = Number(c.membre) === Number(user?.id)
+                return (
+                  <TableRow key={c.id} hover>
                     {isAdmin && (
-                      <Typography variant="subtitle2" sx={{ fontWeight: 700, color: COLORS.vert }}>
+                      <TableCell sx={{ fontWeight: 600, color: COLORS.vert, whiteSpace: 'nowrap' }}>
                         {c.membre_nom || `#${c.membre}`}
-                      </Typography>
+                      </TableCell>
                     )}
-
-                    {/* Amount */}
-                    <Typography variant="h6" sx={{ fontWeight: 800, color: isPaid ? '#2E7D32' : COLORS.vertFonce, fontFamily: '"Cormorant Garamond", serif' }}>
+                    <TableCell>
+                      <Chip
+                        label={isAssignation ? (c.objet_assignation || 'Assignation') : 'Mensualité'}
+                        size="small"
+                        sx={{ bgcolor: isAssignation ? '#FBE9E7' : `${COLORS.or}25`, color: isAssignation ? '#E65100' : COLORS.vertFonce, fontWeight: 700, fontSize: '0.7rem' }}
+                      />
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{MOIS_LABELS[c.mois]} {c.annee}</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700, color: isPaid ? '#2E7D32' : COLORS.vertFonce, whiteSpace: 'nowrap' }}>
                       {Number(c.montant || 0).toLocaleString('fr-FR')} FCFA
-                    </Typography>
-
-                    {/* Period */}
-                    <Typography variant="body2" color="text.secondary">
-                      {MOIS_LABELS[c.mois]} {c.annee}
-                      {c.date_echeance ? ` · Échéance : ${new Date(c.date_echeance).toLocaleDateString('fr-FR')}` : ''}
-                    </Typography>
-
-                    {/* Payment info */}
-                    {isPaid && c.date_paiement && (
-                      <Typography variant="caption" sx={{ color: '#2E7D32' }}>
-                        Payée le {new Date(c.date_paiement).toLocaleDateString('fr-FR')}
-                        {c.mode_paiement === 'wave' ? ' · Wave' : c.mode_paiement === 'liquide' ? ' · Espèces' : ' · Autre'}
-                        {c.reference_wave ? ` (${c.reference_wave})` : ''}
-                      </Typography>
-                    )}
-
-                    {/* Actions */}
-                    <Box sx={{ mt: 'auto', pt: 1 }}>
-                      {(isMine || !isAdmin) && canPay && (
-                        <Button
-                          fullWidth size="small" variant="contained" startIcon={<Payment />}
-                          onClick={() => handleOpenPayer(c)}
-                          sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce }, borderRadius: 1.5 }}
-                        >
-                          Payer
-                        </Button>
-                      )}
-                    </Box>
-                  </CardContent>
-                </Card>
-              </Grid>
-            )
-          })}
-        </Grid>
+                    </TableCell>
+                    <TableCell>
+                      <Chip label={c.statut_display || c.statut} color={statutColor(c.statut)} size="small" />
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {isPaid && c.date_paiement ? (
+                        <Typography variant="caption" sx={{ color: '#2E7D32' }}>
+                          {new Date(c.date_paiement).toLocaleDateString('fr-FR')}
+                          {c.mode_paiement === 'wave' ? ' · Wave' : c.mode_paiement === 'liquide' ? ' · Espèces' : ' · Autre'}
+                        </Typography>
+                      ) : c.date_echeance ? (
+                        <Typography variant="caption" color="text.secondary">
+                          Échéance : {new Date(c.date_echeance).toLocaleDateString('fr-FR')}
+                        </Typography>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell align="right">
+                      <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
+                        {(isMine || !isAdmin) && canPay && (
+                          <Button
+                            size="small" variant="contained" startIcon={<Payment />}
+                            onClick={() => handleOpenPayer(c)}
+                            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce }, borderRadius: 1.5, whiteSpace: 'nowrap' }}
+                          >
+                            Payer
+                          </Button>
+                        )}
+                        {isAdmin && (
+                          <>
+                            <IconButton size="small" onClick={() => handleOpenEdit(c)} sx={{ color: COLORS.vert }}><Edit fontSize="small" /></IconButton>
+                            <IconButton size="small" onClick={() => setOpenDelete(c)} color="error"><Delete fontSize="small" /></IconButton>
+                          </>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+        </TableContainer>
       )}
 
       <Dialog open={openForm} onClose={() => { setOpenForm(false); setEditingId(null) }} maxWidth="md" fullWidth>

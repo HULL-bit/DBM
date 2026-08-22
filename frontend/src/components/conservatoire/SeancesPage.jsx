@@ -18,7 +18,7 @@ const TYPE_CHIP = {
   prestation: { label: 'Prestation', color: '#6A1B9A', bg: '#F3E5F5' },
 }
 
-function SeanceCard({ s, kourels, isAdmin, onEdit, onDelete, onPresences }) {
+function SeanceCard({ s, kourels, canManage, onEdit, onDelete, onPresences }) {
   const [expanded, setExpanded] = useState(false)
   const type = TYPE_CHIP[s.type_seance] || { label: s.type_seance, color: C.vert, bg: `${C.vert}15` }
   const presences = s.presences || []
@@ -42,7 +42,7 @@ function SeanceCard({ s, kourels, isAdmin, onEdit, onDelete, onPresences }) {
             </Box>
             <Typography variant="subtitle1" sx={{ fontWeight: 700, color: C.vert }}>{s.titre}</Typography>
           </Box>
-          {isAdmin && (
+          {canManage && (
             <Box sx={{ display: 'flex', gap: 0.25, ml: 1 }}>
               <IconButton size="small" onClick={() => onEdit(s)} sx={{ color: C.vert }}><Edit fontSize="small" /></IconButton>
               <IconButton size="small" color="error" onClick={() => onDelete(s.id)}><Delete fontSize="small" /></IconButton>
@@ -91,7 +91,7 @@ function SeanceCard({ s, kourels, isAdmin, onEdit, onDelete, onPresences }) {
         )}
 
         <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {isAdmin && (
+          {canManage && (
             <Button size="small" variant="outlined" startIcon={<HowToReg />} onClick={() => onPresences(s)}
               sx={{ borderColor: C.vert, color: C.vert, borderRadius: 1.5, fontSize: '0.75rem' }}>
               Présences
@@ -140,6 +140,9 @@ function SeanceCard({ s, kourels, isAdmin, onEdit, onDelete, onPresences }) {
 export default function SeancesPage({ onBack }) {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
+  // Le chargé du conservatoire (jewrine_conservatoire) et le jewrin général ont les mêmes droits
+  // que l'admin sur ce module (voir IsAdminOrJewrinConservatoire côté backend).
+  const canManage = isAdmin || user?.role === 'jewrin' || user?.role === 'jewrine_conservatoire'
   const [seances, setSeances] = useState([])
   const [kourels, setKourels] = useState([])
   const [allUsers, setAllUsers] = useState([])
@@ -290,13 +293,13 @@ export default function SeancesPage({ onBack }) {
           <Typography variant="body2" color="text.secondary">{seances.length} séance(s) enregistrée(s)</Typography>
         </Box>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          {isAdmin && (
+          {canManage && (
             <Button variant="outlined" startIcon={<GetApp />} onClick={() => setOpenExport(true)}
               sx={{ borderColor: C.vert, color: C.vert, borderRadius: 2 }}>
               Exporter
             </Button>
           )}
-          {isAdmin && (
+          {canManage && (
             <Button variant="contained" startIcon={<Add />} onClick={openAdd} disabled={kourels.length === 0}
               sx={{ bgcolor: C.vert, '&:hover': { bgcolor: C.vertFonce }, borderRadius: 2 }}>
               Nouvelle séance
@@ -331,13 +334,13 @@ export default function SeancesPage({ onBack }) {
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <Event sx={{ fontSize: 64, color: 'action.disabled', mb: 2 }} />
           <Typography color="text.secondary" variant="h6">{seances.length === 0 ? 'Aucune séance' : 'Aucun résultat'}</Typography>
-          {isAdmin && kourels.length === 0 && <Typography color="text.secondary" variant="body2">Créez d'abord un Kourel.</Typography>}
+          {canManage && kourels.length === 0 && <Typography color="text.secondary" variant="body2">Créez d'abord un Kourel.</Typography>}
         </Box>
       ) : (
         <Grid container spacing={2}>
           {filtered.map(s => (
             <Grid item xs={12} md={6} key={s.id}>
-              <SeanceCard s={s} kourels={kourels} isAdmin={isAdmin} onEdit={openEdit} onDelete={setDeleteTarget} onPresences={handleOpenPresences} />
+              <SeanceCard s={s} kourels={kourels} canManage={canManage} onEdit={openEdit} onDelete={setDeleteTarget} onPresences={handleOpenPresences} />
             </Grid>
           ))}
         </Grid>

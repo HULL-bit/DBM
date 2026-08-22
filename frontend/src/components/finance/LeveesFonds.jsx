@@ -39,7 +39,8 @@ const STATUTS = [
 
 export default function LeveesFonds() {
   const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  // Admin global, jewrin général, ou chargé de finance (jewrine_finance) : mêmes droits que le backend (has_admin_access).
+  const isAdmin = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_finance'
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })
@@ -63,11 +64,42 @@ export default function LeveesFonds() {
   })
   const [formErrors, setFormErrors] = useState({})
 
+  const [pendingTx, setPendingTx] = useState([])
+  const [loadingPending, setLoadingPending] = useState(false)
+  const [validatingTxId, setValidatingTxId] = useState(null)
+
   const loadList = () => {
     setLoading(true)
     api.get('/finance/levees-fonds/').then(({ data }) => setList(data.results || data)).catch(() => setList([])).finally(() => setLoading(false))
   }
   useEffect(() => { loadList() }, [])
+
+  const loadPending = () => {
+    setLoadingPending(true)
+    api.get('/finance/transactions/', { params: { type_transaction: 'levee_fonds', statut: 'en_attente' } })
+      .then(({ data }) => setPendingTx(data.results || data))
+      .catch(() => setPendingTx([]))
+      .finally(() => setLoadingPending(false))
+  }
+  useEffect(() => { if (isAdmin) loadPending() }, [isAdmin])
+
+  const handleValiderTransaction = async (tx, approuver) => {
+    setValidatingTxId(tx.id)
+    setMessage({ type: '', text: '' })
+    try {
+      await api.post(`/finance/levees-fonds/${tx.levee_fonds}/valider_transaction/`, {
+        transaction_id: tx.id,
+        approuver,
+      })
+      setMessage({ type: 'success', text: approuver ? 'Transaction validée.' : 'Transaction rejetée.' })
+      loadPending()
+      loadList()
+    } catch (err) {
+      setMessage({ type: 'error', text: err.response?.data?.detail || 'Erreur lors de la validation.' })
+    } finally {
+      setValidatingTxId(null)
+    }
+  }
 
   const handleOpenAdd = () => {
     setEditingId(null)
@@ -301,6 +333,66 @@ export default function LeveesFonds() {
             </Typography>
           </Paper>
         </Box>
+      )}
+
+      {isAdmin && (
+        <Paper sx={{ p: 2, mb: 3, borderRadius: 2, borderLeft: '4px solid #E65100' }}>
+          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.vertFonce, mb: 1 }}>
+            Paiements en attente de validation ({pendingTx.length})
+          </Typography>
+          {loadingPending ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}><CircularProgress size={24} /></Box>
+          ) : pendingTx.length === 0 ? (
+            <Typography variant="body2" color="text.secondary">Aucun paiement en attente.</Typography>
+          ) : (
+            <TableContainer>
+              <Table size="small">
+                <TableHead>
+                  <TableRow>
+                    <TableCell>Membre</TableCell>
+                    <TableCell>Levée de fonds</TableCell>
+                    <TableCell>Montant</TableCell>
+                    <TableCell>Référence Wave</TableCell>
+                    <TableCell align="right">Action</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pendingTx.map((tx) => {
+                    const levee = list.find((lf) => lf.id === tx.levee_fonds)
+                    return (
+                      <TableRow key={tx.id}>
+                        <TableCell>{tx.membre_nom || `#${tx.membre}`}</TableCell>
+                        <TableCell>{levee?.titre || `#${tx.levee_fonds}`}</TableCell>
+                        <TableCell>{Number(tx.montant || 0).toLocaleString('fr-FR')} FCFA</TableCell>
+                        <TableCell>{tx.reference_wave || '—'}</TableCell>
+                        <TableCell align="right">
+                          <Button
+                            size="small"
+                            variant="contained"
+                            disabled={validatingTxId === tx.id}
+                            onClick={() => handleValiderTransaction(tx, true)}
+                            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce }, mr: 1 }}
+                          >
+                            Valider
+                          </Button>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="error"
+                            disabled={validatingTxId === tx.id}
+                            onClick={() => handleValiderTransaction(tx, false)}
+                          >
+                            Rejeter
+                          </Button>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          )}
+        </Paper>
       )}
 
       {loading ? (

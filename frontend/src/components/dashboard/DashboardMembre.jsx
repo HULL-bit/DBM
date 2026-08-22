@@ -78,7 +78,6 @@ export default function DashboardMembre() {
   const { user } = useAuth()
   const [cotisationStats, setCotisationStats] = useState(null)
   const [kamilStats, setKamilStats] = useState(null)
-  const [leveesFonds, setLeveesFonds] = useState([])
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [loading, setLoading] = useState(true)
 
@@ -86,18 +85,13 @@ export default function DashboardMembre() {
     Promise.all([
       api.get('/finance/cotisations/statistiques/').then(({ data }) => data).catch(() => null),
       api.get('/culturelle/versements-kamil/mes_stats/').then(({ data }) => data).catch(() => null),
-      api.get('/finance/levees-fonds/').then(({ data }) => {
-        const lf = data.results || data
-        return Array.isArray(lf) ? lf.filter(l => (l.statut_reel || l.statut) === 'active') : []
-      }).catch(() => []),
       api.get('/communication/messages/conversations/').then(({ data }) => {
         const convs = Array.isArray(data) ? data : []
         return convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
       }).catch(() => 0),
-    ]).then(([cotisations, kamil, levees, unread]) => {
+    ]).then(([cotisations, kamil, unread]) => {
       setCotisationStats(cotisations)
       setKamilStats(kamil)
-      setLeveesFonds(levees)
       setUnreadMessages(unread)
     }).finally(() => setLoading(false))
   }, [])
@@ -197,9 +191,6 @@ export default function DashboardMembre() {
         <Grid item xs={6} sm={4} md={3}>
           <KpiCard label="Chapitres lus (Kamil)" value={loading ? '…' : user?.chapitres_lus ?? 0} icon={MenuBook} color={C.or} />
         </Grid>
-        <Grid item xs={6} sm={4} md={3}>
-          <KpiCard label="Levées de fonds actives" value={loading ? '…' : leveesFonds.length} icon={AttachMoney} color={C.vertClair} />
-        </Grid>
         {kamilStats && (
           <>
             <Grid item xs={6} sm={4} md={3}>
@@ -238,11 +229,7 @@ export default function DashboardMembre() {
                 <Typography variant="h6" sx={{ color: C.vertFonce, fontFamily: '"Cormorant Garamond", serif', fontWeight: 700 }}>Finance & Participation</Typography>
               </Box>
               <Box display="flex" flexDirection="column" gap={1.2}>
-                {leveesFonds.length > 0 && (
-                  <ActionBtn label="Participer aux levées de fonds" icon={AttachMoney} onClick={() => navigate('/finance/levees-fonds')} primary badge={leveesFonds.length} />
-                )}
-                <ActionBtn label="Mes participations" icon={Payment} onClick={() => navigate('/finance/levees-fonds')} />
-                <ActionBtn label="Mes versements Kamil" icon={TrendingUp} onClick={() => navigate('/culturelle/versements-kamil')} />
+                <ActionBtn label="Mes versements Kamil" icon={TrendingUp} onClick={() => navigate('/culturelle/versements-kamil')} primary />
                 <ActionBtn label="Forums de discussion" icon={Forum} onClick={() => navigate('/communication/forums')} />
               </Box>
             </CardContent>

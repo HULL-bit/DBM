@@ -42,6 +42,29 @@ const COLORS = {
   blanc: '#FFFFFF',
 }
 
+/** Apparition en fondu au défilement : renvoie {ref, className} à poser sur un élément. */
+function useReveal() {
+  const [visible, setVisible] = useState(false)
+  const [node, setNode] = useState(null)
+
+  useEffect(() => {
+    if (!node) return
+    const observer = new IntersectionObserver(
+      ([entry]) => {
+        if (entry.isIntersecting) {
+          setVisible(true)
+          observer.disconnect()
+        }
+      },
+      { threshold: 0.15 }
+    )
+    observer.observe(node)
+    return () => observer.disconnect()
+  }, [node])
+
+  return { ref: setNode, className: `reveal ${visible ? 'reveal-visible' : ''}` }
+}
+
 const CAROUSEL_SLIDES = [
   { img: '/images/accueil/carousel-1.png', titre: 'Notre guide', description: 'Portrait de Serigne Moustapha Salihou, figure spirituelle et pilier de la Daara.' },
   { img: '/images/accueil/carousel-2.png', titre: 'Salle de la Daara', description: 'Espace de rassemblement avec le portrait lumineux de Serigne Moustapha Aliou Mbacké, microphones et réhals pour les récitations.' },
@@ -63,6 +86,14 @@ export default function Accueil() {
   const isSmallMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const [carouselIndex, setCarouselIndex] = useState(0)
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
+  const revealInformations = useReveal()
+  const revealAnnonces = useReveal()
+  const revealGuide = useReveal()
+  const revealHistorique = useReveal()
+  const revealRealisations = useReveal()
+  const revealGalerie = useReveal()
+  const revealMembres = useReveal()
+  const revealLocalisation = useReveal()
 
   useEffect(() => {
     const t = setInterval(() => setCarouselIndex((i) => (i + 1) % CAROUSEL_SLIDES.length), 5000)
@@ -455,7 +486,7 @@ export default function Accueil() {
 
       <Container maxWidth="lg" sx={{ py: { xs: 4, sm: 6, md: 10 }, px: { xs: 2, sm: 3, md: 4 } }}>
         {/* Section Informations */}
-        <Box sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="informations">
+        <Box ref={revealInformations.ref} className={revealInformations.className} sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="informations">
           <Typography 
             variant="h4" 
             sx={{ 
@@ -526,7 +557,7 @@ export default function Accueil() {
         </Box>
 
         {/* Section Annonces / Publicités */}
-        <Box sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="annonces">
+        <Box ref={revealAnnonces.ref} className={revealAnnonces.className} sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="annonces">
           <Typography 
             variant="h4" 
             sx={{ 
@@ -572,6 +603,8 @@ export default function Accueil() {
             boxShadow: `0 12px 40px ${COLORS.vert}30`,
           }}
           id="guide"
+          ref={revealGuide.ref}
+          className={revealGuide.className}
         >
           <Box
             sx={{
@@ -628,7 +661,7 @@ export default function Accueil() {
         </Box>
 
         {/* Section Historique de la Daara */}
-        <Box sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="historique">
+        <Box ref={revealHistorique.ref} className={revealHistorique.className} sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="historique">
           <Typography
             variant="h4"
             sx={{
@@ -733,7 +766,7 @@ export default function Accueil() {
         </Box>
 
         {/* Section Réalisations — plus d'images */}
-        <Box sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="realisations">
+        <Box ref={revealRealisations.ref} className={revealRealisations.className} sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="realisations">
           <Typography 
             variant="h4" 
             sx={{ 
@@ -755,43 +788,51 @@ export default function Accueil() {
               { img: 8, titre: 'L\'inoubliable', desc: 'Serigne Moustapha Saliou au cœur de la Daara.' },
               { img: 9, titre: 'Grande salle', desc: 'Conférences et enseignements.' },
               { img: 10, titre: 'Vie communautaire', desc: 'Membres de tous âges, sérénité et partage.' },
-            ].map((item) => (
+            ].map((item, idx) => (
               <Grid item xs={12} sm={6} md={4} key={item.img}>
-                <Card sx={{ borderRadius: 2, overflow: 'hidden', borderLeft: `4px solid ${COLORS.or}`, boxShadow: `0 4px 20px ${COLORS.vert}15`, minHeight: { xs: 280, sm: 300, md: 320 } }}>
-                  <CardMedia
+                <Box
+                  className="cinematic-card"
+                  sx={{
+                    height: { xs: 260, sm: 280, md: 320 },
+                    border: `2px solid ${COLORS.or}50`,
+                    boxShadow: `0 4px 20px ${COLORS.vert}15`,
+                    transitionDelay: `${idx * 60}ms`,
+                  }}
+                >
+                  <Box
                     component="img"
-                    height={{ xs: 200, sm: 220, md: 260 }}
-                    image={`/images/accueil/carousel-${item.img}.png`}
+                    src={`/images/accueil/carousel-${item.img}.png`}
                     alt={item.titre}
-                    sx={{ objectFit: 'cover', '&:hover': { transform: 'scale(1.02)' }, transition: 'transform 0.4s ease' }}
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
                   />
-                  <CardContent sx={{ p: { xs: 1.5, sm: 2, md: 2 } }}>
-                    <Typography 
-                      variant="h6" 
-                      sx={{ 
-                        color: COLORS.vert,
-                        fontSize: { xs: '1rem', sm: '1.25rem', md: '1.5rem' },
-                        mb: { xs: 0.5, sm: 1 },
+                  <Box className="cinematic-overlay">
+                    <Typography
+                      variant="h6"
+                      sx={{
+                        color: COLORS.beigeClair,
+                        fontWeight: 700,
+                        fontSize: { xs: '1rem', sm: '1.15rem', md: '1.3rem' },
+                        textShadow: '0 2px 6px rgba(0,0,0,0.8)',
                       }}
                     >
                       {item.titre}
                     </Typography>
-                    <Typography 
-                      variant="body2" 
-                      color="text.secondary"
-                      sx={{ fontSize: { xs: '0.8rem', sm: '0.875rem', md: '0.875rem' } }}
+                    <Typography
+                      variant="body2"
+                      className="cinematic-desc"
+                      sx={{ color: COLORS.beige, fontSize: { xs: '0.8rem', sm: '0.875rem' } }}
                     >
                       {item.desc}
                     </Typography>
-                  </CardContent>
-                </Card>
+                  </Box>
+                </Box>
               </Grid>
             ))}
           </Grid>
         </Box>
 
         {/* Galerie — encore plus d'images */}
-        <Box sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="galerie">
+        <Box ref={revealGalerie.ref} className={revealGalerie.className} sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="galerie">
           <Typography 
             variant="h4" 
             sx={{ 
@@ -803,30 +844,39 @@ export default function Accueil() {
             Galerie
           </Typography>
           <Grid container spacing={{ xs: 1.5, sm: 2, md: 2 }}>
-            {[1, 2, 3, 7, 11, 12].map((i) => (
+            {[1, 2, 3, 7, 11, 12].map((i, idx) => (
               <Grid item xs={6} sm={4} md={2} key={i}>
                 <Box
-                  component="img"
-                  src={`/images/accueil/carousel-${i}.png`}
-                  alt={`Galerie ${i}`}
+                  className="cinematic-card"
                   sx={{
-                    width: '100%',
                     height: { xs: 140, sm: 180, md: 220 },
-                    objectFit: 'cover',
-                    borderRadius: 2,
                     border: `2px solid ${COLORS.or}`,
                     boxShadow: `0 4px 12px ${COLORS.vert}20`,
-                    transition: 'transform 0.3s ease, box-shadow 0.3s ease',
-                    '&:hover': { transform: 'scale(1.03)', boxShadow: `0 8px 24px ${COLORS.vert}30` },
+                    transitionDelay: `${idx * 60}ms`,
                   }}
-                />
+                >
+                  <Box
+                    component="img"
+                    src={`/images/accueil/carousel-${i}.png`}
+                    alt={CAROUSEL_SLIDES[i - 1]?.titre || `Galerie ${i}`}
+                    sx={{ width: '100%', height: '100%', objectFit: 'cover' }}
+                  />
+                  <Box className="cinematic-overlay" sx={{ p: 1.25 }}>
+                    <Typography
+                      variant="caption"
+                      sx={{ color: COLORS.beigeClair, fontWeight: 700, textShadow: '0 2px 6px rgba(0,0,0,0.8)' }}
+                    >
+                      {CAROUSEL_SLIDES[i - 1]?.titre || 'Galerie'}
+                    </Typography>
+                  </Box>
+                </Box>
               </Grid>
             ))}
           </Grid>
         </Box>
 
         {/* Section Membres (aperçu) */}
-        <Box sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="membres">
+        <Box ref={revealMembres.ref} className={revealMembres.className} sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="membres">
           <Typography 
             variant="h4" 
             sx={{ 
@@ -905,7 +955,7 @@ export default function Accueil() {
         </Box>
 
         {/* Section Localisation */}
-        <Box sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="localisation">
+        <Box ref={revealLocalisation.ref} className={revealLocalisation.className} sx={{ mb: { xs: 6, sm: 8, md: 12 } }} id="localisation">
           <Typography 
             variant="h4" 
             sx={{ 
