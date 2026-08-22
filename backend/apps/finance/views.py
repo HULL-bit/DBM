@@ -255,7 +255,7 @@ class LeveeFondsViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'valider_transaction']:
             return [IsAdminOrJewrinFinance()]
         return [IsAuthenticated()]
 
@@ -307,15 +307,16 @@ class LeveeFondsViewSet(viewsets.ModelViewSet):
     
     @action(detail=True, methods=['post'])
     def confirmer_paiement(self, request, pk=None):
-        """Confirme qu'un paiement Wave a été effectué pour une transaction.
-        Met à jour la transaction avec la référence Wave et la valide."""
+        """Le membre déclare qu'un paiement Wave a été effectué pour sa transaction
+        (renseigne la référence Wave). La transaction reste 'en_attente' : seul un
+        admin/chargé de finance peut ensuite la valider via `valider_transaction`."""
         levee_fonds = self.get_object()
         reference_interne = request.data.get('reference_interne', '').strip()
         reference_wave = request.data.get('reference_wave', '').strip()
-        
+
         if not reference_wave:
-            return Response({'detail': 'Référence Wave requise pour confirmer le paiement.'}, status=status.HTTP_400_BAD_REQUEST)
-        
+            return Response({'detail': 'Référence Wave requise pour déclarer le paiement.'}, status=status.HTTP_400_BAD_REQUEST)
+
         # Trouver la transaction
         try:
             if reference_interne:
@@ -333,28 +334,47 @@ class LeveeFondsViewSet(viewsets.ModelViewSet):
                     membre=request.user,
                     statut='en_attente'
                 ).order_by('-date_transaction').first()
-                
+
                 if not transaction:
                     return Response({'detail': 'Aucune transaction en attente trouvée. Veuillez d\'abord créer une transaction via BARKELOU.'}, status=status.HTTP_404_NOT_FOUND)
         except Transaction.DoesNotExist:
             return Response({'detail': 'Transaction introuvable ou déjà validée.'}, status=status.HTTP_404_NOT_FOUND)
-        
+
         # Vérifier que cette référence Wave n'a pas déjà été utilisée
         existing = Transaction.objects.filter(
             reference_wave=reference_wave,
             levee_fonds=levee_fonds,
-            statut='validee'
-        ).exclude(id=transaction.id).first()
-        
+        ).exclude(id=transaction.id).exclude(statut='echouee').first()
+
         if existing:
             return Response({'detail': 'Cette référence Wave a déjà été utilisée pour une autre transaction.'}, status=status.HTTP_400_BAD_REQUEST)
-        
-        # Mettre à jour avec la référence Wave et valider
+
+        # Enregistrer la référence déclarée par le membre : la validation reste du ressort
+        # de l'admin/chargé de finance (voir action `valider_transaction`).
         transaction.reference_wave = reference_wave
-        transaction.statut = 'validee'
-        transaction.save(update_fields=['reference_wave', 'statut'])
-        # Le save() de Transaction mettra à jour automatiquement montant_collecte
-        
+        transaction.save(update_fields=['reference_wave'])
+
+        return Response(TransactionSerializer(transaction).data, status=status.HTTP_200_OK)
+
+    @action(detail=True, methods=['post'])
+    def valider_transaction(self, request, pk=None):
+        """Admin/chargé de finance valide (ou rejette) une transaction en attente
+        liée à cette levée de fonds, après vérification du paiement Wave."""
+        levee_fonds = self.get_object()
+        transaction_id = request.data.get('transaction_id')
+        approuver = request.data.get('approuver', True)
+        if not transaction_id:
+            return Response({'detail': 'transaction_id requis.'}, status=status.HTTP_400_BAD_REQUEST)
+        try:
+            transaction = Transaction.objects.get(
+                id=transaction_id, levee_fonds=levee_fonds, statut='en_attente'
+            )
+        except Transaction.DoesNotExist:
+            return Response({'detail': 'Transaction en attente introuvable pour cette levée de fonds.'}, status=status.HTTP_404_NOT_FOUND)
+
+        transaction.statut = 'validee' if approuver else 'echouee'
+        transaction.save(update_fields=['statut'])
+        # Le save() de Transaction met à jour automatiquement montant_collecte
         return Response(TransactionSerializer(transaction).data, status=status.HTTP_200_OK)
 
 
@@ -389,4 +409,4 @@ class DonViewSet(viewsets.ModelViewSet):
 class ParametresFinanciersViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ParametresFinanciers.objects.all()
     serializer_class = ParametresFinanciersSerializer
-    permission_classes = [IsAdminOrJewrinFinance()]
+    permission_classes = [IsAdminOrJewrinFinance]

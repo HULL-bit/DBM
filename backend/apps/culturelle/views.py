@@ -23,7 +23,7 @@ class KamilViewSet(viewsets.ModelViewSet):
         return Kamil.objects.all().prefetch_related('jukkis').order_by('-date_creation')
 
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'assigner_jukkis']:
             return [IsAdminOrJewrinCulturelle()]
         return [IsAuthenticated()]
 
@@ -49,7 +49,7 @@ class KamilViewSet(viewsets.ModelViewSet):
         kamil.refresh_from_db()
         return Response(KamilSerializer(kamil).data)
 
-    @action(detail=True, methods=['post'], permission_classes=[IsAdminUser])
+    @action(detail=True, methods=['post'], permission_classes=[IsAdminOrJewrinCulturelle])
     def recommencer(self, request, pk=None):
         """Réinitialise tous les JUKKI du Kamil : chaque membre devra revalider. Incrémente nb_lectures."""
         kamil = self.get_object()
@@ -105,7 +105,7 @@ class JukkiViewSet(viewsets.ReadOnlyModelViewSet):
         serializer = JukkiSerializer(qs, many=True)
         return Response(serializer.data)
 
-    @action(detail=True, methods=['patch'], permission_classes=[IsAdminOrJewrinCulturelle()])
+    @action(detail=True, methods=['patch'], permission_classes=[IsAdminOrJewrinCulturelle])
     def changer_statut(self, request, pk=None):
         """Admin change le statut de validation d'un JUKKI."""
         jukki = self.get_object()
@@ -215,6 +215,14 @@ class EnseignementViewSet(viewsets.ModelViewSet):
     serializer_class = EnseignementSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie', 'auteur']
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrJewrinCulturelle()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(auteur=self.request.user)
 
 
 class VersementKamilViewSet(viewsets.ModelViewSet):
