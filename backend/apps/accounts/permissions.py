@@ -154,24 +154,37 @@ def log_audit(request, action, rubrique='', objet=None, description='', succes=T
     À appeler explicitement aux points sensibles (connexion, changement de rôle/permission,
     validation de paiement, réinitialisation de mot de passe, etc.).
     `acteur` permet de préciser explicitement l'utilisateur concerné pour les endpoints publics
-    (ex: réinitialisation de mot de passe) où request.user n'est pas authentifié."""
-    from .models import JournalAudit
+    (ex: réinitialisation de mot de passe) où request.user n'est pas authentifié.
 
-    if acteur is not None:
-        user = acteur
-    else:
-        user = getattr(request, 'user', None)
-        if user is not None and not getattr(user, 'is_authenticated', False):
-            user = None
+    Ne doit JAMAIS faire échouer l'action métier appelante (connexion, etc.) : toute erreur
+    (table pas encore migrée, format d'IP inattendu derrière un proxy, etc.) est avalée."""
+    try:
+        from .models import JournalAudit
+        import ipaddress
 
-    ip = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR')
+        if acteur is not None:
+            user = acteur
+        else:
+            user = getattr(request, 'user', None)
+            if user is not None and not getattr(user, 'is_authenticated', False):
+                user = None
 
-    JournalAudit.objects.create(
-        utilisateur=user,
-        action=action,
-        rubrique=rubrique,
-        objet_repr=str(objet)[:255] if objet is not None else '',
-        description=description,
-        adresse_ip=ip or None,
-        succes=succes,
-    )
+        ip_brute = request.META.get('HTTP_X_FORWARDED_FOR', '').split(',')[0].strip() or request.META.get('REMOTE_ADDR', '')
+        try:
+            ipaddress.ip_address(ip_brute)
+            ip = ip_brute
+        except ValueError:
+            ip = None
+
+        JournalAudit.objects.create(
+            utilisateur=user,
+            action=action,
+            rubrique=rubrique,
+            objet_repr=str(objet)[:255] if objet is not None else '',
+            description=description,
+            adresse_ip=ip,
+            succes=succes,
+        )
+    except Exception:
+        import logging
+        logging.getLogger(__name__).exception("Échec non bloquant de l'écriture dans le journal d'audit")
