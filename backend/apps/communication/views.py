@@ -1,13 +1,17 @@
 from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from apps.accounts.permissions import IsAdminOrJewrinCommunication
+from apps.accounts.permissions import IsAdminOrJewrinCommunication, has_admin_access
 
-from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification
+from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal
 from .push import send_push_to_user
-from .serializers import MessageSerializer, CategorieForumSerializer, SujetForumSerializer, ReponseForumSerializer, NotificationSerializer
+from .serializers import (
+    MessageSerializer, CategorieForumSerializer, SujetForumSerializer, ReponseForumSerializer, NotificationSerializer,
+    CanalSerializer, MembreCanalSerializer, MessageCanalSerializer,
+)
 
 
 class MessageViewSet(viewsets.ModelViewSet):
@@ -370,6 +374,141 @@ class ReponseForumViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(auteur=self.request.user)
+
+
+def _est_gestionnaire_canal(canal, user):
+    """Le créateur du canal, un membre marqué admin de ce canal, ou un utilisateur ayant
+    les droits de gestion sur la rubrique communication (admin/jewrin/jewrine_communication)."""
+    if canal.cree_par_id == user.id:
+        return True
+    if MembreCanal.objects.filter(canal=canal, user=user, est_admin_canal=True).exists():
+        return True
+    return has_admin_access(user, 'communication')
+
+
+class CanalViewSet(viewsets.ModelViewSet):
+    serializer_class = CanalSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        return Canal.objects.filter(
+            membres_canal__user=self.request.user, est_actif=True
+        ).distinct().order_by('-date_creation')
+
+    def perform_create(self, serializer):
+        canal = serializer.save(cree_par=self.request.user)
+        MembreCanal.objects.create(canal=canal, user=self.request.user, est_admin_canal=True)
+        membres_ids = self.request.data.get('membres', [])
+        if isinstance(membres_ids, str):
+            membres_ids = [membres_ids]
+        for uid in membres_ids or []:
+            try:
+                uid_int = int(uid)
+            except (TypeError, ValueError):
+                continue
+            if uid_int == self.request.user.id:
+                continue
+            from apps.accounts.models import CustomUser
+            membre = CustomUser.objects.filter(id=uid_int, is_active=True).first()
+            if membre:
+                MembreCanal.objects.get_or_create(canal=canal, user=membre)
+
+    def destroy(self, request, *args, **kwargs):
+        canal = self.get_object()
+        if not _est_gestionnaire_canal(canal, request.user):
+            return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+        canal.est_actif = False
+        canal.save(update_fields=['est_actif'])
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    @action(detail=True, methods=['post'], url_path='ajouter-membres')
+    def ajouter_membres(self, request, pk=None):
+        canal = self.get_object()
+        if not _est_gestionnaire_canal(canal, request.user):
+            return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+        from apps.accounts.models import CustomUser
+        membres_ids = request.data.get('membres', [])
+        ajoutes = []
+        for uid in membres_ids:
+            try:
+                uid_int = int(uid)
+            except (TypeError, ValueError):
+                continue
+            membre = CustomUser.objects.filter(id=uid_int, is_active=True).first()
+            if membre:
+                _, created = MembreCanal.objects.get_or_create(canal=canal, user=membre)
+                if created:
+                    ajoutes.append(membre.get_full_name())
+        return Response(CanalSerializer(canal, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'], url_path='retirer-membre')
+    def retirer_membre(self, request, pk=None):
+        canal = self.get_object()
+        if not _est_gestionnaire_canal(canal, request.user):
+            return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+        membre_id = request.data.get('membre')
+        if membre_id == canal.cree_par_id:
+            return Response({'detail': 'Impossible de retirer le créateur du canal.'}, status=status.HTTP_400_BAD_REQUEST)
+        MembreCanal.objects.filter(canal=canal, user_id=membre_id).delete()
+        return Response(CanalSerializer(canal, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'], url_path='demarrer-reunion')
+    def demarrer_reunion(self, request, pk=None):
+        """Génère un lien de visioconférence Jitsi Meet pour ce canal (aucun serveur à héberger,
+        utilise le service public meet.jit.si) et prévient les membres via un message système."""
+        import uuid
+        canal = self.get_object()
+        if not MembreCanal.objects.filter(canal=canal, user=request.user).exists():
+            return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+        room = f"DBM-{canal.id}-{uuid.uuid4().hex[:10]}"
+        canal.lien_reunion = f"https://meet.jit.si/{room}"
+        canal.save(update_fields=['lien_reunion'])
+        MessageCanal.objects.create(
+            canal=canal, expediteur=request.user, type_message='texte',
+            contenu=f"📹 {request.user.get_full_name()} a démarré une réunion vidéo : {canal.lien_reunion}",
+        )
+        return Response(CanalSerializer(canal, context={'request': request}).data)
+
+    @action(detail=True, methods=['post'], url_path='terminer-reunion')
+    def terminer_reunion(self, request, pk=None):
+        canal = self.get_object()
+        if not MembreCanal.objects.filter(canal=canal, user=request.user).exists():
+            return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+        canal.lien_reunion = ''
+        canal.save(update_fields=['lien_reunion'])
+        return Response(CanalSerializer(canal, context={'request': request}).data)
+
+
+class MessageCanalViewSet(viewsets.ModelViewSet):
+    serializer_class = MessageCanalSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_queryset(self):
+        qs = MessageCanal.objects.filter(
+            canal__membres_canal__user=self.request.user
+        ).select_related('expediteur', 'canal').distinct().order_by('date_envoi')
+        canal_id = self.request.query_params.get('canal')
+        if canal_id:
+            qs = qs.filter(canal_id=canal_id)
+        apres = self.request.query_params.get('apres')
+        if apres:
+            try:
+                qs = qs.filter(id__gt=int(apres))
+            except (TypeError, ValueError):
+                pass
+        return qs
+
+    def perform_create(self, serializer):
+        canal = serializer.validated_data.get('canal')
+        if canal is None or not MembreCanal.objects.filter(canal=canal, user=self.request.user).exists():
+            raise PermissionDenied("Vous n'êtes pas membre de ce canal.")
+        serializer.save(expediteur=self.request.user)
+
+    def destroy(self, request, *args, **kwargs):
+        message = self.get_object()
+        if message.expediteur_id != request.user.id and not _est_gestionnaire_canal(message.canal, request.user):
+            return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().destroy(request, *args, **kwargs)
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
