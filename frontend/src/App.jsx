@@ -4,18 +4,19 @@ import Layout from './components/layout/Layout'
 import Accueil from './components/accueil/Accueil'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
+import ForgotPassword from './components/auth/ForgotPassword'
 import DashboardAdmin from './components/dashboard/DashboardAdmin'
 import DashboardMembre from './components/dashboard/DashboardMembre'
 import DashboardJewrin from './components/dashboard/DashboardJewrin'
 import Evenements from './components/informations/Evenements'
 import News from './components/informations/News'
 import Cotisations from './components/finance/Cotisations'
-import LeveesFonds from './components/finance/LeveesFonds'
 import ProgrammeKamil from './components/culturelle/ProgrammeKamil'
 import MesProgressions from './components/culturelle/MesProgressions'
 import ValidationsKamil from './components/culturelle/ValidationsKamil'
 import ActivitesReligieuses from './components/culturelle/ActivitesReligieuses'
 import Messagerie from './components/communication/Messagerie'
+import Canaux from './components/communication/Canaux'
 import Notifications from './components/communication/Notifications'
 import ProjetsSociaux from './components/sociale/ProjetsSociaux'
 import Organisation from './components/organisation/Organisation'
@@ -25,6 +26,8 @@ import Bibliotheque from './components/bibliotheque/Bibliotheque'
 import Cours from './components/scientifique/Cours'
 import MonProfil from './components/comptes/MonProfil'
 import GestionMembres from './components/comptes/GestionMembres'
+import GestionRolesPermissions from './components/comptes/GestionRolesPermissions'
+import JournalSecurite from './components/comptes/JournalSecurite'
 
 const JEWRINE_ROLES = [
   'jewrin',
@@ -58,6 +61,7 @@ function AppRoutes() {
       <Route path="/accueil" element={<Accueil />} />
       <Route path="/login" element={user ? <Navigate to={defaultDashboard} replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to={defaultDashboard} replace /> : <Register />} />
+      <Route path="/mot-de-passe-oublie" element={user ? <Navigate to={defaultDashboard} replace /> : <ForgotPassword />} />
       <Route
         path="/"
         element={
@@ -73,12 +77,12 @@ function AppRoutes() {
         <Route path="informations/evenements" element={<Evenements />} />
         <Route path="informations/news" element={<News />} />
         <Route path="finance/cotisations" element={<Cotisations />} />
-        <Route path="finance/levees-fonds" element={<LeveesFonds />} />
         <Route path="culturelle/kamil" element={<ProgrammeKamil />} />
         <Route path="culturelle/mes-progressions" element={<MesProgressions />} />
         <Route path="culturelle/validations" element={<ValidationsKamil />} />
         <Route path="culturelle/activites-religieuses" element={<ActivitesReligieuses />} />
         <Route path="communication/messagerie" element={<Messagerie />} />
+        <Route path="communication/canaux" element={<Canaux />} />
         <Route path="communication/notifications" element={<Notifications />} />
         <Route path="sociale/projets" element={<ProjetsSociaux />} />
         <Route path="organisation" element={<Organisation />} />
@@ -88,6 +92,8 @@ function AppRoutes() {
         <Route path="scientifique/cours" element={<Cours />} />
         <Route path="comptes/profil" element={<MonProfil />} />
         <Route path="admin/membres" element={<ProtectedRoute roles={['admin']}><GestionMembres /></ProtectedRoute>} />
+        <Route path="comptes/roles-permissions" element={<ProtectedRoute roles={['admin']}><GestionRolesPermissions /></ProtectedRoute>} />
+        <Route path="comptes/journal-securite" element={<ProtectedRoute roles={['admin']}><JournalSecurite /></ProtectedRoute>} />
       </Route>
       <Route path="*" element={<Navigate to="/" replace />} />
     </Routes>

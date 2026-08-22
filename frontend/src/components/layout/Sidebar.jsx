@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import {
   Box,
@@ -30,9 +31,13 @@ import {
   Groups as OrgIcon,
   People as PeopleIcon,
   Person as PersonIcon,
+  Security as SecurityIcon,
+  History as HistoryIcon,
+  Forum as CanalIcon,
 } from '@mui/icons-material'
 import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import api from '../../services/api'
 import logo from '/logo.png'
 
 // Couleurs strictes du logo (pas de noir — tout en vert/or/beige)
@@ -61,35 +66,45 @@ const sectionsAdmin = [
       { label: 'Gestion membres', path: '/admin/membres', icon: <PeopleIcon /> },
     ],
   },
-  { title: 'Informations', items: [{ label: 'Événements', path: '/informations/evenements', icon: <EventIcon /> }, { label: 'News', path: '/informations/news', icon: <FeedIcon /> }] },
+  { title: 'Informations', items: [
+    { label: 'Événements', path: '/informations/evenements', icon: <EventIcon />, rubrique: 'informations' },
+    { label: 'News', path: '/informations/news', icon: <FeedIcon />, rubrique: 'informations' },
+  ] },
   {
     title: 'Finance',
     items: [
-      { label: 'Cotisations', path: '/finance/cotisations', icon: <FinanceIcon /> },
-      { label: 'Levées de fonds', path: '/finance/levees-fonds', icon: <FinanceIcon /> },
+      { label: 'Cotisations', path: '/finance/cotisations', icon: <FinanceIcon />, rubrique: 'finance' },
     ],
   },
   {
     title: 'Culturelle',
     items: [
-      { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon /> },
-      { label: 'Vue admin JUKKI', path: '/culturelle/validations', icon: <ValidIcon /> },
-      { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon /> },
+      { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon />, rubrique: 'culturelle' },
+      { label: 'Vue admin JUKKI', path: '/culturelle/validations', icon: <ValidIcon />, rubrique: 'culturelle', action: 'gerer' },
+      { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon />, rubrique: 'culturelle' },
     ],
   },
   {
     title: 'Communication',
     items: [
-      { label: 'Messagerie', path: '/communication/messagerie', icon: <MessageIcon /> },
-      { label: 'Notifications', path: '/communication/notifications', icon: <NotifIcon /> },
+      { label: 'Messagerie', path: '/communication/messagerie', icon: <MessageIcon />, rubrique: 'communication' },
+      { label: 'Canaux', path: '/communication/canaux', icon: <CanalIcon />, rubrique: 'communication' },
+      { label: 'Notifications', path: '/communication/notifications', icon: <NotifIcon />, rubrique: 'communication' },
     ],
   },
-  { title: 'Sociale', items: [{ label: 'Sociale', path: '/sociale/projets', icon: <SocialIcon /> }] },
-  { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon /> }] },
-  { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon /> }] },
-  { title: 'Scientifique', items: [{ label: 'Cours & Formation', path: '/scientifique/cours', icon: <ScientifiqueIcon /> }] },
-  { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation', icon: <OrgIcon /> }] },
-  { title: 'Comptes', items: [{ label: 'Mon profil', path: '/comptes/profil', icon: <PersonIcon /> }] },
+  { title: 'Sociale', items: [{ label: 'Sociale', path: '/sociale/projets', icon: <SocialIcon />, rubrique: 'sociale' }] },
+  { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon />, rubrique: 'conservatoire' }] },
+  { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon />, rubrique: 'bibliotheque' }] },
+  { title: 'Scientifique', items: [{ label: 'Cours & Formation', path: '/scientifique/cours', icon: <ScientifiqueIcon />, rubrique: 'scientifique' }] },
+  { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation', icon: <OrgIcon />, rubrique: 'organisation' }] },
+  {
+    title: 'Comptes',
+    items: [
+      { label: 'Mon profil', path: '/comptes/profil', icon: <PersonIcon /> },
+      { label: 'Rôles & Permissions', path: '/comptes/roles-permissions', icon: <SecurityIcon /> },
+      { label: 'Journal de sécurité', path: '/comptes/journal-securite', icon: <HistoryIcon /> },
+    ],
+  },
 ]
 
 const sectionsMembre = [
@@ -100,34 +115,37 @@ const sectionsMembre = [
       { label: 'Tableau de bord', path: '/membre', icon: <DashboardIcon /> },
     ],
   },
-  { title: 'Informations', items: [{ label: 'Événements', path: '/informations/evenements', icon: <EventIcon /> }, { label: 'News', path: '/informations/news', icon: <FeedIcon /> }] },
+  { title: 'Informations', items: [
+    { label: 'Événements', path: '/informations/evenements', icon: <EventIcon />, rubrique: 'informations' },
+    { label: 'News', path: '/informations/news', icon: <FeedIcon />, rubrique: 'informations' },
+  ] },
   {
     title: 'Finance',
     items: [
-      { label: 'Mes cotisations', path: '/finance/cotisations', icon: <FinanceIcon /> },
-      { label: 'Levées de fonds', path: '/finance/levees-fonds', icon: <FinanceIcon /> },
+      { label: 'Mes cotisations', path: '/finance/cotisations', icon: <FinanceIcon />, rubrique: 'finance' },
     ],
   },
   {
     title: 'Culturelle',
     items: [
-      { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon /> },
-      { label: 'Mes JUKKI', path: '/culturelle/mes-progressions', icon: <KamilIcon /> },
-      { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon /> },
+      { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon />, rubrique: 'culturelle' },
+      { label: 'Mes JUKKI', path: '/culturelle/mes-progressions', icon: <KamilIcon />, rubrique: 'culturelle' },
+      { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon />, rubrique: 'culturelle' },
     ],
   },
   {
     title: 'Communication',
     items: [
-      { label: 'Messagerie', path: '/communication/messagerie', icon: <MessageIcon /> },
-      { label: 'Notifications', path: '/communication/notifications', icon: <NotifIcon /> },
+      { label: 'Messagerie', path: '/communication/messagerie', icon: <MessageIcon />, rubrique: 'communication' },
+      { label: 'Canaux', path: '/communication/canaux', icon: <CanalIcon />, rubrique: 'communication' },
+      { label: 'Notifications', path: '/communication/notifications', icon: <NotifIcon />, rubrique: 'communication' },
     ],
   },
-  { title: 'Sociale', items: [{ label: 'Sociale', path: '/sociale/projets', icon: <SocialIcon /> }] },
-  { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon /> }] },
-  { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon /> }] },
-  { title: 'Scientifique', items: [{ label: 'Cours', path: '/scientifique/cours', icon: <ScientifiqueIcon /> }] },
-  { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation', icon: <OrgIcon /> }] },
+  { title: 'Sociale', items: [{ label: 'Sociale', path: '/sociale/projets', icon: <SocialIcon />, rubrique: 'sociale' }] },
+  { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon />, rubrique: 'conservatoire' }] },
+  { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon />, rubrique: 'bibliotheque' }] },
+  { title: 'Scientifique', items: [{ label: 'Cours', path: '/scientifique/cours', icon: <ScientifiqueIcon />, rubrique: 'scientifique' }] },
+  { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation', icon: <OrgIcon />, rubrique: 'organisation' }] },
   { title: 'Comptes', items: [{ label: 'Mon profil', path: '/comptes/profil', icon: <PersonIcon /> }] },
 ]
 
@@ -142,21 +160,34 @@ const sectionsJewrin = [
   {
     title: 'Culturelle',
     items: [
-      { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon /> },
-      { label: 'Vue admin JUKKI', path: '/culturelle/validations', icon: <ValidIcon /> },
-      { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon /> },
+      { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon />, rubrique: 'culturelle' },
+      { label: 'Vue admin JUKKI', path: '/culturelle/validations', icon: <ValidIcon />, rubrique: 'culturelle', action: 'gerer' },
+      { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon />, rubrique: 'culturelle' },
     ],
   },
-  { title: 'Informations', items: [{ label: 'Événements', path: '/informations/evenements', icon: <EventIcon /> }, { label: 'News', path: '/informations/news', icon: <FeedIcon /> }] },
+  { title: 'Informations', items: [
+    { label: 'Événements', path: '/informations/evenements', icon: <EventIcon />, rubrique: 'informations' },
+    { label: 'News', path: '/informations/news', icon: <FeedIcon />, rubrique: 'informations' },
+  ] },
+  {
+    title: 'Finance',
+    items: [
+      { label: 'Cotisations', path: '/finance/cotisations', icon: <FinanceIcon />, rubrique: 'finance' },
+    ],
+  },
   {
     title: 'Communication',
     items: [
-      { label: 'Messagerie', path: '/communication/messagerie', icon: <MessageIcon /> },
-      { label: 'Notifications', path: '/communication/notifications', icon: <NotifIcon /> },
+      { label: 'Messagerie', path: '/communication/messagerie', icon: <MessageIcon />, rubrique: 'communication' },
+      { label: 'Canaux', path: '/communication/canaux', icon: <CanalIcon />, rubrique: 'communication' },
+      { label: 'Notifications', path: '/communication/notifications', icon: <NotifIcon />, rubrique: 'communication' },
     ],
   },
-  { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon /> }] },
-  { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon /> }] },
+  { title: 'Sociale', items: [{ label: 'Sociale', path: '/sociale/projets', icon: <SocialIcon />, rubrique: 'sociale' }] },
+  { title: 'Conservatoire', items: [{ label: 'Conservatoire', path: '/conservatoire', icon: <ConservatoireIcon />, rubrique: 'conservatoire' }] },
+  { title: 'Bibliothèque', items: [{ label: 'Bibliothèque', path: '/bibliotheque', icon: <BibliothequeIcon />, rubrique: 'bibliotheque' }] },
+  { title: 'Scientifique', items: [{ label: 'Cours & Formation', path: '/scientifique/cours', icon: <ScientifiqueIcon />, rubrique: 'scientifique' }] },
+  { title: 'Organisation', items: [{ label: 'Matériels & activités', path: '/organisation', icon: <OrgIcon />, rubrique: 'organisation' }] },
   { title: 'Comptes', items: [{ label: 'Mon profil', path: '/comptes/profil', icon: <PersonIcon /> }] },
 ]
 
@@ -276,8 +307,29 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
     !!user?.role &&
     (user.role === 'jewrin' ||
       user.role.toLowerCase().startsWith('jewrine_'))
-  const sections = user?.role === 'admin' ? sectionsAdmin : isJewrine ? sectionsJewrin : sectionsMembre
+  const sectionsBrutes = user?.role === 'admin' ? sectionsAdmin : isJewrine ? sectionsJewrin : sectionsMembre
   const width = collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH
+
+  // Permissions effectives de l'utilisateur : un item taggé `rubrique` n'est affiché que si
+  // `voir` (ou `gerer` pour les items d'administration) est vrai pour cette rubrique.
+  const [permissions, setPermissions] = useState(null)
+  useEffect(() => {
+    if (!user) return
+    api.get('/auth/rbac/mes-permissions/').then(({ data }) => setPermissions(data)).catch(() => setPermissions({}))
+  }, [user?.id])
+
+  const sections = sectionsBrutes
+    .map((group) => ({
+      ...group,
+      items: group.items.filter((item) => {
+        if (!item.rubrique) return true
+        if (!permissions) return true // pendant le chargement, ne rien masquer par défaut
+        const droits = permissions[item.rubrique]
+        if (!droits) return true
+        return droits[item.action || 'voir'] !== false
+      }),
+    }))
+    .filter((group) => group.items.length > 0)
 
   const sidebarContent = (
     <Box

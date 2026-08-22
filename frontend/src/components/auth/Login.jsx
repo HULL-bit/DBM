@@ -118,6 +118,11 @@ export default function Login() {
                 ),
               }}
             />
+            <Typography variant="body2" sx={{ textAlign: 'right', mt: 0.5 }}>
+              <Link component={RouterLink} to="/mot-de-passe-oublie" underline="hover" sx={{ color: '#2D5F3F' }}>
+                Mot de passe oublié ?
+              </Link>
+            </Typography>
             <Button
               type="submit"
               fullWidth
