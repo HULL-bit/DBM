@@ -91,6 +91,21 @@ def has_admin_access(user, rubrique):
     return has_rubrique_access(user, rubrique, action='gerer')
 
 
+class IsAdminOrComptesVoir(BasePermission):
+    """Consultation de la fiche complète d'un membre (données personnelles incluses) :
+    admin/staff, ou droit explicite 'voir' sur la rubrique 'comptes' (rôle ou exception
+    par membre, configuré depuis Rôles & Permissions). Refusé par défaut sinon."""
+    def has_permission(self, request, view):
+        return has_rubrique_access(request.user, 'comptes', 'voir')
+
+
+class IsAdminOrComptesGerer(BasePermission):
+    """Création/modification/suppression d'un membre : admin/staff, ou droit explicite
+    'gérer' sur la rubrique 'comptes'. Refusé par défaut sinon."""
+    def has_permission(self, request, view):
+        return has_rubrique_access(request.user, 'comptes', 'gerer')
+
+
 class IsAdminOrJewrinRubrique(BasePermission):
     """
     Permission personnalisée qui autorise :

@@ -267,7 +267,6 @@ class KhassidaRepetee(models.Model):
     nom_khassida = models.CharField(max_length=200, help_text="Nom de la khassida")
     khassida_portion = models.CharField(max_length=200, blank=True, help_text="Portion ou partie travaillée")
     dathie = models.CharField(max_length=200, help_text="Dathie - ex : Serigne Massamba, Serigne Mahib")
-    melodie = models.CharField(max_length=200, blank=True, help_text="Mélodie à utiliser pour cette khassida")
     ordre = models.IntegerField(default=0)
 
     class Meta:

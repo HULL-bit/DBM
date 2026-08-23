@@ -298,7 +298,7 @@ class SeanceConservatoireViewSet(viewsets.ModelViewSet):
         """
         Met à jour les khassidas répétées pour cette séance (programme de répétition à
         l'avance) et notifie tous les membres du kourel concerné.
-        Payload: { "khassidas": [{"nom_khassida": "...", "dathie": "...", "khassida_portion": "...", "melodie": "...", "ordre": 0}] }
+        Payload: { "khassidas": [{"nom_khassida": "...", "dathie": "...", "khassida_portion": "...", "ordre": 0}] }
         """
         seance = self.get_object()
         data = request.data.get('khassidas', [])
@@ -314,7 +314,6 @@ class SeanceConservatoireViewSet(viewsets.ModelViewSet):
                 nom_khassida=nom,
                 dathie=dathie,
                 khassida_portion=(item.get('khassida_portion') or '').strip(),
-                melodie=(item.get('melodie') or '').strip(),
                 ordre=item.get('ordre', i)
             )
             noms.append(nom)

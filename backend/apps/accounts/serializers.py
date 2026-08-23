@@ -62,6 +62,21 @@ class UserSerializer(serializers.ModelSerializer):
         read_only_fields = ['date_inscription', 'cotisations_payees', 'chapitres_lus', 'evenements_participes']
 
 
+class UserPublicSerializer(serializers.ModelSerializer):
+    """Version allégée de l'utilisateur, sans données sensibles (adresse, numéro Wave,
+    groupe sanguin, etc.) : utilisée pour les sélecteurs de membres (création de canal,
+    kourel, notification...) accessibles à tout utilisateur authentifié, pas seulement
+    à ceux ayant un droit sur la rubrique 'comptes'."""
+    role_display = serializers.CharField(source='get_role_display', read_only=True)
+
+    class Meta:
+        model = User
+        fields = [
+            'id', 'username', 'email', 'first_name', 'last_name',
+            'telephone', 'role', 'role_display', 'photo', 'cellule', 'est_actif',
+        ]
+
+
 class UserCreateSerializer(serializers.ModelSerializer):
     password = serializers.CharField(write_only=True, min_length=8)
 

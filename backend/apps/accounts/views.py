@@ -1,7 +1,7 @@
 from rest_framework import generics, status
 from rest_framework.decorators import api_view, permission_classes, parser_classes, authentication_classes
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
-from rest_framework.permissions import IsAuthenticated, AllowAny, IsAdminUser
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.response import Response
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
@@ -9,11 +9,11 @@ from django.contrib.auth import get_user_model
 from django.utils import timezone
 
 from .serializers import (
-    UserSerializer, UserCreateSerializer, UserMeSerializer, BadgeSerializer, AttributionBadgeSerializer,
+    UserSerializer, UserPublicSerializer, UserCreateSerializer, UserMeSerializer, BadgeSerializer, AttributionBadgeSerializer,
     MatricePermissionRoleSerializer, PermissionMembreOverrideSerializer, JournalAuditSerializer,
 )
 from .models import AttributionBadge, CodeReinitialisation, MatricePermissionRole, PermissionMembreOverride, JournalAudit, RUBRIQUES
-from .permissions import IsAdminRoleOrStaff, has_rubrique_access, log_audit
+from .permissions import IsAdminRoleOrStaff, IsAdminOrComptesVoir, IsAdminOrComptesGerer, has_rubrique_access, log_audit
 
 User = get_user_model()
 
@@ -241,26 +241,31 @@ def change_password(request):
 
 
 class UserList(generics.ListAPIView):
-    # Endpoint réservé à l'admin (IsAdminRoleOrStaff ci-dessous) : tous les membres sans
-    # exception, y compris les comptes désactivés, pour les listes/filtres/recherches admin
-    # (gestion des rôles, journal d'audit, sélection de membres pour un canal, etc.).
+    # Accessible à tout utilisateur authentifié (sélection de membres pour un canal, un
+    # kourel, une notification, etc. — cf. demande "afficher tous les membres sans
+    # exception dans les créations, quel que soit leur rôle"). Le niveau de détail
+    # renvoyé dépend en revanche du droit sur la rubrique 'comptes' (voir
+    # get_serializer_class) : seuls admin/staff ou un utilisateur explicitement
+    # autorisé voient les données personnelles complètes (téléphone, adresse, etc.).
     queryset = User.objects.all().order_by('-date_inscription')
-    serializer_class = UserSerializer
-    # Admin Django (is_staff) OU admin logique (role='admin')
-    permission_classes = [IsAuthenticated, IsAdminRoleOrStaff]
+    permission_classes = [IsAuthenticated]
     filterset_fields = ['role', 'est_actif', 'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis']
     pagination_class = None  # Désactiver pagination pour afficher tous les membres
+
+    def get_serializer_class(self):
+        if has_rubrique_access(self.request.user, 'comptes', 'voir'):
+            return UserSerializer
+        return UserPublicSerializer
 
 
 class UserDetail(generics.RetrieveUpdateDestroyAPIView):
     queryset = User.objects.all()
     serializer_class = UserSerializer
-    permission_classes = [IsAuthenticated]
 
     def get_permissions(self):
         if self.request.method in ['PUT', 'PATCH', 'DELETE']:
-            return [IsAdminUser()]
-        return [IsAuthenticated()]
+            return [IsAdminOrComptesGerer()]
+        return [IsAdminOrComptesVoir()]
     
     def partial_update(self, request, *args, **kwargs):
         """Override pour s'assurer que la catégorie est bien sauvegardée"""
@@ -346,6 +351,11 @@ _DEFAULTS_PAR_ROLE = {
 
 
 def _defaults_pour(role, rubrique):
+    # 'comptes' expose des données personnelles (téléphone, adresse, numéro Wave...) :
+    # contrairement aux autres rubriques, refusé par défaut pour tout le monde sauf admin
+    # (qui contourne déjà la matrice). L'admin général doit l'activer explicitement.
+    if rubrique == 'comptes':
+        return {'peut_voir': False, 'peut_creer': False, 'peut_modifier': False, 'peut_supprimer': False, 'peut_valider': False}
     if role in _DEFAULTS_PAR_ROLE:
         return dict(_DEFAULTS_PAR_ROLE[role])
     # jewrine_<rubrique> : droits élargis sur SA rubrique, simple lecture sur les autres.
