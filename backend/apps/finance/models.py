@@ -17,7 +17,7 @@ class CotisationMensuelle(models.Model):
 
     membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='cotisations')
     type_cotisation = models.CharField(max_length=20, choices=TYPE_CHOICES, default='mensualite')
-    objet_assignation = models.CharField(max_length=200, blank=True)
+    objet_assignation = models.CharField(max_length=200, blank=True, default='')
     montant = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('1000.00'))
     mois = models.IntegerField()
     annee = models.IntegerField()

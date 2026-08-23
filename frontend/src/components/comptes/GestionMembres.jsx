@@ -90,6 +90,7 @@ export default function GestionMembres() {
   const [message, setMessage] = useState({ type: '', text: '' })
   const [openForm, setOpenForm] = useState(false)
   const [openDelete, setOpenDelete] = useState(null)
+  const [openDetail, setOpenDetail] = useState(null)
   const [form, setForm] = useState(initialForm)
   const [saving, setSaving] = useState(false)
   const [editingId, setEditingId] = useState(null)
@@ -426,8 +427,8 @@ export default function GestionMembres() {
           <Table stickyHeader size="small">
             <TableHead>
               <TableRow>
-                {['Membre', 'Rôle', 'Catégorie', 'Cellule', 'Téléphone', 'Niv. Quran', 'Niv. Majalis', 'N° carte', 'Statut', ''].map((col, i) => (
-                  <TableCell key={i} align={i === 9 ? 'right' : 'left'} sx={{
+                {['Membre', 'Rôle', 'Téléphone', 'Statut', ''].map((col, i) => (
+                  <TableCell key={i} align={i === 4 ? 'right' : 'left'} sx={{
                     bgcolor: `${C.vert}0D`, color: C.vertFonce, fontWeight: 700, fontSize: '0.78rem',
                     borderBottom: `2px solid ${C.vert}25`, whiteSpace: 'nowrap', py: 1.5,
                   }}>
@@ -439,7 +440,7 @@ export default function GestionMembres() {
             <TableBody>
               {filteredList.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={5} align="center" sx={{ py: 6 }}>
                     <People sx={{ fontSize: 44, color: '#DDD', display: 'block', mx: 'auto', mb: 1 }} />
                     <Typography sx={{ color: '#AAA' }}>Aucun membre correspondant aux filtres</Typography>
                   </TableCell>
@@ -448,12 +449,17 @@ export default function GestionMembres() {
                 filteredList.map((u, idx) => {
                   const ri = roleInfo(u.role)
                   return (
-                    <TableRow key={u.id} sx={{
-                      bgcolor: idx % 2 === 0 ? '#fff' : `${C.vert}04`,
-                      '&:hover': { bgcolor: `${C.or}14` },
-                      opacity: u.est_actif ? 1 : 0.6,
-                      transition: 'background 0.15s',
-                    }}>
+                    <TableRow
+                      key={u.id}
+                      onClick={() => setOpenDetail(u)}
+                      sx={{
+                        cursor: 'pointer',
+                        bgcolor: idx % 2 === 0 ? '#fff' : `${C.vert}04`,
+                        '&:hover': { bgcolor: `${C.or}14` },
+                        opacity: u.est_actif ? 1 : 0.6,
+                        transition: 'background 0.15s',
+                      }}
+                    >
                       <TableCell sx={{ py: 1, minWidth: 180 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
                           <Avatar
@@ -477,18 +483,7 @@ export default function GestionMembres() {
                           sx={{ bgcolor: `${ri.color}18`, color: ri.color, fontWeight: 600, fontSize: '0.7rem', border: 'none', maxWidth: 140 }}
                         />
                       </TableCell>
-                      <TableCell sx={{ py: 1, fontSize: '0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{catLabel(u.categorie)}</TableCell>
-                      <TableCell sx={{ py: 1, fontSize: '0.8rem', color: '#555', whiteSpace: 'nowrap' }}>
-                        {CELLULES.find(c => c.value === u.cellule)?.label || (u.cellule || '—')}
-                      </TableCell>
                       <TableCell sx={{ py: 1, fontSize: '0.8rem', color: '#555', whiteSpace: 'nowrap' }}>{u.telephone || '—'}</TableCell>
-                      <TableCell sx={{ py: 1, fontSize: '0.8rem', color: '#555', whiteSpace: 'nowrap' }}>
-                        {NIVEAUX.find(n => n.value === u.niveau_alquran)?.label || (u.niveau_alquran || '—')}
-                      </TableCell>
-                      <TableCell sx={{ py: 1, fontSize: '0.8rem', color: '#555', whiteSpace: 'nowrap' }}>
-                        {NIVEAUX.find(n => n.value === u.niveau_majalis)?.label || (u.niveau_majalis || '—')}
-                      </TableCell>
-                      <TableCell sx={{ py: 1, fontSize: '0.8rem', color: '#555' }}>{u.numero_carte || '—'}</TableCell>
                       <TableCell sx={{ py: 1 }}>
                         <Chip
                           label={u.est_actif ? 'Actif' : 'Inactif'}
@@ -501,7 +496,7 @@ export default function GestionMembres() {
                           }}
                         />
                       </TableCell>
-                      <TableCell align="right" sx={{ py: 1, whiteSpace: 'nowrap' }}>
+                      <TableCell align="right" sx={{ py: 1, whiteSpace: 'nowrap' }} onClick={(e) => e.stopPropagation()}>
                         <Tooltip title="Modifier" arrow>
                           <IconButton size="small" onClick={() => handleOpenEdit(u)} sx={{ color: C.vert, '&:hover': { bgcolor: `${C.vert}15` } }}>
                             <Edit sx={{ fontSize: 16 }} />
@@ -624,6 +619,79 @@ export default function GestionMembres() {
             {saving ? <CircularProgress size={22} sx={{ color: '#fff' }} /> : 'Supprimer'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Fiche détail membre */}
+      <Dialog open={!!openDetail} onClose={() => setOpenDetail(null)} maxWidth="sm" fullWidth>
+        {openDetail && (
+          <>
+            <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: `${C.vert}08`, borderBottom: `1px solid ${C.vert}1A` }}>
+              Dossier du membre
+              <IconButton size="small" onClick={() => setOpenDetail(null)}><Close /></IconButton>
+            </DialogTitle>
+            <DialogContent sx={{ pt: 3 }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 3 }}>
+                <Avatar
+                  src={getMediaUrl(openDetail.photo, openDetail.photo_updated_at ? `v=${openDetail.photo_updated_at}` : '')}
+                  sx={{ width: 88, height: 88, bgcolor: roleInfo(openDetail.role).color, fontSize: '1.8rem', fontWeight: 700 }}
+                >
+                  {openDetail.first_name?.[0]}{openDetail.last_name?.[0]}
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 700, color: C.vertFonce }}>
+                    {openDetail.sexe === 'M' ? 'Señ ' : openDetail.sexe === 'F' ? 'Soxna ' : ''}{openDetail.first_name} {openDetail.last_name}
+                  </Typography>
+                  <Chip label={openDetail.role_display || roleInfo(openDetail.role).label} size="small"
+                    sx={{ bgcolor: `${roleInfo(openDetail.role).color}18`, color: roleInfo(openDetail.role).color, fontWeight: 600, mt: 0.5 }} />
+                  <Chip
+                    label={openDetail.est_actif ? 'Actif' : 'Inactif'} size="small"
+                    sx={{ ml: 1, mt: 0.5, bgcolor: openDetail.est_actif ? '#E8F5E9' : '#F5F5F5', color: openDetail.est_actif ? '#2E7D32' : '#757575', fontWeight: 700 }}
+                  />
+                </Box>
+              </Box>
+
+              <Grid container spacing={2}>
+                {[
+                  ['Identifiant', openDetail.username],
+                  ['Email', openDetail.email],
+                  ['Téléphone', openDetail.telephone],
+                  ['Numéro Wave', openDetail.numero_wave],
+                  ['Numéro de carte', openDetail.numero_carte],
+                  ['Sexe', openDetail.sexe === 'M' ? 'Masculin' : openDetail.sexe === 'F' ? 'Féminin' : ''],
+                  ['Catégorie', catLabel(openDetail.categorie)],
+                  ['Profession', openDetail.profession],
+                  ['Spécialité', openDetail.specialite],
+                  ['Cellule', CELLULES.find(c => c.value === openDetail.cellule)?.label],
+                  ['Groupe sanguin', openDetail.groupe_sanguin],
+                  ['Niveau Al-Quran', NIVEAUX.find(n => n.value === openDetail.niveau_alquran)?.label],
+                  ['Niveau Majalis', NIVEAUX.find(n => n.value === openDetail.niveau_majalis)?.label],
+                  ['Adresse', openDetail.adresse],
+                  ['Inscrit le', openDetail.date_inscription ? new Date(openDetail.date_inscription).toLocaleDateString('fr-FR') : ''],
+                  ['Cotisations payées', openDetail.cotisations_payees],
+                  ['Chapitres lus', openDetail.chapitres_lus],
+                  ['Événements participés', openDetail.evenements_participes],
+                ].filter(([, v]) => v !== undefined && v !== null && v !== '').map(([label, value]) => (
+                  <Grid item xs={6} key={label}>
+                    <Typography variant="caption" sx={{ color: '#999', display: 'block' }}>{label}</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 600, color: '#333' }}>{value}</Typography>
+                  </Grid>
+                ))}
+                {openDetail.biographie && (
+                  <Grid item xs={12}>
+                    <Typography variant="caption" sx={{ color: '#999', display: 'block' }}>Biographie</Typography>
+                    <Typography variant="body2" sx={{ color: '#333' }}>{openDetail.biographie}</Typography>
+                  </Grid>
+                )}
+              </Grid>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setOpenDetail(null)} sx={{ color: '#666' }}>Fermer</Button>
+              <Button variant="contained" onClick={() => { setOpenDetail(null); handleOpenEdit(openDetail) }} sx={{ bgcolor: C.vert, '&:hover': { bgcolor: C.vertFonce } }}>
+                Modifier
+              </Button>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
     </Box>
   )

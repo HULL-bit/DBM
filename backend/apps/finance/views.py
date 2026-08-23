@@ -68,11 +68,10 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
                 {'detail': 'Veuillez sélectionner au moins un membre.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        
-        # Valider les données de base
-        serializer = self.get_serializer(data=cotisation_data)
-        serializer.is_valid(raise_exception=True)
-        
+
+        # La validation complète (avec le champ membre) se fait par membre dans la boucle
+        # ci-dessous : valider `cotisation_data` seul échouerait toujours ici puisqu'il ne
+        # contient pas encore de membre (champ obligatoire du modèle).
         created_cotisations = []
         skipped_count = 0
         errors = []

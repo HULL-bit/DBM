@@ -36,8 +36,6 @@ const WAVE_PAYMENT_URL = 'https://pay.wave.com/m/M_sn_A4og8Zu7m589/c/sn/'
 const STATUTS = [
   { value: 'en_attente', label: 'En attente' },
   { value: 'payee', label: 'Payée' },
-  // On affiche "En cours" pour les cotisations en retard / non terminées
-  { value: 'retard', label: 'En cours' },
   { value: 'annulee', label: 'Annulée' },
 ]
 const MODES_PAIEMENT = [
@@ -316,13 +314,10 @@ export default function Cotisations() {
 
   const statutColor = (s) => {
     const statutLower = String(s || '').toLowerCase()
-    return statutLower === 'payee' ? 'success' : statutLower === 'retard' ? 'warning' : 'default'
+    return statutLower === 'payee' ? 'success' : 'default'
   }
-  
-  const canPayCotisation = (c) => {
-    const statutLower = String(c.statut || '').toLowerCase()
-    return statutLower === 'en_attente' || statutLower === 'retard'
-  }
+
+  const canPayCotisation = (c) => String(c.statut || '').toLowerCase() === 'en_attente'
 
   const handleExportRapport = async () => {
     const { format, annee, mois } = rapportExport
@@ -660,8 +655,9 @@ export default function Cotisations() {
                 const isAssignation = c.type_cotisation === 'assignation'
                 const isPaid = String(c.statut || '').toLowerCase() === 'payee'
                 const canPay = canPayCotisation(c)
+                const dejaDeclare = canPay && !!c.reference_wave
                 const isMine = Number(c.membre) === Number(user?.id)
-                const estConfirmable = ['en_attente', 'retard'].includes(c.statut)
+                const estConfirmable = c.statut === 'en_attente'
                 return (
                   <TableRow key={c.id} hover selected={selection.includes(c.id)}>
                     {isAdmin && (
@@ -705,13 +701,17 @@ export default function Cotisations() {
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
                         {(isMine || !isAdmin) && canPay && (
-                          <Button
-                            size="small" variant="contained" startIcon={<Payment />}
-                            onClick={() => handleOpenPayer(c)}
-                            sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce }, borderRadius: 1.5, whiteSpace: 'nowrap' }}
-                          >
-                            Payer
-                          </Button>
+                          dejaDeclare ? (
+                            <Chip size="small" label="En attente de confirmation" sx={{ bgcolor: `${COLORS.or}25`, color: COLORS.vertFonce, fontWeight: 600 }} />
+                          ) : (
+                            <Button
+                              size="small" variant="contained" startIcon={<Payment />}
+                              onClick={() => handleOpenPayer(c)}
+                              sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce }, borderRadius: 1.5, whiteSpace: 'nowrap' }}
+                            >
+                              Payer
+                            </Button>
+                          )
                         )}
                         {isAdmin && (
                           <>
