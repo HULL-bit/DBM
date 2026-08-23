@@ -138,6 +138,10 @@ class MessageCanal(models.Model):
     duree = models.IntegerField(null=True, blank=True, help_text="Durée en secondes (audio/vidéo)")
     date_envoi = models.DateTimeField(auto_now_add=True)
     repond_a = models.ForeignKey('self', on_delete=models.SET_NULL, null=True, blank=True, related_name='reponses')
+    masque_pour = models.ManyToManyField(
+        CustomUser, related_name='messages_canaux_masques', blank=True,
+        help_text="Membres ayant supprimé ce message de leur côté uniquement (le message reste visible pour les autres)"
+    )
 
     class Meta:
         verbose_name = 'Message de Canal'

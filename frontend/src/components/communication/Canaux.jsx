@@ -23,6 +23,8 @@ import {
   Divider,
   Tooltip,
   Checkbox,
+  Menu,
+  MenuItem,
 } from '@mui/material'
 import {
   Add,
@@ -38,6 +40,7 @@ import {
   Delete,
   InsertDriveFile,
   Download,
+  MoreVert,
 } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
@@ -59,16 +62,49 @@ function detecterTypeMessage(file) {
   return 'document'
 }
 
-function Bulle({ msg, estMoi }) {
+function Bulle({ msg, estMoi, peutSupprimerPourTous, onSupprimerPourMoi, onSupprimerPourTous }) {
   const url = msg.fichier ? getMediaUrl(msg.fichier) : null
+  const photoUrl = msg.expediteur_photo ? getMediaUrl(msg.expediteur_photo) : null
+  const [menuAnchor, setMenuAnchor] = useState(null)
   return (
-    <Box sx={{ display: 'flex', justifyContent: estMoi ? 'flex-end' : 'flex-start', mb: 1.5 }}>
+    <Box
+      className="bulle-canal"
+      sx={{ display: 'flex', justifyContent: estMoi ? 'flex-end' : 'flex-start', alignItems: 'flex-end', gap: 1, mb: 1.5, '&:hover .bulle-actions': { opacity: 1 } }}
+    >
+      {!estMoi && (
+        <Avatar src={photoUrl} sx={{ width: 30, height: 30, bgcolor: COLORS.vert, fontSize: '0.7rem', flexShrink: 0 }}>
+          {initials(msg.expediteur_nom)}
+        </Avatar>
+      )}
+      {estMoi && (
+        <IconButton
+          size="small"
+          className="bulle-actions"
+          onClick={(e) => setMenuAnchor(e.currentTarget)}
+          sx={{ opacity: 0, transition: 'opacity 0.2s', order: -1 }}
+        >
+          <MoreVert fontSize="small" />
+        </IconButton>
+      )}
       <Box sx={{ maxWidth: '75%' }}>
         {!estMoi && (
-          <Typography variant="caption" sx={{ color: COLORS.vert, fontWeight: 600, ml: 1 }}>
-            {msg.expediteur_nom}
-          </Typography>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+            <Typography variant="caption" sx={{ color: COLORS.vert, fontWeight: 700, ml: 1 }}>
+              {msg.expediteur_nom}
+            </Typography>
+            <IconButton size="small" className="bulle-actions" onClick={(e) => setMenuAnchor(e.currentTarget)} sx={{ opacity: 0, transition: 'opacity 0.2s', p: 0.25 }}>
+              <MoreVert sx={{ fontSize: 16 }} />
+            </IconButton>
+          </Box>
         )}
+        <Menu anchorEl={menuAnchor} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
+          <MenuItem onClick={() => { setMenuAnchor(null); onSupprimerPourMoi(msg) }}>Supprimer pour moi</MenuItem>
+          {peutSupprimerPourTous && (
+            <MenuItem onClick={() => { setMenuAnchor(null); onSupprimerPourTous(msg) }} sx={{ color: 'error.main' }}>
+              Supprimer pour tout le monde
+            </MenuItem>
+          )}
+        </Menu>
         <Paper
           sx={{
             p: 1.25,
@@ -283,6 +319,24 @@ export default function Canaux() {
     }
   }
 
+  const handleSupprimerPourMoi = async (msg) => {
+    try {
+      await api.post(`/communication/messages-canaux/${msg.id}/masquer/`)
+      setMessages((prev) => prev.filter((m) => m.id !== msg.id))
+    } catch {
+      setMessage({ type: 'error', text: 'Erreur lors de la suppression.' })
+    }
+  }
+
+  const handleSupprimerPourTous = async (msg) => {
+    try {
+      await api.delete(`/communication/messages-canaux/${msg.id}/`)
+      setMessages((prev) => prev.filter((m) => m.id !== msg.id))
+    } catch {
+      setMessage({ type: 'error', text: 'Erreur lors de la suppression.' })
+    }
+  }
+
   const handleAjouterMembre = async () => {
     if (!nouveauMembre || !canalSelectionne) return
     try {
@@ -389,7 +443,14 @@ export default function Canaux() {
 
             <Box sx={{ flex: 1, overflowY: 'auto', p: 2, bgcolor: `${COLORS.or}06` }}>
               {messages.map((m) => (
-                <Bulle key={m.id} msg={m} estMoi={m.expediteur === user?.id} />
+                <Bulle
+                  key={m.id}
+                  msg={m}
+                  estMoi={m.expediteur === user?.id}
+                  peutSupprimerPourTous={m.expediteur === user?.id || canalSelectionne?.est_admin_canal}
+                  onSupprimerPourMoi={handleSupprimerPourMoi}
+                  onSupprimerPourTous={handleSupprimerPourTous}
+                />
               ))}
               <div ref={messagesEndRef} />
             </Box>

@@ -536,7 +536,7 @@ class MessageCanalViewSet(viewsets.ModelViewSet):
     def get_queryset(self):
         qs = MessageCanal.objects.filter(
             canal__membres_canal__user=self.request.user
-        ).select_related('expediteur', 'canal').distinct().order_by('date_envoi')
+        ).exclude(masque_pour=self.request.user).select_related('expediteur', 'canal').distinct().order_by('date_envoi')
         canal_id = self.request.query_params.get('canal')
         if canal_id:
             qs = qs.filter(canal_id=canal_id)
@@ -563,10 +563,20 @@ class MessageCanalViewSet(viewsets.ModelViewSet):
         )
 
     def destroy(self, request, *args, **kwargs):
+        """Suppression pour tout le monde : réservée à l'auteur du message ou à un
+        gestionnaire du canal (voir `masquer` pour une suppression côté membre uniquement)."""
         message = self.get_object()
         if message.expediteur_id != request.user.id and not _est_gestionnaire_canal(message.canal, request.user):
             return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
         return super().destroy(request, *args, **kwargs)
+
+    @action(detail=True, methods=['post'])
+    def masquer(self, request, pk=None):
+        """Supprime ce message uniquement du côté du membre courant : il reste visible pour
+        les autres membres du canal (équivalent « Supprimer pour moi »)."""
+        message = self.get_object()
+        message.masque_pour.add(request.user)
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 class NotificationViewSet(viewsets.ModelViewSet):
