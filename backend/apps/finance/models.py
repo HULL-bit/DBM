@@ -23,6 +23,10 @@ class CotisationMensuelle(models.Model):
     annee = models.IntegerField()
     date_echeance = models.DateField()
     date_paiement = models.DateTimeField(null=True, blank=True)
+    date_declaration = models.DateTimeField(
+        null=True, blank=True,
+        help_text="Date à laquelle le membre a déclaré son paiement, avant confirmation par le chargé de finance"
+    )
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente')
     reference_wave = models.CharField(max_length=100, blank=True)
     mode_paiement = models.CharField(max_length=50, default='wave')

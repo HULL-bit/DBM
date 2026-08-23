@@ -3,6 +3,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db.models import Sum, Q
+from django.utils import timezone
 from decimal import Decimal
 from apps.accounts.permissions import IsAdminOrJewrinFinance, has_admin_access
 
@@ -237,7 +238,8 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
         mode_paiement = request.data.get('mode_paiement', 'wave')
         cotisation.reference_wave = reference_wave or cotisation.reference_wave
         cotisation.mode_paiement = mode_paiement
-        cotisation.save(update_fields=['reference_wave', 'mode_paiement'])
+        cotisation.date_declaration = timezone.now()
+        cotisation.save(update_fields=['reference_wave', 'mode_paiement', 'date_declaration'])
         return Response(CotisationMensuelleSerializer(cotisation).data)
 
 

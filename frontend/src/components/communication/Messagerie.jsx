@@ -820,6 +820,8 @@ export default function Messagerie() {
                               sx={{
                                 display: 'flex',
                                 justifyContent: isSent ? 'flex-end' : 'flex-start',
+                                alignItems: 'flex-end',
+                                gap: 1,
                                 mb: 1.5,
                                 position: 'relative',
                                 '&:hover .message-actions': {
@@ -827,6 +829,14 @@ export default function Messagerie() {
                                 },
                               }}
                             >
+                              {!isSent && (
+                                <Avatar
+                                  src={selectedContact?.contact_photo ? getMediaUrl(selectedContact.contact_photo, selectedContact.contact_photo_updated_at ? `v=${selectedContact.contact_photo_updated_at}` : '') : null}
+                                  sx={{ width: 28, height: 28, fontSize: '0.7rem', flexShrink: 0 }}
+                                >
+                                  {msg.expediteur_nom?.charAt(0)?.toUpperCase()}
+                                </Avatar>
+                              )}
                               <Box
                                 sx={{
                                   maxWidth: { xs: '85%', md: '70%' },

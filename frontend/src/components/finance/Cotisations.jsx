@@ -680,7 +680,7 @@ export default function Cotisations() {
                 const isAssignation = c.type_cotisation === 'assignation'
                 const isPaid = String(c.statut || '').toLowerCase() === 'payee'
                 const canPay = canPayCotisation(c)
-                const dejaDeclare = canPay && !!c.reference_wave
+                const dejaDeclare = canPay && !!c.date_declaration
                 const isMine = Number(c.membre) === Number(user?.id)
                 const estConfirmable = c.statut === 'en_attente'
                 return (
