@@ -1,4 +1,3 @@
-from django.conf import settings
 from django.db.models import Q
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
@@ -594,25 +593,25 @@ class NotificationViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def create(self, request, *args, **kwargs):
-        """Créer une notification.
+        """Créer une notification (accessible à quiconque a déjà passé get_permissions() ci-dessus,
+        donc admin/jewrin/jewrine_communication ou un membre explicitement autorisé sur la
+        rubrique 'communication' — pas seulement is_staff/role=='admin').
 
-        - Par défaut : envoyée à tous les membres (utilisateurs actifs)
-        - Optionnel : si `destinataires` est fourni (liste d'IDs utilisateur),
-          la notification est envoyée uniquement à ces membres.
+        Trois modes, portés par `destinataires` (liste d'IDs utilisateur) :
+        - absent/vide : envoyée à tous les membres actifs (notification générale)
+        - fourni : envoyée uniquement à ces membres (sélection manuelle, ou résolue côté
+          frontend à partir des membres d'un canal ciblé)
         """
-        if not (request.user.is_staff or getattr(request.user, 'role', None) == 'admin'):
-            return super().create(request, *args, **kwargs)
         from apps.accounts.models import CustomUser
         type_notification = request.data.get('type_notification', 'info')
-        titre = request.data.get('titre', '')
+        titre = (request.data.get('titre') or '').strip()
         message = request.data.get('message', '')
         lien = request.data.get('lien', '')
         destinataires = request.data.get('destinataires')  # attendu: liste d'IDs
-        if not titre or not message:
-            return Response(
-                {'detail': 'Titre et message requis.'},
-                status=status.HTTP_400_BAD_REQUEST
-            )
+        if not message:
+            return Response({'detail': 'Message requis.'}, status=status.HTTP_400_BAD_REQUEST)
+        if not titre:
+            titre = dict(Notification.TYPE_CHOICES).get(type_notification, 'Notification')
 
         # Si une liste explicite de destinataires est fournie, on la respecte
         user_ids = None
@@ -631,7 +630,7 @@ class NotificationViewSet(viewsets.ModelViewSet):
                     .values_list('id', flat=True)
                 )
 
-        # Sinon, fallback : tous les utilisateurs actifs = tous les membres
+        # Sinon, fallback : tous les utilisateurs actifs = tous les membres (notification générale)
         if user_ids is None:
             user_ids = list(CustomUser.objects.filter(is_active=True).values_list('id', flat=True))
 
@@ -640,27 +639,14 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 {'detail': 'Aucun membre à notifier.'},
                 status=status.HTTP_400_BAD_REQUEST
             )
-        batch = [
-            Notification(
-                utilisateur_id=user_id,
-                type_notification=type_notification,
-                titre=titre,
-                message=message,
-                lien=lien or '',
-            )
-            for user_id in user_ids
-        ]
-        Notification.objects.bulk_create(batch)
-        nb_membres = len(batch)
 
-        # Notification externe (WhatsApp / SMS via passerelle) :
-        # - type "evenement" ou "systeme" ou "finance"
-        # - et uniquement pour les membres sélectionnés / tous les membres actifs selon user_ids
-        from apps.accounts.models import CustomUser  # import local pour éviter les boucles
+        from .notifications import creer_notifications
+        creer_notifications(user_ids, type_notification, titre, message, lien=lien or '')
+        nb_membres = len(user_ids)
+
+        # En plus du push navigateur (ci-dessus) : passerelle WhatsApp/SMS pour les types
+        # à forte importance, vers les membres sélectionnés / tous les membres actifs.
         if type_notification in ['evenement', 'systeme', 'finance']:
-            from django.conf import settings
-            if getattr(settings, "DEBUG", False):
-                print(f"[PUSH] Notification type={type_notification}, user_ids={user_ids}")
             utilisateurs = CustomUser.objects.filter(id__in=user_ids).only('id', 'first_name', 'last_name', 'username', 'telephone')
             texte = f"[{type_notification.upper()}] {titre}\n\n{message}"
             if lien:
@@ -672,15 +658,6 @@ class NotificationViewSet(viewsets.ModelViewSet):
             {'detail': f'1 message envoyé à {nb_membres} membre(s).', 'count': nb_membres},
             status=status.HTTP_201_CREATED
         )
-
-    def perform_create(self, serializer):
-        utilisateur_id = self.request.data.get('utilisateur')
-        if utilisateur_id and (self.request.user.is_staff or self.request.user.role == 'admin'):
-            from apps.accounts.models import CustomUser
-            user = CustomUser.objects.filter(id=utilisateur_id).first()
-            serializer.save(utilisateur=user or self.request.user)
-        else:
-            serializer.save(utilisateur=self.request.user)
 
     @action(detail=True, methods=['post'])
     def marquer_lue(self, request, pk=None):
