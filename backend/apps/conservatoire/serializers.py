@@ -124,6 +124,8 @@ class KourelSerializer(serializers.ModelSerializer):
 class PresenceSeanceSerializer(serializers.ModelSerializer):
     membre_nom = serializers.SerializerMethodField()
     statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    seance_titre = serializers.CharField(source='seance.titre', read_only=True)
+    seance_date = serializers.DateTimeField(source='seance.date_heure', read_only=True)
 
     def get_membre_nom(self, obj):
         return obj.membre.get_full_name() if obj.membre else ''

@@ -188,10 +188,12 @@ export default function SeancesPage({ onBack }) {
   }
 
   const handleSave = async () => {
-    if (!form.kourel || !form.titre || !form.date_heure) { setMsg({ type: 'error', text: 'Kourel, titre et date requis.' }); return }
+    if (!form.kourel || !form.date_heure) { setMsg({ type: 'error', text: 'Kourel et date requis.' }); return }
     setSaving(true); setMsg({ type: '', text: '' })
     try {
-      const payload = { kourel: form.kourel, type_seance: form.type_seance, titre: form.titre, description: form.description || '', date_heure: form.date_heure, heure_fin: form.heure_fin || null, lieu: form.lieu || '' }
+      const kourelNom = kourels.find(k => k.id === form.kourel)?.nom || ''
+      const titreAuto = form.titre?.trim() || `${form.type_seance === 'prestation' ? 'Prestation' : 'Répétition'} — ${kourelNom}`
+      const payload = { kourel: form.kourel, type_seance: form.type_seance, titre: titreAuto, description: form.description || '', date_heure: form.date_heure, heure_fin: form.heure_fin || null, lieu: form.lieu || '' }
       let seanceId = editId
       if (editId) {
         await api.patch(`/conservatoire/seances/${editId}/`, payload)
@@ -376,7 +378,7 @@ export default function SeancesPage({ onBack }) {
               </TextField>
             </Grid>
             <Grid item xs={12}>
-              <TextField fullWidth label="Titre *" value={form.titre} onChange={e => setForm(f => ({ ...f, titre: e.target.value }))} />
+              <TextField fullWidth label="Titre (optionnel — généré automatiquement sinon)" value={form.titre} onChange={e => setForm(f => ({ ...f, titre: e.target.value }))} />
             </Grid>
             <Grid item xs={12} sm={6}>
               <TextField fullWidth type="datetime-local" label="Date et heure de début *" value={form.date_heure} onChange={e => setForm(f => ({ ...f, date_heure: e.target.value }))} InputLabelProps={{ shrink: true }} />

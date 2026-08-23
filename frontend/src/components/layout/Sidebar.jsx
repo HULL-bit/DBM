@@ -317,7 +317,15 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
   const [permissions, setPermissions] = useState(null)
   useEffect(() => {
     if (!user) return
-    api.get('/auth/rbac/mes-permissions/').then(({ data }) => setPermissions(data)).catch(() => setPermissions({}))
+    const loadPermissions = () => {
+      api.get('/auth/rbac/mes-permissions/').then(({ data }) => setPermissions(data)).catch(() => {})
+    }
+    loadPermissions()
+    // Un admin peut changer les permissions d'un membre pendant que celui-ci est déjà
+    // connecté : on rafraîchit régulièrement pour que le menu reflète l'état réel sans
+    // attendre une reconnexion.
+    const t = setInterval(loadPermissions, 60000)
+    return () => clearInterval(t)
   }, [user?.id])
 
   const sections = sectionsBrutes

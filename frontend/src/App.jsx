@@ -27,6 +27,7 @@ import Bibliotheque from './components/bibliotheque/Bibliotheque'
 import Cours from './components/scientifique/Cours'
 import MonProfil from './components/comptes/MonProfil'
 import GestionMembres from './components/comptes/GestionMembres'
+import FicheMembre from './components/comptes/FicheMembre'
 import GestionRolesPermissions from './components/comptes/GestionRolesPermissions'
 import JournalSecurite from './components/comptes/JournalSecurite'
 
@@ -94,6 +95,7 @@ function AppRoutes() {
         <Route path="scientifique/cours" element={<Cours />} />
         <Route path="comptes/profil" element={<MonProfil />} />
         <Route path="admin/membres" element={<ProtectedRoute roles={['admin']}><GestionMembres /></ProtectedRoute>} />
+        <Route path="admin/membres/:id" element={<ProtectedRoute roles={['admin']}><FicheMembre /></ProtectedRoute>} />
         <Route path="comptes/roles-permissions" element={<ProtectedRoute roles={['admin']}><GestionRolesPermissions /></ProtectedRoute>} />
         <Route path="comptes/journal-securite" element={<ProtectedRoute roles={['admin']}><JournalSecurite /></ProtectedRoute>} />
       </Route>
