@@ -284,7 +284,7 @@ export default function LeveesFonds() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Box>
-          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }} gutterBottom>Levées de fonds</Typography>
+          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600, fontSize: { xs: '1.5rem', sm: '2.125rem' } }} gutterBottom>Levées de fonds</Typography>
           <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>Campagnes en cours et participation</Typography>
         </Box>
         {isAdmin && (

@@ -22,6 +22,8 @@ import {
   CircularProgress,
   Tabs,
   Tab,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import { Add, Delete, CheckCircle, Cancel, TableChart, PictureAsPdf, AttachFile } from '@mui/icons-material'
 import api from '../../services/api'
@@ -43,6 +45,8 @@ const CATEGORIES = [
 const statutColor = (s) => (s === 'validee' ? 'success' : s === 'refusee' ? 'error' : 'default')
 
 export default function GestionDepenses() {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const [tab, setTab] = useState('bilan')
   const [message, setMessage] = useState({ type: '', text: '' })
 
@@ -154,8 +158,8 @@ export default function GestionDepenses() {
 
   return (
     <Box>
-      <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600, mb: 0.5 }}>Dépenses & Bilan</Typography>
-      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+      <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600, mb: 0.5, fontSize: { xs: '1.5rem', sm: '2.125rem' } }}>Dépenses & Bilan</Typography>
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>
         Suivi des charges par type (Magal, Gamou, ...) : collecté, dépenses, reste.
       </Typography>
 
@@ -184,12 +188,12 @@ export default function GestionDepenses() {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2, flexWrap: 'wrap' }}>
             <TextField
               size="small" label="Année (optionnel)" type="number" value={annee}
-              onChange={(e) => setAnnee(e.target.value)} sx={{ width: 160 }}
+              onChange={(e) => setAnnee(e.target.value)} sx={{ width: { xs: '100%', sm: 160 } }}
             />
-            <Button size="small" variant="outlined" startIcon={<TableChart />} disabled={exporting} onClick={() => handleExportBilan('excel')} sx={{ borderColor: COLORS.vert, color: COLORS.vert }}>
+            <Button fullWidth={isMobile} size="small" variant="outlined" startIcon={<TableChart />} disabled={exporting} onClick={() => handleExportBilan('excel')} sx={{ borderColor: COLORS.vert, color: COLORS.vert }}>
               Export Excel
             </Button>
-            <Button size="small" variant="outlined" startIcon={<PictureAsPdf />} disabled={exporting} onClick={() => handleExportBilan('pdf')} sx={{ borderColor: COLORS.vert, color: COLORS.vert }}>
+            <Button fullWidth={isMobile} size="small" variant="outlined" startIcon={<PictureAsPdf />} disabled={exporting} onClick={() => handleExportBilan('pdf')} sx={{ borderColor: COLORS.vert, color: COLORS.vert }}>
               Export PDF
             </Button>
           </Box>

@@ -26,6 +26,8 @@ import {
   Tabs,
   Tab,
   Checkbox,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import { Add, Edit, Delete, Payment, TableChart } from '@mui/icons-material'
 import api from '../../services/api'
@@ -55,6 +57,8 @@ const MOIS_LABELS = MOIS.reduce((acc, m) => {
 }, {})
 
 export default function Cotisations() {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const { user, peut } = useAuth()
   // Admin global, jewrin général, chargé de finance (jewrine_finance), ou exception accordée
   // par l'admin via Rôles & Permissions — pas seulement un rôle codé en dur.
@@ -438,15 +442,15 @@ export default function Cotisations() {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: 3 }}>
         <Box>
-          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }} gutterBottom>Cotisations</Typography>
-          <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>{isAdmin ? 'Gérer les cotisations mensuelles (assignations par membre)' : 'Mes cotisations (assignations créées par l\'admin)'}</Typography>
+          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600, fontSize: { xs: '1.5rem', sm: '2.125rem' } }} gutterBottom>Cotisations</Typography>
+          <Typography variant="body2" sx={{ color: COLORS.vertFonce, fontSize: { xs: '0.75rem', sm: '0.875rem' } }}>{isAdmin ? 'Gérer les cotisations mensuelles (assignations par membre)' : 'Mes cotisations (assignations créées par l\'admin)'}</Typography>
         </Box>
         {isAdmin && (
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            <Button variant="outlined" startIcon={<TableChart />} onClick={() => { setRapportExport({ format: 'excel' }); setOpenRapportExport(true) }} sx={{ borderColor: COLORS.vert, color: COLORS.vert }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', width: { xs: '100%', sm: 'auto' } }}>
+            <Button fullWidth={isMobile} size={isMobile ? 'small' : 'medium'} variant="outlined" startIcon={<TableChart />} onClick={() => { setRapportExport({ format: 'excel' }); setOpenRapportExport(true) }} sx={{ borderColor: COLORS.vert, color: COLORS.vert }}>
               Exporter rapport
             </Button>
-            <Button variant="contained" startIcon={<Add />} onClick={handleOpenAdd} sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
+            <Button fullWidth={isMobile} size={isMobile ? 'small' : 'medium'} variant="contained" startIcon={<Add />} onClick={handleOpenAdd} sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
               Créer une cotisation
             </Button>
           </Box>
