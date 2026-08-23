@@ -3,6 +3,7 @@ import {
   Box, Typography, Grid, Card, CardContent, Button, IconButton, Avatar,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
   Alert, CircularProgress, Chip, Checkbox, Paper, Tooltip,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
 } from '@mui/material'
 import { ArrowBack, Add, Edit, Delete, Groups, Star, Person, Close, ArrowForward, KeyboardArrowUp, KeyboardArrowDown, PictureAsPdf } from '@mui/icons-material'
 import api from '../../services/api'
@@ -231,103 +232,6 @@ function CircularMembersView({ kourel, allUsers }) {
   )
 }
 
-function KourelCard({ k, isSelected, allUsers, canManage, onSelect, onEdit, onDelete }) {
-  const members = (() => {
-    const ids = Array.isArray(k.membres) ? k.membres.map(x => (typeof x === 'object' ? x?.id : x)).filter(Boolean) : []
-    return ids.map(id => allUsers.find(u => u.id === id)).filter(Boolean)
-  })()
-  const maitre = allUsers.find(u => u.id === k.maitre_de_coeur)
-
-  // Small badges for encadrement
-  const encadrementBadges = [
-    { nom: k.responsable_nom, color: ROLE_COLORS.responsable, label: 'Resp.' },
-    { nom: k.maitre_de_coeur_2_nom, color: ROLE_COLORS.suivi, label: 'Suivi' },
-    { nom: k.jewrine_nom, color: ROLE_COLORS.jewrine, label: 'Jew.' },
-  ].filter(b => !!b.nom)
-
-  return (
-    <Card
-      onClick={onSelect}
-      sx={{
-        cursor: 'pointer', borderRadius: 2.5,
-        border: `2px solid ${isSelected ? C.or : 'transparent'}`,
-        boxShadow: isSelected ? `0 0 0 2px ${C.or}40` : 1,
-        transition: 'all 0.2s',
-        '&:hover': { border: `2px solid ${C.or}`, transform: 'translateY(-2px)', boxShadow: 3 },
-      }}
-    >
-      <Box sx={{ height: 4, bgcolor: isSelected ? C.or : `${C.vert}60` }} />
-      <CardContent sx={{ p: 2 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-          <Typography variant="subtitle1" sx={{ fontWeight: 700, color: C.vert }}>{k.nom}</Typography>
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
-            {canManage && (
-              <>
-                <IconButton size="small" onClick={e => { e.stopPropagation(); onEdit() }} sx={{ color: C.vert }}><Edit fontSize="small" /></IconButton>
-                <IconButton size="small" color="error" onClick={e => { e.stopPropagation(); onDelete() }}><Delete fontSize="small" /></IconButton>
-              </>
-            )}
-          </Box>
-        </Box>
-
-        {/* Maitre */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-          <Star sx={{ fontSize: 14, color: C.or }} />
-          <Typography variant="caption" color="text.secondary">
-            Maître : <strong>{maitre ? fullName(maitre) : (k.maitre_de_coeur_nom || '—')}</strong>
-          </Typography>
-        </Box>
-
-        {/* Member avatars preview */}
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, flexWrap: 'wrap' }}>
-          {members.slice(0, 6).map(m => (
-            <Tooltip key={m.id} title={fullName(m)} arrow>
-              <Avatar sx={{ width: 28, height: 28, fontSize: '0.65rem', bgcolor: C.vert, border: '2px solid white' }}>
-                {initials(m)}
-              </Avatar>
-            </Tooltip>
-          ))}
-          {members.length > 6 && (
-            <Avatar sx={{ width: 28, height: 28, fontSize: '0.6rem', bgcolor: `${C.or}80`, color: C.vertFonce }}>
-              +{members.length - 6}
-            </Avatar>
-          )}
-          <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-            {k.nb_membres ?? members.length} membre(s)
-          </Typography>
-        </Box>
-
-        {/* Encadrement badges */}
-        {encadrementBadges.length > 0 && (
-          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
-            {encadrementBadges.map((b, i) => (
-              <Chip
-                key={i}
-                label={`${b.label} ${b.nom}`}
-                size="small"
-                sx={{
-                  bgcolor: `${b.color}18`,
-                  color: b.color,
-                  fontSize: '0.6rem',
-                  height: 20,
-                  fontWeight: 600,
-                  border: `1px solid ${b.color}40`,
-                  '& .MuiChip-label': { px: 0.75 },
-                }}
-              />
-            ))}
-          </Box>
-        )}
-
-        <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 1.5 }}>
-          <Chip label="Voir le cercle" size="small" icon={<ArrowForward sx={{ fontSize: '14px !important' }} />}
-            sx={{ bgcolor: `${C.vert}10`, color: C.vert, fontSize: '0.7rem', cursor: 'pointer' }} />
-        </Box>
-      </CardContent>
-    </Card>
-  )
-}
-
 export default function KourelsPage({ onBack }) {
   const { user } = useAuth()
   const isAdmin = user?.role === 'admin'
@@ -478,21 +382,42 @@ export default function KourelsPage({ onBack }) {
                 {canManage && <Typography color="text.secondary" variant="body2">Créez votre premier groupe de chant.</Typography>}
               </Box>
             ) : (
-              <Grid container spacing={2}>
-                {kourels.map(k => (
-                  <Grid item xs={12} sm={selected ? 12 : 6} md={selected ? 12 : 4} key={k.id}>
-                    <KourelCard
-                      k={k}
-                      isSelected={selected?.id === k.id}
-                      allUsers={allUsers}
-                      canManage={canManage}
-                      onSelect={() => { setSelected(null); setTimeout(() => loadDetail(k.id), 50) }}
-                      onEdit={() => openEdit(k)}
-                      onDelete={() => setDeleteTarget(k.id)}
-                    />
-                  </Grid>
-                ))}
-              </Grid>
+              <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${C.or}30` }}>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ '& th': { fontWeight: 700, color: C.vertFonce, bgcolor: `${C.vert}08` } }}>
+                      <TableCell>Kourel</TableCell>
+                      <TableCell>Maître de cœur</TableCell>
+                      <TableCell align="center">Membres</TableCell>
+                      {canManage && <TableCell align="right">Actions</TableCell>}
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {kourels.map(k => {
+                      const maitre = allUsers.find(u => u.id === k.maitre_de_coeur)
+                      return (
+                        <TableRow
+                          key={k.id}
+                          hover
+                          selected={selected?.id === k.id}
+                          onClick={() => { setSelected(null); setTimeout(() => loadDetail(k.id), 50) }}
+                          sx={{ cursor: 'pointer' }}
+                        >
+                          <TableCell sx={{ fontWeight: 600, color: C.vert }}>{k.nom}</TableCell>
+                          <TableCell>{maitre ? fullName(maitre) : (k.maitre_de_coeur_nom || '—')}</TableCell>
+                          <TableCell align="center">{k.nb_membres ?? (k.membres?.length || 0)}</TableCell>
+                          {canManage && (
+                            <TableCell align="right">
+                              <IconButton size="small" onClick={(e) => { e.stopPropagation(); openEdit(k) }} sx={{ color: C.vert }}><Edit fontSize="small" /></IconButton>
+                              <IconButton size="small" onClick={(e) => { e.stopPropagation(); setDeleteTarget(k.id) }} color="error"><Delete fontSize="small" /></IconButton>
+                            </TableCell>
+                          )}
+                        </TableRow>
+                      )
+                    })}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             )}
           </Grid>
 

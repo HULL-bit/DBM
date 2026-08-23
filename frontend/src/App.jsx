@@ -11,6 +11,7 @@ import DashboardJewrin from './components/dashboard/DashboardJewrin'
 import Evenements from './components/informations/Evenements'
 import News from './components/informations/News'
 import Cotisations from './components/finance/Cotisations'
+import GestionDepenses from './components/finance/GestionDepenses'
 import ProgrammeKamil from './components/culturelle/ProgrammeKamil'
 import MesProgressions from './components/culturelle/MesProgressions'
 import ValidationsKamil from './components/culturelle/ValidationsKamil'
@@ -77,6 +78,7 @@ function AppRoutes() {
         <Route path="informations/evenements" element={<Evenements />} />
         <Route path="informations/news" element={<News />} />
         <Route path="finance/cotisations" element={<Cotisations />} />
+        <Route path="finance/depenses" element={<GestionDepenses />} />
         <Route path="culturelle/kamil" element={<ProgrammeKamil />} />
         <Route path="culturelle/mes-progressions" element={<MesProgressions />} />
         <Route path="culturelle/validations" element={<ValidationsKamil />} />

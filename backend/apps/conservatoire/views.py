@@ -296,12 +296,14 @@ class SeanceConservatoireViewSet(viewsets.ModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrJewrinConservatoire()])
     def khassidas(self, request, pk=None):
         """
-        Met à jour les khassidas répétées pour cette séance.
-        Payload: { "khassidas": [{"nom_khassida": "...", "dathie": "...", "khassida_portion": "...", "ordre": 0}] }
+        Met à jour les khassidas répétées pour cette séance (programme de répétition à
+        l'avance) et notifie tous les membres du kourel concerné.
+        Payload: { "khassidas": [{"nom_khassida": "...", "dathie": "...", "khassida_portion": "...", "melodie": "...", "ordre": 0}] }
         """
         seance = self.get_object()
         data = request.data.get('khassidas', [])
         seance.khassidas.all().delete()
+        noms = []
         for i, item in enumerate(data):
             nom = (item.get('nom_khassida') or '').strip()
             dathie = (item.get('dathie') or '').strip()
@@ -312,8 +314,21 @@ class SeanceConservatoireViewSet(viewsets.ModelViewSet):
                 nom_khassida=nom,
                 dathie=dathie,
                 khassida_portion=(item.get('khassida_portion') or '').strip(),
+                melodie=(item.get('melodie') or '').strip(),
                 ordre=item.get('ordre', i)
             )
+            noms.append(nom)
+
+        if noms:
+            from apps.communication.notifications import creer_notifications
+            membres_ids = list(seance.kourel.membres.values_list('id', flat=True))
+            creer_notifications(
+                membres_ids, 'evenement',
+                f"Programme de répétition — {seance.kourel.nom}",
+                f"{seance.titre} : {', '.join(noms)}",
+                lien='/conservatoire'
+            )
+
         return Response(SeanceConservatoireSerializer(seance).data)
 
     @action(detail=False, methods=['get'],

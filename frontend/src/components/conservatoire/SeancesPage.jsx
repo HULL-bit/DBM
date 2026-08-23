@@ -84,7 +84,7 @@ function SeanceCard({ s, kourels, canManage, onEdit, onDelete, onPresences }) {
             </Box>
             {s.khassidas.map((k, i) => (
               <Typography key={i} variant="caption" display="block" color="text.secondary">
-                • {k.nom_khassida} ({k.dathie}){k.khassida_portion ? ` — ${k.khassida_portion}` : ''}
+                • {k.nom_khassida} ({k.dathie}){k.khassida_portion ? ` — ${k.khassida_portion}` : ''}{k.melodie ? ` · Mélodie : ${k.melodie}` : ''}
               </Typography>
             ))}
           </Box>
@@ -183,7 +183,7 @@ export default function SeancesPage({ onBack }) {
     setEditId(s.id)
     const d = s.date_heure ? new Date(s.date_heure) : null
     const dtLocal = d ? new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16) : ''
-    setForm({ kourel: s.kourel, type_seance: s.type_seance, titre: s.titre, description: s.description || '', date_heure: dtLocal, heure_fin: s.heure_fin || '', lieu: s.lieu || '', khassidas: (s.khassidas || []).map(k => ({ nom_khassida: k.nom_khassida || '', dathie: k.dathie || '', khassida_portion: k.khassida_portion || '' })) })
+    setForm({ kourel: s.kourel, type_seance: s.type_seance, titre: s.titre, description: s.description || '', date_heure: dtLocal, heure_fin: s.heure_fin || '', lieu: s.lieu || '', khassidas: (s.khassidas || []).map(k => ({ nom_khassida: k.nom_khassida || '', dathie: k.dathie || '', khassida_portion: k.khassida_portion || '', melodie: k.melodie || '' })) })
     setOpenForm(true)
   }
 
@@ -266,7 +266,7 @@ export default function SeancesPage({ onBack }) {
     finally { setExporting(false) }
   }
 
-  const addKhassida = () => setForm(f => ({ ...f, khassidas: [...f.khassidas, { nom_khassida: '', dathie: '', khassida_portion: '' }] }))
+  const addKhassida = () => setForm(f => ({ ...f, khassidas: [...f.khassidas, { nom_khassida: '', dathie: '', khassida_portion: '', melodie: '' }] }))
   const removeKhassida = (i) => setForm(f => ({ ...f, khassidas: f.khassidas.filter((_, j) => j !== i) }))
   const updateKhassida = (i, field, val) => setForm(f => {
     const k = [...f.khassidas]; k[i] = { ...k[i], [field]: val }; return { ...f, khassidas: k }
@@ -310,16 +310,29 @@ export default function SeancesPage({ onBack }) {
 
       {msg.text && <Alert severity={msg.type === 'error' ? 'error' : 'success'} sx={{ mb: 2 }} onClose={() => setMsg({ type: '', text: '' })}>{msg.text}</Alert>}
 
+      {/* Filtre par kourel — vu le rythme hebdomadaire des répétitions, les séances s'accumulent vite */}
+      <Tabs
+        value={filterKourel}
+        onChange={(e, v) => setFilterKourel(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        sx={{
+          mb: 2, borderBottom: `1px solid ${C.or}30`,
+          '& .MuiTab-root': { textTransform: 'none', fontWeight: 600, minHeight: 40 },
+          '& .Mui-selected': { color: `${C.vert} !important` },
+          '& .MuiTabs-indicator': { bgcolor: C.vert },
+        }}
+      >
+        <Tab label="Tous les kourels" value="" />
+        {kourels.map(k => <Tab key={k.id} label={k.nom} value={k.id} />)}
+      </Tabs>
+
       {/* Filters */}
       <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
         <TextField select size="small" label="Type" value={filterType} onChange={e => setFilterType(e.target.value)} sx={{ minWidth: 160 }}>
           <MenuItem value="">Tous types</MenuItem>
           <MenuItem value="repetition">Répétitions</MenuItem>
           <MenuItem value="prestation">Prestations</MenuItem>
-        </TextField>
-        <TextField select size="small" label="Kourel" value={filterKourel} onChange={e => setFilterKourel(e.target.value)} sx={{ minWidth: 180 }}>
-          <MenuItem value="">Tous les kourels</MenuItem>
-          {kourels.map(k => <MenuItem key={k.id} value={k.id}>{k.nom}</MenuItem>)}
         </TextField>
         {(filterType || filterKourel) && (
           <Button size="small" onClick={() => { setFilterType(''); setFilterKourel('') }} sx={{ color: C.vert }}>
@@ -388,6 +401,7 @@ export default function SeancesPage({ onBack }) {
                   <TextField size="small" placeholder="Nom khassida *" value={k.nom_khassida} onChange={e => updateKhassida(i, 'nom_khassida', e.target.value)} sx={{ flex: 2 }} />
                   <TextField size="small" placeholder="Dathie (auteur)" value={k.dathie} onChange={e => updateKhassida(i, 'dathie', e.target.value)} sx={{ flex: 2 }} />
                   <TextField size="small" placeholder="Portion" value={k.khassida_portion} onChange={e => updateKhassida(i, 'khassida_portion', e.target.value)} sx={{ flex: 1 }} />
+                  <TextField size="small" placeholder="Mélodie" value={k.melodie} onChange={e => updateKhassida(i, 'melodie', e.target.value)} sx={{ flex: 1 }} />
                   <IconButton size="small" color="error" onClick={() => removeKhassida(i)}><Delete fontSize="small" /></IconButton>
                 </Box>
               </Grid>

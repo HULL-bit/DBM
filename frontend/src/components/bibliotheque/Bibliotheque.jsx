@@ -231,13 +231,7 @@ export default function Bibliotheque() {
         return
       }
       const url = URL.createObjectURL(res.data)
-      if (isMobile) {
-        window.open(url, '_blank')
-        setMessage({ type: 'success', text: 'PDF ouvert dans un nouvel onglet. Le défilement y fonctionne correctement.' })
-        setOpenReader(null)
-      } else {
-        setPdfBlobUrl(url)
-      }
+      setPdfBlobUrl(url)
     } catch (e) {
       setMessage({ type: 'error', text: e?.message || 'Impossible de charger le PDF. Vérifiez votre connexion.' })
       setOpenReader(null)
@@ -719,7 +713,7 @@ export default function Bibliotheque() {
                 minHeight: 0,
                 width: '100%',
                 position: 'relative',
-                overflow: 'hidden',
+                overflow: 'auto',
                 WebkitOverflowScrolling: 'touch',
                 touchAction: 'pan-y pinch-zoom',
               }}
@@ -728,13 +722,10 @@ export default function Bibliotheque() {
                 title={openReader?.nom}
                 src={pdfBlobUrl}
                 style={{
-                  position: 'absolute',
-                  top: 0,
-                  left: 0,
+                  display: 'block',
                   width: '100%',
                   height: '100%',
                   border: 'none',
-                  minHeight: '100%',
                 }}
               />
             </Box>
