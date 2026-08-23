@@ -1,17 +1,50 @@
+from django.conf import settings
 from django.db.models import Q
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from apps.accounts.permissions import IsAdminOrJewrinCommunication, has_admin_access
+from apps.accounts.permissions import IsAdminOrJewrinCommunication, has_admin_access, has_rubrique_access
 
-from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal
+from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal, AbonnementPush
 from .push import send_push_to_user
 from .serializers import (
     MessageSerializer, CategorieForumSerializer, SujetForumSerializer, ReponseForumSerializer, NotificationSerializer,
-    CanalSerializer, MembreCanalSerializer, MessageCanalSerializer,
+    CanalSerializer, MembreCanalSerializer, MessageCanalSerializer, AbonnementPushSerializer,
 )
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def cle_publique_push(request):
+    return Response({'cle_publique': getattr(settings, 'VAPID_PUBLIC_KEY', '')})
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def abonnement_push(request):
+    """POST : enregistre (ou met à jour) l'abonnement push du navigateur courant.
+    DELETE : désabonne ce navigateur (envoyer `endpoint` dans le corps)."""
+    endpoint = request.data.get('endpoint')
+    if not endpoint:
+        return Response({'detail': 'endpoint requis.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'DELETE':
+        AbonnementPush.objects.filter(endpoint=endpoint).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    keys = request.data.get('keys', {})
+    cle_p256dh = keys.get('p256dh') or request.data.get('cle_p256dh')
+    cle_auth = keys.get('auth') or request.data.get('cle_auth')
+    if not cle_p256dh or not cle_auth:
+        return Response({'detail': 'Clés p256dh/auth requises.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    abo, _ = AbonnementPush.objects.update_or_create(
+        endpoint=endpoint,
+        defaults={'user': request.user, 'cle_p256dh': cle_p256dh, 'cle_auth': cle_auth},
+    )
+    return Response(AbonnementPushSerializer(abo).data, status=status.HTTP_201_CREATED)
 
 
 class MessageViewSet(viewsets.ModelViewSet):
@@ -276,7 +309,14 @@ class MessageViewSet(viewsets.ModelViewSet):
                 fichier_joint=fichier_copie,
             )
             created.append(MessageSerializer(msg).data)
-        
+
+        if created:
+            from .notifications import creer_notifications
+            creer_notifications(
+                destinataires_ids, 'message', f"Nouveau message de {expediteur.get_full_name()}",
+                (sujet or contenu or '')[:200], lien='/communication/messagerie'
+            )
+
         if not created:
             return Response(
                 {'detail': 'Aucun destinataire valide.'},
@@ -395,6 +435,16 @@ class CanalViewSet(viewsets.ModelViewSet):
             membres_canal__user=self.request.user, est_actif=True
         ).distinct().order_by('-date_creation')
 
+    def create(self, request, *args, **kwargs):
+        # Créer un canal est un droit accordé par l'admin (rubrique communication, action creer) :
+        # pas ouvert à tout membre par défaut, comme les autres actions de gestion.
+        if not has_rubrique_access(request.user, 'communication', 'creer'):
+            return Response(
+                {'detail': "Vous n'avez pas la permission de créer un canal."},
+                status=status.HTTP_403_FORBIDDEN
+            )
+        return super().create(request, *args, **kwargs)
+
     def perform_create(self, serializer):
         canal = serializer.save(cree_par=self.request.user)
         MembreCanal.objects.create(canal=canal, user=self.request.user, est_admin_canal=True)
@@ -502,7 +552,15 @@ class MessageCanalViewSet(viewsets.ModelViewSet):
         canal = serializer.validated_data.get('canal')
         if canal is None or not MembreCanal.objects.filter(canal=canal, user=self.request.user).exists():
             raise PermissionDenied("Vous n'êtes pas membre de ce canal.")
-        serializer.save(expediteur=self.request.user)
+        msg = serializer.save(expediteur=self.request.user)
+
+        from .notifications import creer_notifications
+        autres_membres = MembreCanal.objects.filter(canal=canal).exclude(user=self.request.user).values_list('user_id', flat=True)
+        aperçu = msg.contenu[:200] if msg.contenu else f"[{msg.get_type_message_display()}]"
+        creer_notifications(
+            list(autres_membres), 'message', f"{self.request.user.get_full_name()} dans « {canal.nom} »",
+            aperçu, lien='/communication/canaux'
+        )
 
     def destroy(self, request, *args, **kwargs):
         message = self.get_object()

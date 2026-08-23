@@ -258,6 +258,7 @@ class JournalAudit(models.Model):
     objet_repr = models.CharField(max_length=255, blank=True)
     description = models.TextField(blank=True)
     adresse_ip = models.GenericIPAddressField(null=True, blank=True)
+    user_agent = models.CharField(max_length=300, blank=True, help_text="En-tête User-Agent brut du navigateur/appareil")
     date = models.DateTimeField(auto_now_add=True)
     succes = models.BooleanField(default=True)
 

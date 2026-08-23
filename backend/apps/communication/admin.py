@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal
+from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal, AbonnementPush
 
 @admin.register(Message)
 class MessageAdmin(admin.ModelAdmin):
@@ -33,3 +33,8 @@ class MembreCanalAdmin(admin.ModelAdmin):
 @admin.register(MessageCanal)
 class MessageCanalAdmin(admin.ModelAdmin):
     list_display = ['canal', 'expediteur', 'type_message', 'date_envoi']
+
+
+@admin.register(AbonnementPush)
+class AbonnementPushAdmin(admin.ModelAdmin):
+    list_display = ['user', 'date_creation']

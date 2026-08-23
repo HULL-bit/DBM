@@ -183,6 +183,7 @@ def log_audit(request, action, rubrique='', objet=None, description='', succes=T
             objet_repr=str(objet)[:255] if objet is not None else '',
             description=description,
             adresse_ip=ip,
+            user_agent=request.META.get('HTTP_USER_AGENT', '')[:300],
             succes=succes,
         )
     except Exception:

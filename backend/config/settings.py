@@ -139,15 +139,21 @@ if USE_S3_MEDIA:
                 'location': os.environ.get('AWS_S3_MEDIA_LOCATION', 'media'),
                 'file_overwrite': False,
                 'querystring_auth': os.environ.get('AWS_QUERYSTRING_AUTH', 'true').lower() == 'true',
+                # Cloudflare R2 (et certains autres fournisseurs S3-compatibles) exigent SigV4.
+                'addressing_style': 'virtual',
+                'signature_version': 's3v4',
             },
         },
         'staticfiles': {
             'BACKEND': 'django.contrib.staticfiles.storage.StaticFilesStorage',
         },
     }
-    # URL des médias : bucket ou CDN
+    # URL des médias : uniquement informatif (S3Boto3Storage génère ses propres URLs, signées si
+    # nécessaire, via storage.url() — ce MEDIA_URL n'est pas utilisé pour servir les fichiers).
     if os.environ.get('AWS_S3_CUSTOM_DOMAIN'):
         MEDIA_URL = f"https://{os.environ['AWS_S3_CUSTOM_DOMAIN']}/{os.environ.get('AWS_S3_MEDIA_LOCATION', 'media')}/"
+    elif os.environ.get('AWS_S3_ENDPOINT_URL'):
+        MEDIA_URL = f"{os.environ['AWS_S3_ENDPOINT_URL']}/{os.environ.get('AWS_STORAGE_BUCKET_NAME')}/{os.environ.get('AWS_S3_MEDIA_LOCATION', 'media')}/"
     else:
         MEDIA_URL = f"https://{os.environ.get('AWS_STORAGE_BUCKET_NAME')}.s3.{os.environ.get('AWS_S3_REGION_NAME', 'us-east-1')}.amazonaws.com/{os.environ.get('AWS_S3_MEDIA_LOCATION', 'media')}/"
 else:
@@ -178,6 +184,13 @@ EMAIL_USE_TLS = os.environ.get('EMAIL_USE_TLS', 'True').lower() == 'true'
 EMAIL_HOST_USER = os.environ.get('EMAIL_HOST_USER', '')
 EMAIL_HOST_PASSWORD = os.environ.get('EMAIL_HOST_PASSWORD', '')
 DEFAULT_FROM_EMAIL = os.environ.get('DEFAULT_FROM_EMAIL', EMAIL_HOST_USER or 'no-reply@daara-barakatul-mahaahidi.local')
+
+# Web Push (notifications directement sur l'appareil, même application/onglet fermé).
+# Clés générées une fois (VAPID) : la clé publique est sans risque à exposer au frontend,
+# la clé privée doit rester une variable d'environnement secrète.
+VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
+VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
+VAPID_CLAIMS_EMAIL = os.environ.get('VAPID_CLAIMS_EMAIL', 'mailto:contact@daara-barakatul-mahaahidi.local')
 
 # Limite d'upload (PDF bibliothèque, pièces jointes de canaux : images/documents/audio/vidéo)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024

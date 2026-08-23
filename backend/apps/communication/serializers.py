@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal
+from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal, AbonnementPush
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -89,6 +89,13 @@ class MessageCanalSerializer(serializers.ModelSerializer):
             'contenu', 'fichier', 'duree', 'date_envoi', 'repond_a',
         ]
         read_only_fields = ['expediteur', 'date_envoi']
+
+
+class AbonnementPushSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AbonnementPush
+        fields = ['id', 'endpoint', 'cle_p256dh', 'cle_auth', 'date_creation']
+        read_only_fields = ['date_creation']
 
 
 class NotificationSerializer(serializers.ModelSerializer):

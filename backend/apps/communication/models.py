@@ -148,6 +148,23 @@ class MessageCanal(models.Model):
         return f"{self.expediteur.get_full_name()} @ {self.canal.nom} — {self.date_envoi:%d/%m %H:%M}"
 
 
+class AbonnementPush(models.Model):
+    """Abonnement Web Push d'un navigateur/appareil pour un utilisateur (notifications
+    directement sur la machine/le téléphone, même appli/onglet fermé)."""
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='abonnements_push')
+    endpoint = models.URLField(max_length=500, unique=True)
+    cle_p256dh = models.CharField(max_length=200)
+    cle_auth = models.CharField(max_length=100)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Abonnement Push'
+        verbose_name_plural = 'Abonnements Push'
+
+    def __str__(self):
+        return f"Abonnement push de {self.user.get_full_name()}"
+
+
 class Notification(models.Model):
     TYPE_CHOICES = [
         ('info', 'Information'),

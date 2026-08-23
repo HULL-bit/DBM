@@ -193,16 +193,36 @@ class PermissionMembreOverrideSerializer(serializers.ModelSerializer):
         read_only_fields = ['date_modification']
 
 
+def _deduire_os(user_agent):
+    ua = (user_agent or '').lower()
+    if 'windows' in ua:
+        return 'Windows'
+    if 'android' in ua:
+        return 'Android'
+    if 'iphone' in ua or 'ipad' in ua or 'ios' in ua:
+        return 'iOS'
+    if 'mac os' in ua or 'macintosh' in ua:
+        return 'macOS'
+    if 'linux' in ua:
+        return 'Linux'
+    return 'Inconnu' if ua else ''
+
+
 class JournalAuditSerializer(serializers.ModelSerializer):
     action_display = serializers.CharField(source='get_action_display', read_only=True)
     utilisateur_nom = serializers.CharField(source='utilisateur.get_full_name', read_only=True, default='')
+    systeme_exploitation = serializers.SerializerMethodField()
 
     class Meta:
         model = JournalAudit
         fields = [
             'id', 'utilisateur', 'utilisateur_nom', 'action', 'action_display', 'rubrique',
-            'objet_repr', 'description', 'adresse_ip', 'date', 'succes',
+            'objet_repr', 'description', 'adresse_ip', 'user_agent', 'systeme_exploitation',
+            'date', 'succes',
         ]
+
+    def get_systeme_exploitation(self, obj):
+        return _deduire_os(obj.user_agent)
 
 
 class BadgeSerializer(serializers.ModelSerializer):

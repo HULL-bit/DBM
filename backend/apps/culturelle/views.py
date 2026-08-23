@@ -37,6 +37,7 @@ class KamilViewSet(viewsets.ModelViewSet):
         """Assigner les membres aux JUKKIs. Payload: { "assignations": { "1": membre_id, "2": membre_id, ... } }"""
         kamil = self.get_object()
         assignations = request.data.get('assignations', {})
+        membres_notifies = set()
         for numero_str, membre_id in assignations.items():
             try:
                 numero = int(numero_str)
@@ -44,9 +45,20 @@ class KamilViewSet(viewsets.ModelViewSet):
                     Jukki.objects.filter(kamil=kamil, numero=numero).update(
                         membre_id=membre_id if membre_id else None
                     )
+                    if membre_id:
+                        membres_notifies.add(int(membre_id))
             except (ValueError, TypeError):
                 continue
         kamil.refresh_from_db()
+
+        if membres_notifies:
+            from apps.communication.notifications import creer_notifications
+            creer_notifications(
+                membres_notifies, 'kamil', f"JUKKI assigné — {kamil.titre}",
+                "Un JUKKI vous a été assigné dans le programme Kamil. Consultez vos JUKKI pour le lire.",
+                lien='/culturelle/mes-progressions'
+            )
+
         return Response(KamilSerializer(kamil).data)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrJewrinCulturelle])

@@ -55,12 +55,22 @@ class EvenementViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         evt = serializer.save(cree_par=self.request.user)
 
-        # Notifier tous les membres de la daara via la passerelle (WhatsApp / SMS)
         from apps.accounts.models import CustomUser
         from django.conf import settings
 
+        membres_ids = list(CustomUser.objects.filter(is_active=True).values_list('id', flat=True))
+
+        # Notification in-app pour tous les membres actifs (indépendant de la passerelle externe)
+        if evt.est_publie:
+            from apps.communication.notifications import creer_notifications
+            creer_notifications(
+                membres_ids, 'evenement', f"Nouvel événement : {evt.titre}",
+                evt.description or '', lien='/informations/evenements'
+            )
+
+        # Notifier tous les membres de la daara via la passerelle (WhatsApp / SMS), si configurée
         if getattr(settings, "PUSH_ENABLED", False):
-            membres = CustomUser.objects.filter(is_active=True).only('id', 'first_name', 'last_name', 'username', 'telephone')
+            membres = CustomUser.objects.filter(id__in=membres_ids).only('id', 'first_name', 'last_name', 'username', 'telephone')
             texte = f"[EVENEMENT] {evt.titre}\n\n{evt.description or ''}"
             if getattr(evt, "date_debut", None) or getattr(evt, "lieu", None):
                 details = []
