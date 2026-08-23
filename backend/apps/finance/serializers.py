@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import CotisationMensuelle, LeveeFonds, Transaction, Don, ParametresFinanciers
+from .models import CotisationMensuelle, LeveeFonds, Transaction, Don, ParametresFinanciers, Depense
 
 
 class CotisationMensuelleSerializer(serializers.ModelSerializer):
@@ -44,6 +44,22 @@ class DonSerializer(serializers.ModelSerializer):
         model = Don
         fields = '__all__'
         read_only_fields = ['date_don', 'donateur']
+
+
+class DepenseSerializer(serializers.ModelSerializer):
+    categorie_display = serializers.CharField(source='get_categorie_display', read_only=True)
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    cree_par_nom = serializers.CharField(source='cree_par.get_full_name', read_only=True)
+    valide_par_nom = serializers.CharField(source='valide_par.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = Depense
+        fields = [
+            'id', 'motif', 'categorie', 'categorie_display', 'montant', 'justificatif',
+            'date_depense', 'cree_par', 'cree_par_nom', 'valide_par', 'valide_par_nom',
+            'date_validation', 'statut', 'statut_display', 'notes', 'date_creation',
+        ]
+        read_only_fields = ['cree_par', 'valide_par', 'date_validation', 'statut', 'date_creation']
 
 
 class ParametresFinanciersSerializer(serializers.ModelSerializer):

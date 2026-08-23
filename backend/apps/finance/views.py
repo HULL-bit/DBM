@@ -1,13 +1,13 @@
 from rest_framework import viewsets, status
-from rest_framework.decorators import action
+from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db.models import Sum, Q
 from decimal import Decimal
 from apps.accounts.permissions import IsAdminOrJewrinFinance, has_admin_access
 
-from .models import CotisationMensuelle, LeveeFonds, Transaction, Don, ParametresFinanciers
-from .serializers import CotisationMensuelleSerializer, LeveeFondsSerializer, TransactionSerializer, DonSerializer, ParametresFinanciersSerializer
+from .models import CotisationMensuelle, LeveeFonds, Transaction, Don, ParametresFinanciers, Depense
+from .serializers import CotisationMensuelleSerializer, LeveeFondsSerializer, TransactionSerializer, DonSerializer, ParametresFinanciersSerializer, DepenseSerializer
 
 
 class CotisationMensuelleViewSet(viewsets.ModelViewSet):
@@ -410,3 +410,67 @@ class ParametresFinanciersViewSet(viewsets.ReadOnlyModelViewSet):
     queryset = ParametresFinanciers.objects.all()
     serializer_class = ParametresFinanciersSerializer
     permission_classes = [IsAdminOrJewrinFinance]
+
+
+class DepenseViewSet(viewsets.ModelViewSet):
+    queryset = Depense.objects.all().select_related('cree_par', 'valide_par').order_by('-date_depense')
+    serializer_class = DepenseSerializer
+    permission_classes = [IsAdminOrJewrinFinance]
+    filterset_fields = ['categorie', 'statut']
+
+    def perform_create(self, serializer):
+        serializer.save(cree_par=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def valider(self, request, pk=None):
+        depense = self.get_object()
+        from django.utils import timezone
+        depense.statut = 'validee'
+        depense.valide_par = request.user
+        depense.date_validation = timezone.now()
+        depense.save(update_fields=['statut', 'valide_par', 'date_validation'])
+        return Response(DepenseSerializer(depense).data)
+
+    @action(detail=True, methods=['post'])
+    def refuser(self, request, pk=None):
+        depense = self.get_object()
+        from django.utils import timezone
+        depense.statut = 'refusee'
+        depense.valide_par = request.user
+        depense.date_validation = timezone.now()
+        depense.save(update_fields=['statut', 'valide_par', 'date_validation'])
+        return Response(DepenseSerializer(depense).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminOrJewrinFinance])
+def bilan_financier(request):
+    from .bilan_export import calculer_bilan
+    annee = request.query_params.get('annee')
+    annee = int(annee) if annee else None
+    return Response(calculer_bilan(annee))
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminOrJewrinFinance])
+def bilan_financier_export(request):
+    from .bilan_export import export_bilan_excel, export_bilan_pdf
+    from django.http import HttpResponse
+
+    annee = request.query_params.get('annee')
+    annee = int(annee) if annee else None
+    fmt = request.query_params.get('format', 'excel').lower()
+
+    if fmt == 'pdf':
+        buf = export_bilan_pdf(annee)
+        content_type, ext = 'application/pdf', 'pdf'
+    else:
+        buf = export_bilan_excel(annee)
+        content_type, ext = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx'
+
+    if buf is None:
+        return Response({'detail': 'Erreur de génération du bilan.'}, status=500)
+
+    resp = HttpResponse(buf.read(), content_type=content_type)
+    resp['Content-Disposition'] = f'attachment; filename="bilan_financier.{ext}"'
+    return resp

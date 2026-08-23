@@ -241,7 +241,10 @@ def change_password(request):
 
 
 class UserList(generics.ListAPIView):
-    queryset = User.objects.filter(is_active=True).order_by('-date_inscription')
+    # Endpoint réservé à l'admin (IsAdminRoleOrStaff ci-dessous) : tous les membres sans
+    # exception, y compris les comptes désactivés, pour les listes/filtres/recherches admin
+    # (gestion des rôles, journal d'audit, sélection de membres pour un canal, etc.).
+    queryset = User.objects.all().order_by('-date_inscription')
     serializer_class = UserSerializer
     # Admin Django (is_staff) OU admin logique (role='admin')
     permission_classes = [IsAuthenticated, IsAdminRoleOrStaff]

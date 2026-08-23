@@ -192,6 +192,46 @@ class Don(models.Model):
         return f"{self.donateur.get_full_name()} - {self.montant} FCFA"
 
 
+CATEGORIES_CHARGE = [
+    ('MAGAL', 'Magal'),
+    ('GAMOU', 'Gamou'),
+    ('KAZU RAJABB', 'Kazu Rajabb'),
+    ('KOOR', 'Koor'),
+    ('SOCIAL', 'Social'),
+    ('XELCOM', 'Xelcom'),
+    ('MENSUALITE', 'Mensualités'),
+    ('AUTRES', 'Autres'),
+]
+
+
+class Depense(models.Model):
+    STATUT_CHOICES = [
+        ('en_attente', 'En attente'),
+        ('validee', 'Validée'),
+        ('refusee', 'Refusée'),
+    ]
+
+    motif = models.CharField(max_length=200)
+    categorie = models.CharField(max_length=30, choices=CATEGORIES_CHARGE, default='AUTRES')
+    montant = models.DecimalField(max_digits=12, decimal_places=2)
+    justificatif = models.FileField(upload_to='finance/depenses/', null=True, blank=True)
+    date_depense = models.DateField()
+    cree_par = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='depenses_creees')
+    valide_par = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='depenses_validees')
+    date_validation = models.DateTimeField(null=True, blank=True)
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente')
+    notes = models.TextField(blank=True)
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Dépense'
+        verbose_name_plural = 'Dépenses'
+        ordering = ['-date_depense']
+
+    def __str__(self):
+        return f"{self.motif} — {self.montant} FCFA ({self.get_categorie_display()})"
+
+
 class ParametresFinanciers(models.Model):
     montant_cotisation_defaut = models.DecimalField(max_digits=10, decimal_places=2, default=Decimal('1000.00'))
     jour_echeance_cotisation = models.IntegerField(default=5)

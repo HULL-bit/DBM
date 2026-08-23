@@ -10,6 +10,7 @@ router.register(r'levees-fonds', views.LeveeFondsViewSet)
 router.register(r'transactions', views.TransactionViewSet)
 router.register(r'dons', views.DonViewSet)
 router.register(r'parametres-financiers', views.ParametresFinanciersViewSet)
+router.register(r'depenses', views.DepenseViewSet)
 
 
 def _rapport_cotisations_wrapper(req):
@@ -78,5 +79,7 @@ def _rapport_cotisations_wrapper(req):
 
 urlpatterns = [
     path('finance/export-rapport-cotisations/', _rapport_cotisations_wrapper),
+    path('finance/bilan/', views.bilan_financier),
+    path('finance/bilan/export/', views.bilan_financier_export),
     path('finance/', include(router.urls)),
 ]

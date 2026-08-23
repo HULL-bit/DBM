@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import CotisationMensuelle, LeveeFonds, Transaction, Don, ParametresFinanciers
+from .models import CotisationMensuelle, LeveeFonds, Transaction, Don, ParametresFinanciers, Depense
 
 @admin.register(CotisationMensuelle)
 class CotisationMensuelleAdmin(admin.ModelAdmin):
@@ -21,3 +21,9 @@ class DonAdmin(admin.ModelAdmin):
 @admin.register(ParametresFinanciers)
 class ParametresFinanciersAdmin(admin.ModelAdmin):
     list_display = ['montant_cotisation_defaut', 'jour_echeance_cotisation']
+
+
+@admin.register(Depense)
+class DepenseAdmin(admin.ModelAdmin):
+    list_display = ['motif', 'categorie', 'montant', 'date_depense', 'statut', 'cree_par']
+    list_filter = ['categorie', 'statut']
