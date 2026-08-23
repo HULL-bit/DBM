@@ -17,11 +17,12 @@ import {
   Tabs,
   Tab,
   Grid,
+  Chip,
   alpha,
   useTheme,
   useMediaQuery,
 } from '@mui/material'
-import { Add, MenuBook, Download, Visibility, Close, Edit, Delete, PictureAsPdf, AutoStories } from '@mui/icons-material'
+import { Add, MenuBook, Download, Visibility, Close, Edit, Delete, PictureAsPdf, AutoStories, Search, Clear } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -58,6 +59,7 @@ export default function Bibliotheque() {
   const [pdfFile, setPdfFile] = useState(null)
   const [editingId, setEditingId] = useState(null)
   const [visibleCount, setVisibleCount] = useState(24)
+  const [recherche, setRecherche] = useState('')
 
   const loadLivres = useCallback(() => {
     const accumulate = (acc, data) => {
@@ -97,7 +99,14 @@ export default function Bibliotheque() {
   const livresByCategory = (cat) => livres.filter((l) => l.categorie === cat)
   const alquran = livresByCategory('alquran')
   const qassida = livresByCategory('qassida')
-  const currentList = tab === 0 ? alquran : qassida
+  const rechercheActive = recherche.trim().length > 0
+  const resultatsRecherche = rechercheActive
+    ? livres.filter((l) => {
+        const q = recherche.trim().toLowerCase()
+        return (l.nom || '').toLowerCase().includes(q) || (l.description || '').toLowerCase().includes(q)
+      })
+    : []
+  const currentList = rechercheActive ? resultatsRecherche : (tab === 0 ? alquran : qassida)
   const INITIAL_VISIBLE = 24
   const LOAD_MORE_STEP = 24
   const visibleList = currentList.slice(0, visibleCount)
@@ -356,33 +365,55 @@ export default function Bibliotheque() {
         </Alert>
       )}
 
-      {/* Onglets animés */}
-      <Tabs
-        value={tab}
-        onChange={(_, v) => { setTab(v); resetVisibleCount() }}
-        variant={isMobile ? 'fullWidth' : 'standard'}
-        sx={{
-          mb: { xs: 2, sm: 3 },
-          minHeight: 48,
-          '& .MuiTabs-indicator': {
-            height: 4,
-            borderRadius: 2,
-            background: `linear-gradient(90deg, ${COLORS.vert}, ${COLORS.or})`,
-          },
-          '& .MuiTab-root': {
-            fontWeight: 700,
-            fontSize: { xs: '0.875rem', sm: '1rem' },
-            textTransform: 'none',
-            transition: 'color 0.2s ease',
-            minHeight: 48,
-            py: 1.5,
-          },
-          '& .Mui-selected': { color: COLORS.vert },
+      {/* Recherche */}
+      <TextField
+        fullWidth
+        size="small"
+        placeholder="Rechercher un livre par nom…"
+        value={recherche}
+        onChange={(e) => { setRecherche(e.target.value); resetVisibleCount() }}
+        sx={{ mb: 2 }}
+        InputProps={{
+          startAdornment: <Search sx={{ mr: 1, color: 'text.secondary' }} fontSize="small" />,
+          endAdornment: recherche && (
+            <IconButton size="small" onClick={() => setRecherche('')}><Clear fontSize="small" /></IconButton>
+          ),
         }}
-      >
-        <Tab label={isSmall ? `📖 ALQURAN` : `${CATEGORIES[0].icon} ALQURAN (${alquran.length})`} />
-        <Tab label={isSmall ? `🎵 QASSIDA` : `${CATEGORIES[1].icon} QASSIDA (${qassida.length})`} />
-      </Tabs>
+      />
+
+      {rechercheActive ? (
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+          {resultatsRecherche.length} résultat(s) pour « {recherche.trim()} »
+        </Typography>
+      ) : (
+        /* Onglets animés */
+        <Tabs
+          value={tab}
+          onChange={(_, v) => { setTab(v); resetVisibleCount() }}
+          variant={isMobile ? 'fullWidth' : 'standard'}
+          sx={{
+            mb: { xs: 2, sm: 3 },
+            minHeight: 48,
+            '& .MuiTabs-indicator': {
+              height: 4,
+              borderRadius: 2,
+              background: `linear-gradient(90deg, ${COLORS.vert}, ${COLORS.or})`,
+            },
+            '& .MuiTab-root': {
+              fontWeight: 700,
+              fontSize: { xs: '0.875rem', sm: '1rem' },
+              textTransform: 'none',
+              transition: 'color 0.2s ease',
+              minHeight: 48,
+              py: 1.5,
+            },
+            '& .Mui-selected': { color: COLORS.vert },
+          }}
+        >
+          <Tab label={isSmall ? `📖 ALQURAN` : `${CATEGORIES[0].icon} ALQURAN (${alquran.length})`} />
+          <Tab label={isSmall ? `🎵 QASSIDA` : `${CATEGORIES[1].icon} QASSIDA (${qassida.length})`} />
+        </Tabs>
+      )}
 
       {loading ? (
         <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', py: { xs: 6, sm: 8 } }}>
@@ -438,6 +469,13 @@ export default function Bibliotheque() {
                       <Typography variant="subtitle1" fontWeight={700} color={COLORS.vertFonce} sx={{ lineHeight: 1.3, fontSize: { xs: '0.95rem', sm: 'inherit' } }}>
                         {livre.nom}
                       </Typography>
+                      {rechercheActive && (
+                        <Chip
+                          size="small"
+                          label={CATEGORIES.find((c) => c.value === livre.categorie)?.label || livre.categorie}
+                          sx={{ mt: 0.5, height: 20, fontSize: '0.65rem', bgcolor: alpha(COLORS.or, 0.25) }}
+                        />
+                      )}
                       {livre.description && (
                         <Typography variant="body2" color="text.secondary" sx={{ mt: 0.75, lineHeight: 1.4, fontSize: { xs: '0.8rem', sm: 'inherit' } }}>
                           {livre.description.slice(0, isMobile ? 60 : 90)}
@@ -554,10 +592,12 @@ export default function Bibliotheque() {
         >
           <MenuBook sx={{ fontSize: { xs: 48, sm: 64 }, color: alpha(COLORS.vert, 0.3), mb: 2 }} />
           <Typography variant="h6" color="text.secondary" gutterBottom sx={{ fontSize: { xs: '1rem', sm: 'inherit' } }}>
-            Aucun livre dans cette catégorie
+            {rechercheActive ? 'Aucun résultat' : 'Aucun livre dans cette catégorie'}
           </Typography>
           <Typography variant="body2" color="text.secondary" sx={{ fontSize: { xs: '0.8rem', sm: 'inherit' } }}>
-            {tab === 0 ? 'Les ouvrages ALQURAN apparaîtront ici.' : 'Les ouvrages QASSIDA apparaîtront ici.'}
+            {rechercheActive
+              ? `Aucun livre ne correspond à « ${recherche.trim()} ».`
+              : (tab === 0 ? 'Les ouvrages ALQURAN apparaîtront ici.' : 'Les ouvrages QASSIDA apparaîtront ici.')}
           </Typography>
         </Box>
       )}

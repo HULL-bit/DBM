@@ -25,9 +25,12 @@ import {
   Checkbox,
   Menu,
   MenuItem,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import {
   Add,
+  ArrowBack,
   Send,
   AttachFile,
   Mic,
@@ -148,6 +151,8 @@ function Bulle({ msg, estMoi, peutSupprimerPourTous, onSupprimerPourMoi, onSuppr
 
 export default function Canaux() {
   const { user } = useAuth()
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'))
   const [canaux, setCanaux] = useState([])
   const [loadingCanaux, setLoadingCanaux] = useState(true)
   const [canalSelectionne, setCanalSelectionne] = useState(null)
@@ -407,9 +412,18 @@ export default function Canaux() {
   }
 
   return (
-    <Box sx={{ display: 'flex', gap: 2, height: 'calc(100vh - 180px)', minHeight: 500 }}>
+    <Box sx={{ display: 'flex', gap: { xs: 0, md: 2 }, height: { xs: 'calc(100vh - 140px)', md: 'calc(100vh - 180px)' }, minHeight: 500 }}>
       {/* Liste des canaux */}
-      <Paper sx={{ width: 300, flexShrink: 0, borderRadius: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Paper
+        sx={{
+          width: { xs: canalSelectionne ? '0%' : '100%', md: 300 },
+          flexShrink: 0,
+          borderRadius: 2,
+          display: { xs: canalSelectionne ? 'none' : 'flex', md: 'flex' },
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${COLORS.or}30` }}>
           <Typography variant="h6" sx={{ color: COLORS.vert, fontWeight: 700 }}>Canaux</Typography>
           <Tooltip title="Nouveau canal">
@@ -444,7 +458,15 @@ export default function Canaux() {
       </Paper>
 
       {/* Fenêtre du canal sélectionné */}
-      <Paper sx={{ flex: 1, borderRadius: 2, display: 'flex', flexDirection: 'column', overflow: 'hidden' }}>
+      <Paper
+        sx={{
+          flex: 1,
+          borderRadius: 2,
+          display: { xs: canalSelectionne ? 'flex' : 'none', md: 'flex' },
+          flexDirection: 'column',
+          overflow: 'hidden',
+        }}
+      >
         {!canalSelectionne ? (
           <Box sx={{ flex: 1, display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
             <Typography color="text.secondary">Sélectionnez un canal pour discuter.</Typography>
@@ -453,6 +475,11 @@ export default function Canaux() {
           <>
             <Box sx={{ p: 2, borderBottom: `1px solid ${COLORS.or}30`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                {isMobile && (
+                  <IconButton size="small" onClick={() => setCanalSelectionne(null)} sx={{ color: COLORS.vert }}>
+                    <ArrowBack />
+                  </IconButton>
+                )}
                 <Avatar
                   variant="rounded"
                   src={canalSelectionne.image ? getMediaUrl(canalSelectionne.image) : null}
