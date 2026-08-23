@@ -3,9 +3,10 @@ import { useParams, useNavigate } from 'react-router-dom'
 import {
   Box, Typography, Paper, Grid, Avatar, Chip, Button, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
-  CircularProgress, Tabs, Tab,
+  CircularProgress, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogActions,
+  TextField, MenuItem, Alert, Divider,
 } from '@mui/material'
-import { ArrowBack, Edit } from '@mui/icons-material'
+import { ArrowBack, Edit, EmojiEvents, Add, Close } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
 
@@ -13,6 +14,14 @@ const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
 const CELLULES = { dakar: 'Dakar', touba_mbacke: 'Touba / Mbacké', diaspora: 'Diaspora' }
 const NIVEAUX = { faible: 'Faible', debutant: 'Débutant', moyen: 'Moyen', intermediaire: 'Intermédiaire', avance: 'Avancé' }
+const CATEGORIES_BADGE = [
+  { value: 'contribution', label: 'Contribution' },
+  { value: 'assiduite', label: 'Assiduité' },
+  { value: 'kamil', label: 'Kamil' },
+  { value: 'social', label: 'Social' },
+  { value: 'anciennete', label: 'Ancienneté' },
+  { value: 'special', label: 'Spécial' },
+]
 
 function SectionCard({ title, children }) {
   return (
@@ -32,8 +41,18 @@ export default function FicheMembre() {
   const [jukkis, setJukkis] = useState([])
   const [versements, setVersements] = useState([])
   const [presences, setPresences] = useState([])
+  const [badges, setBadges] = useState([])
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('finance')
+
+  const [openBadge, setOpenBadge] = useState(false)
+  const [badgeDefs, setBadgeDefs] = useState([])
+  const [nouveauBadge, setNouveauBadge] = useState(false)
+  const [badgeForm, setBadgeForm] = useState({ badge: '', raison: '', nom: '', categorie: 'special', description: '' })
+  const [savingBadge, setSavingBadge] = useState(false)
+  const [badgeMsg, setBadgeMsg] = useState('')
+
+  const loadBadges = () => api.get(`/auth/users/${id}/badges/`).then(({ data }) => setBadges(data)).catch(() => setBadges([]))
 
   useEffect(() => {
     setLoading(true)
@@ -44,8 +63,49 @@ export default function FicheMembre() {
       api.get('/culturelle/jukkis/', { params: { membre: id } }).then(({ data }) => setJukkis(data.results || data)).catch(() => setJukkis([])),
       api.get('/culturelle/versements-kamil/', { params: { membre: id } }).then(({ data }) => setVersements(data.results || data)).catch(() => setVersements([])),
       api.get('/conservatoire/presences/', { params: { membre: id } }).then(({ data }) => setPresences(data.results || data)).catch(() => setPresences([])),
+      loadBadges(),
     ]).finally(() => setLoading(false))
   }, [id])
+
+  const handleOpenBadge = () => {
+    setBadgeForm({ badge: '', raison: '', nom: '', categorie: 'special', description: '' })
+    setNouveauBadge(false)
+    setBadgeMsg('')
+    setOpenBadge(true)
+    if (badgeDefs.length === 0) api.get('/auth/badges/').then(({ data }) => setBadgeDefs(data.results || data)).catch(() => setBadgeDefs([]))
+  }
+
+  const handleAttribuerBadge = async () => {
+    setSavingBadge(true)
+    setBadgeMsg('')
+    try {
+      let badgeId = badgeForm.badge
+      if (nouveauBadge) {
+        if (!badgeForm.nom.trim()) { setBadgeMsg('Nom du badge requis.'); setSavingBadge(false); return }
+        const { data } = await api.post('/auth/badges/', {
+          nom: badgeForm.nom.trim(), categorie: badgeForm.categorie,
+          description: badgeForm.description || '', critere: badgeForm.description || '',
+        })
+        badgeId = data.id
+        setBadgeDefs((prev) => [...prev, data])
+      }
+      if (!badgeId) { setBadgeMsg('Choisissez un badge.'); setSavingBadge(false); return }
+      await api.post(`/auth/users/${id}/badges/`, { badge: badgeId, raison: badgeForm.raison })
+      setOpenBadge(false)
+      loadBadges()
+    } catch (err) {
+      setBadgeMsg(err.response?.data?.detail || 'Erreur lors de l\'attribution.')
+    } finally {
+      setSavingBadge(false)
+    }
+  }
+
+  const handleRetirerBadge = async (attributionId) => {
+    try {
+      await api.delete(`/auth/badges-attribution/${attributionId}/`)
+      setBadges((prev) => prev.filter((b) => b.id !== attributionId))
+    } catch (_) {}
+  }
 
   if (loading) return <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: C.vert }} /></Box>
   if (!membre) return <Typography color="text.secondary">Membre introuvable.</Typography>
@@ -54,6 +114,11 @@ export default function FicheMembre() {
   const cotisationsPayees = cotisations.filter(c => c.statut === 'payee').length
   const montantPaye = cotisations.filter(c => c.statut === 'payee').reduce((s, c) => s + Number(c.montant || 0), 0)
   const montantTotal = cotisations.reduce((s, c) => s + Number(c.montant || 0), 0)
+
+  const mensualites = cotisations.filter(c => c.type_cotisation === 'mensualite')
+  const mensualitesPayees = mensualites.filter(c => c.statut === 'payee').length
+  const montantPayeMensualites = mensualites.filter(c => c.statut === 'payee').reduce((s, c) => s + Number(c.montant || 0), 0)
+  const montantTotalMensualites = mensualites.reduce((s, c) => s + Number(c.montant || 0), 0)
 
   const jukkisValides = jukkis.filter(j => j.est_valide).length
   const montantVerseKamil = versements.filter(v => v.statut === 'valide').reduce((s, v) => s + Number(v.montant || 0), 0)
@@ -73,8 +138,9 @@ export default function FicheMembre() {
       <Paper sx={{ p: 3, borderRadius: 3, border: `1px solid ${C.or}30`, mb: 3 }}>
         <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 3, alignItems: 'center' }}>
           <Avatar
+            variant="rounded"
             src={getMediaUrl(membre.photo, membre.photo_updated_at ? `v=${membre.photo_updated_at}` : '')}
-            sx={{ width: 100, height: 100, fontSize: '2rem', bgcolor: C.vert }}
+            sx={{ width: 140, height: 140, fontSize: '3rem', bgcolor: C.vert, borderRadius: 2, flexShrink: 0 }}
           >
             {membre.first_name?.[0]}{membre.last_name?.[0]}
           </Avatar>
@@ -97,6 +163,7 @@ export default function FicheMembre() {
               ['Niveau Al-Quran', NIVEAUX[membre.niveau_alquran]],
               ['Niveau Majalis', NIVEAUX[membre.niveau_majalis]],
               ['N° carte', membre.numero_carte],
+              ['Adresse', membre.adresse],
               ['Inscrit le', membre.date_inscription ? new Date(membre.date_inscription).toLocaleDateString('fr-FR') : ''],
             ].filter(([, v]) => v).map(([label, value]) => (
               <Grid item xs={6} key={label}>
@@ -105,6 +172,31 @@ export default function FicheMembre() {
               </Grid>
             ))}
           </Grid>
+        </Box>
+        <Divider sx={{ my: 2 }} />
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+          <Typography variant="subtitle2" sx={{ color: C.vertFonce, fontWeight: 700, mr: 1 }}>Badges</Typography>
+          {badges.length === 0 && <Typography variant="body2" color="text.secondary">Aucun badge pour l'instant.</Typography>}
+          {badges.map((b) => (
+            <Chip
+              key={b.id}
+              icon={<EmojiEvents sx={{ fontSize: 16 }} />}
+              label={b.badge.nom}
+              title={b.badge.description || ''}
+              onDelete={() => handleRetirerBadge(b.id)}
+              deleteIcon={<Close sx={{ fontSize: 14 }} />}
+              size="small"
+              sx={{ bgcolor: `${C.or}25`, color: C.vertFonce, fontWeight: 600 }}
+            />
+          ))}
+          <Chip
+            icon={<Add sx={{ fontSize: 16 }} />}
+            label="Attribuer un badge"
+            size="small"
+            variant="outlined"
+            onClick={handleOpenBadge}
+            sx={{ borderColor: C.vert, color: C.vert }}
+          />
         </Box>
       </Paper>
 
@@ -131,6 +223,14 @@ export default function FicheMembre() {
               <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Montant payé</Typography><Typography variant="h6" sx={{ fontWeight: 700, color: '#2E7D32' }}>{montantPaye.toLocaleString('fr-FR')} FCFA</Typography></Grid>
               <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Montant total assigné</Typography><Typography variant="h6" sx={{ fontWeight: 700, color: C.vertFonce }}>{montantTotal.toLocaleString('fr-FR')} FCFA</Typography></Grid>
               <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Reste</Typography><Typography variant="h6" sx={{ fontWeight: 700, color: '#c62828' }}>{(montantTotal - montantPaye).toLocaleString('fr-FR')} FCFA</Typography></Grid>
+            </Grid>
+          </SectionCard>
+          <SectionCard title="Bilan des mensualités">
+            <Grid container spacing={2}>
+              <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Mensualités</Typography><Typography variant="h6" sx={{ fontWeight: 700, color: C.vert }}>{mensualitesPayees}/{mensualites.length}</Typography></Grid>
+              <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Montant payé</Typography><Typography variant="h6" sx={{ fontWeight: 700, color: '#2E7D32' }}>{montantPayeMensualites.toLocaleString('fr-FR')} FCFA</Typography></Grid>
+              <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Montant total dû</Typography><Typography variant="h6" sx={{ fontWeight: 700, color: C.vertFonce }}>{montantTotalMensualites.toLocaleString('fr-FR')} FCFA</Typography></Grid>
+              <Grid item xs={6} sm={3}><Typography variant="caption" color="text.secondary">Reste</Typography><Typography variant="h6" sx={{ fontWeight: 700, color: '#c62828' }}>{(montantTotalMensualites - montantPayeMensualites).toLocaleString('fr-FR')} FCFA</Typography></Grid>
             </Grid>
           </SectionCard>
           <SectionCard title="Historique des cotisations">
@@ -169,6 +269,46 @@ export default function FicheMembre() {
           </SectionCard>
         </>
       )}
+
+      <Dialog open={openBadge} onClose={() => setOpenBadge(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Attribuer un badge</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            {badgeMsg && <Alert severity="error">{badgeMsg}</Alert>}
+            {!nouveauBadge ? (
+              <>
+                <TextField
+                  select fullWidth label="Badge" value={badgeForm.badge}
+                  onChange={(e) => setBadgeForm((f) => ({ ...f, badge: e.target.value }))}
+                >
+                  {badgeDefs.map((b) => <MenuItem key={b.id} value={b.id}>{b.nom}</MenuItem>)}
+                </TextField>
+                <Button size="small" startIcon={<Add />} onClick={() => setNouveauBadge(true)} sx={{ alignSelf: 'flex-start', color: C.vert }}>
+                  Créer un nouveau badge
+                </Button>
+              </>
+            ) : (
+              <>
+                <TextField fullWidth label="Nom du badge" value={badgeForm.nom} onChange={(e) => setBadgeForm((f) => ({ ...f, nom: e.target.value }))} required />
+                <TextField select fullWidth label="Catégorie" value={badgeForm.categorie} onChange={(e) => setBadgeForm((f) => ({ ...f, categorie: e.target.value }))}>
+                  {CATEGORIES_BADGE.map((c) => <MenuItem key={c.value} value={c.value}>{c.label}</MenuItem>)}
+                </TextField>
+                <TextField fullWidth label="Description (optionnel)" value={badgeForm.description} onChange={(e) => setBadgeForm((f) => ({ ...f, description: e.target.value }))} multiline rows={2} />
+                <Button size="small" onClick={() => setNouveauBadge(false)} sx={{ alignSelf: 'flex-start' }}>
+                  ← Choisir un badge existant
+                </Button>
+              </>
+            )}
+            <TextField fullWidth label="Raison (optionnel)" value={badgeForm.raison} onChange={(e) => setBadgeForm((f) => ({ ...f, raison: e.target.value }))} multiline rows={2} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenBadge(false)}>Annuler</Button>
+          <Button variant="contained" onClick={handleAttribuerBadge} disabled={savingBadge} sx={{ bgcolor: C.vert, '&:hover': { bgcolor: C.vertFonce } }}>
+            {savingBadge ? <CircularProgress size={20} color="inherit" /> : 'Attribuer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {tab === 'culturelle' && (
         <>

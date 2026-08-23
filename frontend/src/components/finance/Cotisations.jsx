@@ -35,6 +35,7 @@ const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 const WAVE_PAYMENT_URL = 'https://pay.wave.com/m/M_sn_A4og8Zu7m589/c/sn/'
 const STATUTS = [
   { value: 'en_attente', label: 'En attente' },
+  { value: 'declare', label: 'Déclaré' },
   { value: 'payee', label: 'Payée' },
   { value: 'annulee', label: 'Annulée' },
 ]
@@ -294,7 +295,7 @@ export default function Cotisations() {
 
   // --- Confirmation groupée par le chargé de finance ---
   const [selection, setSelection] = useState([])
-  const confirmables = filteredList => filteredList.filter((c) => ['en_attente', 'retard'].includes(c.statut))
+  const confirmables = filteredList => filteredList.filter((c) => c.statut === 'declare')
 
   const toggleSelection = (id) => {
     setSelection((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -318,7 +319,9 @@ export default function Cotisations() {
 
   const statutColor = (s) => {
     const statutLower = String(s || '').toLowerCase()
-    return statutLower === 'payee' ? 'success' : 'default'
+    if (statutLower === 'payee') return 'success'
+    if (statutLower === 'declare') return 'warning'
+    return 'default'
   }
 
   const canPayCotisation = (c) => String(c.statut || '').toLowerCase() === 'en_attente'
@@ -680,9 +683,9 @@ export default function Cotisations() {
                 const isAssignation = c.type_cotisation === 'assignation'
                 const isPaid = String(c.statut || '').toLowerCase() === 'payee'
                 const canPay = canPayCotisation(c)
-                const dejaDeclare = canPay && !!c.date_declaration
+                const dejaDeclare = c.statut === 'declare'
                 const isMine = Number(c.membre) === Number(user?.id)
-                const estConfirmable = c.statut === 'en_attente'
+                const estConfirmable = c.statut === 'declare'
                 return (
                   <TableRow key={c.id} hover selected={selection.includes(c.id)}>
                     {isAdmin && (
@@ -725,7 +728,7 @@ export default function Cotisations() {
                     </TableCell>
                     <TableCell align="right">
                       <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end', flexWrap: 'nowrap' }}>
-                        {(isMine || !isAdmin) && canPay && (
+                        {(isMine || !isAdmin) && (canPay || dejaDeclare) && (
                           dejaDeclare ? (
                             <Chip size="small" label="En attente de confirmation" sx={{ bgcolor: `${COLORS.or}25`, color: COLORS.vertFonce, fontWeight: 600 }} />
                           ) : (

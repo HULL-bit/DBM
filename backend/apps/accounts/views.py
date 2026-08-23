@@ -1,4 +1,4 @@
-from rest_framework import generics, status
+from rest_framework import generics, status, viewsets
 from rest_framework.decorators import api_view, permission_classes, parser_classes, authentication_classes
 from rest_framework.parsers import JSONParser, MultiPartParser, FormParser
 from rest_framework.permissions import IsAuthenticated, AllowAny
@@ -12,7 +12,7 @@ from .serializers import (
     UserSerializer, UserPublicSerializer, UserCreateSerializer, UserMeSerializer, BadgeSerializer, AttributionBadgeSerializer,
     MatricePermissionRoleSerializer, PermissionMembreOverrideSerializer, JournalAuditSerializer,
 )
-from .models import AttributionBadge, CodeReinitialisation, MatricePermissionRole, PermissionMembreOverride, JournalAudit, RUBRIQUES
+from .models import Badge, AttributionBadge, CodeReinitialisation, MatricePermissionRole, PermissionMembreOverride, JournalAudit, RUBRIQUES
 from .permissions import IsAdminRoleOrStaff, IsAdminOrComptesVoir, IsAdminOrComptesGerer, has_rubrique_access, log_audit
 
 User = get_user_model()
@@ -337,6 +337,69 @@ def mes_badges(request):
     qs = AttributionBadge.objects.filter(user=request.user).select_related('badge')
     serializer = AttributionBadgeSerializer(qs, many=True)
     return Response(serializer.data)
+
+
+class BadgeViewSet(viewsets.ModelViewSet):
+    """Définitions de badges (nom, catégorie, points...) : consultables par tous, gérées
+    (créer/modifier/supprimer) par l'admin ou un utilisateur autorisé sur 'comptes'."""
+    queryset = Badge.objects.filter(est_actif=True).order_by('categorie', 'nom')
+    serializer_class = BadgeSerializer
+    permission_classes = [IsAuthenticated]
+
+    def get_permissions(self):
+        if self.request.method not in ['GET', 'HEAD', 'OPTIONS']:
+            return [IsAdminOrComptesGerer()]
+        return [IsAuthenticated()]
+
+
+@api_view(['GET', 'POST'])
+@permission_classes([IsAuthenticated])
+def badges_membre(request, user_id):
+    """GET : badges obtenus par ce membre — visible par lui-même, ou par un utilisateur
+    ayant un droit de consultation sur la rubrique 'comptes' (admin y compris).
+    POST : attribue un badge à ce membre — nécessite un droit de gestion sur 'comptes'."""
+    membre = User.objects.filter(id=user_id).first()
+    if not membre:
+        return Response({'detail': 'Membre introuvable.'}, status=status.HTTP_404_NOT_FOUND)
+
+    if request.method == 'GET':
+        if request.user.id != membre.id and not has_rubrique_access(request.user, 'comptes', 'voir'):
+            return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+        qs = AttributionBadge.objects.filter(user=membre).select_related('badge')
+        return Response(AttributionBadgeSerializer(qs, many=True).data)
+
+    if not has_rubrique_access(request.user, 'comptes', 'gerer'):
+        return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+    badge = Badge.objects.filter(id=request.data.get('badge')).first()
+    if not badge:
+        return Response({'detail': 'Badge invalide.'}, status=status.HTTP_400_BAD_REQUEST)
+    attribution, created = AttributionBadge.objects.get_or_create(
+        user=membre, badge=badge, defaults={'raison': request.data.get('raison', '')}
+    )
+    if not created:
+        return Response({'detail': 'Ce membre a déjà ce badge.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    from apps.communication.notifications import creer_notifications
+    creer_notifications(
+        [membre.id], 'systeme', 'Nouveau badge obtenu !',
+        f"Vous avez obtenu le badge « {badge.nom} »." + (f" {attribution.raison}" if attribution.raison else '')
+    )
+    log_audit(request, 'modification', rubrique='comptes', objet=membre,
+              description=f"Badge « {badge.nom} » attribué à {membre.get_full_name()}")
+    return Response(AttributionBadgeSerializer(attribution).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['DELETE'])
+@permission_classes([IsAdminOrComptesGerer])
+def retirer_badge(request, attribution_id):
+    """Retire un badge précédemment attribué à un membre."""
+    attribution = AttributionBadge.objects.filter(id=attribution_id).select_related('user', 'badge').first()
+    if not attribution:
+        return Response(status=status.HTTP_204_NO_CONTENT)
+    log_audit(request, 'modification', rubrique='comptes', objet=attribution.user,
+              description=f"Badge « {attribution.badge.nom} » retiré à {attribution.user.get_full_name()}")
+    attribution.delete()
+    return Response(status=status.HTTP_204_NO_CONTENT)
 
 
 # ──────────────────────────── Rôles & Permissions (RBAC) ────────────────────────────

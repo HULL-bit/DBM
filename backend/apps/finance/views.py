@@ -239,7 +239,8 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
         cotisation.reference_wave = reference_wave or cotisation.reference_wave
         cotisation.mode_paiement = mode_paiement
         cotisation.date_declaration = timezone.now()
-        cotisation.save(update_fields=['reference_wave', 'mode_paiement', 'date_declaration'])
+        cotisation.statut = 'declare'
+        cotisation.save(update_fields=['reference_wave', 'mode_paiement', 'date_declaration', 'statut'])
         return Response(CotisationMensuelleSerializer(cotisation).data)
 
 

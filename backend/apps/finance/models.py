@@ -10,6 +10,7 @@ class CotisationMensuelle(models.Model):
     ]
     STATUT_CHOICES = [
         ('en_attente', 'En attente'),
+        ('declare', 'Déclaré'),
         ('payee', 'Payée'),
         ('retard', 'En retard'),
         ('annulee', 'Annulée'),
