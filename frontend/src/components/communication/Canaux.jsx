@@ -22,6 +22,7 @@ import {
   CircularProgress,
   Divider,
   Tooltip,
+  Checkbox,
 } from '@mui/material'
 import {
   Add,
@@ -427,17 +428,37 @@ export default function Canaux() {
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
             <TextField label="Nom du canal" value={nomCanal} onChange={(e) => setNomCanal(e.target.value)} fullWidth required />
             <TextField label="Description (optionnel)" value={descCanal} onChange={(e) => setDescCanal(e.target.value)} fullWidth multiline rows={2} />
-            <Autocomplete
-              multiple
-              options={tousMembres}
-              getOptionLabel={(m) => `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.username}
-              value={membresChoisis}
-              onChange={(e, val) => setMembresChoisis(val)}
-              renderInput={(params) => <TextField {...params} label="Ajouter des membres" />}
-              renderTags={(value, getTagProps) => value.map((m, i) => (
-                <Chip label={`${m.first_name} ${m.last_name}`} {...getTagProps({ index: i })} key={m.id} />
-              ))}
-            />
+            <Box>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+                <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce }}>
+                  Membres du canal ({membresChoisis.length} / {tousMembres.length})
+                </Typography>
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button size="small" onClick={() => setMembresChoisis(tousMembres)} sx={{ color: COLORS.vert }}>Tout sélectionner</Button>
+                  <Button size="small" color="error" onClick={() => setMembresChoisis([])}>Tout désélectionner</Button>
+                </Box>
+              </Box>
+              <Paper variant="outlined" sx={{ maxHeight: 260, overflow: 'auto', borderRadius: 2 }}>
+                {tousMembres.map((m) => {
+                  const checked = membresChoisis.some((x) => x.id === m.id)
+                  return (
+                    <Box
+                      key={m.id}
+                      onClick={() => setMembresChoisis((prev) => (checked ? prev.filter((x) => x.id !== m.id) : [...prev, m]))}
+                      sx={{
+                        display: 'flex', alignItems: 'center', gap: 1, px: 1.5, py: 0.75, cursor: 'pointer',
+                        bgcolor: checked ? `${COLORS.vert}10` : 'transparent',
+                        '&:hover': { bgcolor: `${COLORS.or}10` },
+                      }}
+                    >
+                      <Checkbox size="small" checked={checked} sx={{ color: COLORS.vert, '&.Mui-checked': { color: COLORS.vert }, p: 0 }} onChange={() => {}} />
+                      <Avatar sx={{ width: 28, height: 28, fontSize: '0.65rem', bgcolor: checked ? COLORS.vert : `${COLORS.vert}40` }}>{initials(`${m.first_name} ${m.last_name}`)}</Avatar>
+                      <Typography variant="body2">{`${m.first_name || ''} ${m.last_name || ''}`.trim() || m.username}</Typography>
+                    </Box>
+                  )
+                })}
+              </Paper>
+            </Box>
           </Box>
         </DialogContent>
         <DialogActions>

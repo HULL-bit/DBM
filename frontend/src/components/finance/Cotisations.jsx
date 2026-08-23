@@ -25,6 +25,7 @@ import {
   CircularProgress,
   Tabs,
   Tab,
+  Checkbox,
 } from '@mui/material'
 import { Add, Edit, Delete, Payment, TableChart } from '@mui/icons-material'
 import api from '../../services/api'
@@ -270,7 +271,6 @@ export default function Cotisations() {
 
   const handleOpenPayer = (c) => {
     setOpenPayer(c)
-    setPayerForm({ reference_wave: c.reference_wave || '', mode_paiement: c.mode_paiement || 'wave' })
   }
 
   const handlePayer = async () => {
@@ -278,16 +278,37 @@ export default function Cotisations() {
     setSaving(true)
     setMessage({ type: '', text: '' })
     try {
-      await api.post(`/finance/cotisations/${openPayer.id}/payer/`, {
-        reference_wave: payerForm.reference_wave.trim(),
-        mode_paiement: payerForm.mode_paiement,
-      })
-      setMessage({ type: 'success', text: 'Déclaration enregistrée. L\'administrateur validera le paiement avant de marquer la cotisation comme payée.' })
+      await api.post(`/finance/cotisations/${openPayer.id}/payer/`, { mode_paiement: 'liquide' })
+      setMessage({ type: 'success', text: 'Paiement déclaré. Il est en attente de confirmation par le chargé de finance.' })
       setOpenPayer(null)
       loadList()
     } catch (err) {
       const d = err.response?.data?.detail || 'Erreur'
       setMessage({ type: 'error', text: typeof d === 'string' ? d : 'Erreur lors de l\'enregistrement du paiement.' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  // --- Confirmation groupée par le chargé de finance ---
+  const [selection, setSelection] = useState([])
+  const confirmables = filteredList => filteredList.filter((c) => ['en_attente', 'retard'].includes(c.statut))
+
+  const toggleSelection = (id) => {
+    setSelection((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
+  }
+
+  const handleConfirmerSelection = async () => {
+    if (selection.length === 0) return
+    setSaving(true)
+    setMessage({ type: '', text: '' })
+    try {
+      await Promise.all(selection.map((id) => api.patch(`/finance/cotisations/${id}/`, { statut: 'payee' })))
+      setMessage({ type: 'success', text: `${selection.length} paiement(s) confirmé(s).` })
+      setSelection([])
+      loadList()
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Erreur lors de la confirmation groupée.' })
     } finally {
       setSaving(false)
     }
@@ -594,10 +615,37 @@ export default function Cotisations() {
           <Typography color="text.secondary" variant="h6">Aucune cotisation</Typography>
         </Box>
       ) : (
+        <>
+          {isAdmin && confirmables(filteredList).length > 0 && (
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
+              <Button
+                size="small"
+                variant="contained"
+                disabled={selection.length === 0 || saving}
+                onClick={handleConfirmerSelection}
+                sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
+              >
+                Confirmer les paiements sélectionnés ({selection.length})
+              </Button>
+              {selection.length > 0 && (
+                <Button size="small" onClick={() => setSelection([])}>Désélectionner</Button>
+              )}
+            </Box>
+          )}
         <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${COLORS.or}30` }}>
           <Table size="small">
             <TableHead>
               <TableRow sx={{ '& th': { fontWeight: 700, color: COLORS.vertFonce, bgcolor: `${COLORS.vert}08`, whiteSpace: 'nowrap' } }}>
+                {isAdmin && (
+                  <TableCell padding="checkbox">
+                    <Checkbox
+                      size="small"
+                      indeterminate={selection.length > 0 && selection.length < confirmables(filteredList).length}
+                      checked={confirmables(filteredList).length > 0 && selection.length === confirmables(filteredList).length}
+                      onChange={(e) => setSelection(e.target.checked ? confirmables(filteredList).map((c) => c.id) : [])}
+                    />
+                  </TableCell>
+                )}
                 {isAdmin && <TableCell>Membre</TableCell>}
                 <TableCell>Type</TableCell>
                 <TableCell>Période</TableCell>
@@ -613,8 +661,16 @@ export default function Cotisations() {
                 const isPaid = String(c.statut || '').toLowerCase() === 'payee'
                 const canPay = canPayCotisation(c)
                 const isMine = Number(c.membre) === Number(user?.id)
+                const estConfirmable = ['en_attente', 'retard'].includes(c.statut)
                 return (
-                  <TableRow key={c.id} hover>
+                  <TableRow key={c.id} hover selected={selection.includes(c.id)}>
+                    {isAdmin && (
+                      <TableCell padding="checkbox">
+                        {estConfirmable && (
+                          <Checkbox size="small" checked={selection.includes(c.id)} onChange={() => toggleSelection(c.id)} />
+                        )}
+                      </TableCell>
+                    )}
                     {isAdmin && (
                       <TableCell sx={{ fontWeight: 600, color: COLORS.vert, whiteSpace: 'nowrap' }}>
                         {c.membre_nom || `#${c.membre}`}
@@ -671,6 +727,7 @@ export default function Cotisations() {
             </TableBody>
           </Table>
         </TableContainer>
+        </>
       )}
 
       <Dialog open={openForm} onClose={() => { setOpenForm(false); setEditingId(null) }} maxWidth="md" fullWidth>
@@ -906,34 +963,17 @@ export default function Cotisations() {
       </Dialog>
 
       <Dialog open={!!openPayer} onClose={() => setOpenPayer(null)} maxWidth="sm" fullWidth>
-        <DialogTitle sx={{ bgcolor: COLORS.vert, color: 'white' }}>Payer ma cotisation</DialogTitle>
+        <DialogTitle sx={{ bgcolor: COLORS.vert, color: 'white' }}>Déclarer mon paiement</DialogTitle>
         <DialogContent>
           {openPayer && (
             <Box sx={{ pt: 2, display: 'flex', flexDirection: 'column', gap: 2 }}>
               <Alert severity="info">
                 Cotisation <strong>{openPayer.mois}/{openPayer.annee}</strong> — Montant : <strong>{openPayer.montant} FCFA</strong>
               </Alert>
-              <Button
-                variant="contained"
-                href={WAVE_PAYMENT_URL}
-                target="_blank"
-                rel="noopener noreferrer"
-                fullWidth
-                startIcon={<Payment />}
-                sx={{ bgcolor: '#00D9A5', color: '#000', py: 1.5, '&:hover': { bgcolor: '#00C496', color: '#000' } }}
-              >
-                Payer avec Wave
-              </Button>
               <Typography variant="body2" color="text.secondary">
-                Après avoir payé via le lien Wave ci-dessus, cliquez sur &quot;Déclarer mon paiement&quot; pour enregistrer votre référence. L&apos;administrateur validera le versement avant de marquer la cotisation comme payée.
+                En confirmant, votre cotisation passera en <strong>attente de confirmation</strong>. Le chargé de
+                finance vérifiera votre paiement et le validera prochainement.
               </Typography>
-              <TextField
-                fullWidth
-                label="Référence (optionnel)"
-                value={payerForm.reference_wave}
-                onChange={(e) => setPayerForm((f) => ({ ...f, reference_wave: e.target.value }))}
-                placeholder="Ex: 7XX1234567 — utile si vous avez payé par un autre moyen"
-              />
             </Box>
           )}
         </DialogContent>

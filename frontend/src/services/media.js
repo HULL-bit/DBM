@@ -22,19 +22,13 @@ export function getMediaBaseUrl() {
  */
 export function getMediaUrl(path, query = '') {
   if (!path) return null
-  const base = getMediaBaseUrl()
-  let urlPath = path
+  // URL déjà complète (fichier servi depuis S3/R2/CDN, potentiellement signée) : ne jamais la
+  // réécrire, sous peine de perdre l'hôte et la signature et de casser l'accès au fichier.
   if (path.startsWith('http://') || path.startsWith('https://')) {
-    try {
-      const u = new URL(path)
-      urlPath = u.pathname
-    } catch {
-      urlPath = path
-    }
+    return path
   }
-  if (!urlPath.startsWith('/')) {
-    urlPath = `/media/${urlPath}`
-  }
+  const base = getMediaBaseUrl()
+  const urlPath = path.startsWith('/') ? path : `/media/${path}`
   const q = query ? (query.startsWith('?') ? query : `?${query}`) : ''
   return base ? `${base}${urlPath}${q}` : `${urlPath}${q}`
 }

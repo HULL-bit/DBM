@@ -16,7 +16,6 @@ import {
   Checkbox,
   Alert,
   CircularProgress,
-  Autocomplete,
   ToggleButtonGroup,
   ToggleButton,
 } from '@mui/material'
@@ -83,6 +82,14 @@ export default function GestionRolesPermissions() {
 
   // --- Onglet "Exceptions par membre" ---
   const [membres, setMembres] = useState([])
+  const [filtreMembre, setFiltreMembre] = useState('')
+  const membresFiltres = useMemo(() => {
+    const q = filtreMembre.trim().toLowerCase()
+    if (!q) return membres
+    return membres.filter((m) =>
+      `${m.first_name || ''} ${m.last_name || ''} ${m.username || ''} ${m.role_display || ''}`.toLowerCase().includes(q)
+    )
+  }, [membres, filtreMembre])
   const [membreSelectionne, setMembreSelectionne] = useState(null)
   const [overrides, setOverrides] = useState([])
   const [loadingOverrides, setLoadingOverrides] = useState(false)
@@ -203,21 +210,53 @@ export default function GestionRolesPermissions() {
       )}
 
       {tab === 'membres' && (
-        <Box>
-          <Autocomplete
-            options={membres}
-            getOptionLabel={(m) => `${m.first_name || ''} ${m.last_name || ''} (${m.username})`.trim()}
-            value={membreSelectionne}
-            onChange={(e, val) => setMembreSelectionne(val)}
-            renderInput={(params) => <TextField {...params} label="Rechercher un membre" size="small" />}
-            sx={{ maxWidth: 400, mb: 2 }}
-          />
+        <Box sx={{ display: 'flex', gap: 2, alignItems: 'flex-start', flexWrap: { xs: 'wrap', md: 'nowrap' } }}>
+          <Paper sx={{ width: { xs: '100%', md: 320 }, flexShrink: 0, borderRadius: 2, border: `1px solid ${COLORS.or}30`, overflow: 'hidden' }}>
+            <Box sx={{ p: 1.5, borderBottom: `1px solid ${COLORS.or}30` }}>
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Rechercher un membre..."
+                value={filtreMembre}
+                onChange={(e) => setFiltreMembre(e.target.value)}
+              />
+              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                {membresFiltres.length} / {membres.length} membre(s)
+              </Typography>
+            </Box>
+            <Box sx={{ maxHeight: 460, overflowY: 'auto' }}>
+              {membresFiltres.map((m) => (
+                <Box
+                  key={m.id}
+                  onClick={() => setMembreSelectionne(m)}
+                  sx={{
+                    display: 'flex', justifyContent: 'space-between', alignItems: 'center',
+                    px: 1.5, py: 1, cursor: 'pointer',
+                    bgcolor: membreSelectionne?.id === m.id ? `${COLORS.vert}15` : 'transparent',
+                    '&:hover': { bgcolor: `${COLORS.or}10` },
+                    borderBottom: '1px solid #f0f0f0',
+                  }}
+                >
+                  <Typography variant="body2" sx={{ fontWeight: membreSelectionne?.id === m.id ? 700 : 400 }}>
+                    {`${m.first_name || ''} ${m.last_name || ''}`.trim() || m.username}
+                  </Typography>
+                  <Chip label={m.role_display || m.role} size="small" sx={{ bgcolor: `${COLORS.or}25`, color: COLORS.vertFonce, fontSize: '0.65rem' }} />
+                </Box>
+              ))}
+            </Box>
+          </Paper>
 
+          <Box sx={{ flex: 1, minWidth: 0 }}>
           {!membreSelectionne ? (
             <Typography color="text.secondary">Sélectionnez un membre pour voir/modifier ses exceptions.</Typography>
           ) : loadingOverrides ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
           ) : (
+            <>
+            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: COLORS.vert, mb: 1.5 }}>
+              {`${membreSelectionne.first_name || ''} ${membreSelectionne.last_name || ''}`.trim() || membreSelectionne.username}
+              {' '}<Chip label={membreSelectionne.role_display || membreSelectionne.role} size="small" sx={{ ml: 1, bgcolor: `${COLORS.or}25`, color: COLORS.vertFonce }} />
+            </Typography>
             <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${COLORS.or}30` }}>
               <Table size="small">
                 <TableHead>
@@ -264,7 +303,9 @@ export default function GestionRolesPermissions() {
                 </TableBody>
               </Table>
             </TableContainer>
+            </>
           )}
+          </Box>
         </Box>
       )}
     </Box>

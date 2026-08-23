@@ -1,5 +1,6 @@
 import { createContext, useContext, useState, useEffect } from 'react'
 import api from '../services/api'
+import { initPush } from '../services/push'
 
 const AuthContext = createContext(null)
 
@@ -13,7 +14,7 @@ export function AuthProvider({ children }) {
     const token = sessionStorage.getItem('access')
     if (token) {
       api.get('/auth/me/')
-        .then(({ data }) => setUser(data))
+        .then(({ data }) => { setUser(data); initPush() })
         .catch(() => {
           sessionStorage.removeItem('access')
           sessionStorage.removeItem('refresh')
@@ -29,6 +30,7 @@ export function AuthProvider({ children }) {
     sessionStorage.setItem('access', data.access)
     sessionStorage.setItem('refresh', data.refresh)
     setUser(data.user)
+    initPush()
     return data.user
   }
 
