@@ -72,6 +72,36 @@ class ParticipationEvenement(models.Model):
         return f"{self.membre.get_full_name()} - {self.evenement.titre}"
 
 
+class EvenementLike(models.Model):
+    evenement = models.ForeignKey(Evenement, on_delete=models.CASCADE, related_name='likes')
+    membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='evenement_likes')
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['evenement', 'membre']
+        verbose_name = 'Like (événement)'
+        verbose_name_plural = 'Likes (événement)'
+
+    def __str__(self):
+        return f"{self.membre_id} ♥ {self.evenement_id}"
+
+
+class EvenementComment(models.Model):
+    evenement = models.ForeignKey(Evenement, on_delete=models.CASCADE, related_name='comments')
+    membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='evenement_comments')
+    parent = models.ForeignKey('self', on_delete=models.CASCADE, null=True, blank=True, related_name='replies')
+    texte = models.TextField()
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Commentaire (événement)'
+        verbose_name_plural = 'Commentaires (événement)'
+        ordering = ['date_creation']
+
+    def __str__(self):
+        return f"Commentaire {self.id} — {self.evenement_id}"
+
+
 class Publication(models.Model):
     CATEGORIE_CHOICES = [
         ('article', 'Article'),
@@ -169,8 +199,11 @@ class NewsPost(models.Model):
 
 
 class NewsImage(models.Model):
+    TYPE_CHOICES = [('image', 'Image'), ('video', 'Vidéo')]
+
     post = models.ForeignKey(NewsPost, on_delete=models.CASCADE, related_name='images')
-    image = models.ImageField(upload_to='news/')
+    image = models.FileField(upload_to='news/')
+    type_media = models.CharField(max_length=10, choices=TYPE_CHOICES, default='image')
     ordre = models.IntegerField(default=0)
 
     class Meta:

@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from .models import (
-    Groupe, Evenement, ParticipationEvenement, Publication, Annonce, GalerieMedia,
+    Groupe, Evenement, EvenementLike, EvenementComment, ParticipationEvenement,
+    Publication, Annonce, GalerieMedia,
     NewsPost, NewsImage, NewsLike, NewsBookmark, NewsComment,
 )
 
@@ -12,14 +13,58 @@ class GroupeSerializer(serializers.ModelSerializer):
         read_only_fields = ['date_creation']
 
 
+class GalerieMediaSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = GalerieMedia
+        fields = '__all__'
+        read_only_fields = ['date_upload', 'upload_par', 'vues']
+
+
+class EvenementCommentSerializer(serializers.ModelSerializer):
+    membre_nom = serializers.CharField(source='membre.get_full_name', read_only=True)
+
+    class Meta:
+        model = EvenementComment
+        fields = ['id', 'evenement', 'membre', 'membre_nom', 'parent', 'texte', 'date_creation']
+        read_only_fields = ['evenement', 'membre', 'date_creation']
+
+
 class EvenementSerializer(serializers.ModelSerializer):
     type_evenement_display = serializers.CharField(source='get_type_evenement_display', read_only=True)
     cree_par_nom = serializers.CharField(source='cree_par.get_full_name', read_only=True)
+    medias = GalerieMediaSerializer(many=True, read_only=True)
+    nb_likes = serializers.SerializerMethodField()
+    nb_comments = serializers.SerializerMethodField()
+    is_liked = serializers.SerializerMethodField()
 
     class Meta:
         model = Evenement
-        fields = '__all__'
+        fields = [
+            'id', 'titre', 'description', 'type_evenement', 'type_evenement_display',
+            'date_debut', 'date_fin', 'lieu', 'adresse_complete', 'lien_visio', 'image',
+            'capacite_max', 'cree_par', 'cree_par_nom', 'date_creation', 'groupes_cibles',
+            'participants', 'est_publie', 'documents',
+            'medias', 'nb_likes', 'nb_comments', 'is_liked',
+        ]
         read_only_fields = ['date_creation', 'cree_par']
+
+    def _user(self):
+        req = self.context.get('request')
+        return getattr(req, 'user', None) if req else None
+
+    def get_nb_likes(self, obj):
+        return getattr(obj, 'nb_likes', None) if getattr(obj, 'nb_likes', None) is not None else obj.likes.count()
+
+    def get_nb_comments(self, obj):
+        return getattr(obj, 'nb_comments', None) if getattr(obj, 'nb_comments', None) is not None else obj.comments.count()
+
+    def get_is_liked(self, obj):
+        user = self._user()
+        if not user or not getattr(user, 'is_authenticated', False):
+            return False
+        if hasattr(obj, '_prefetched_objects_cache') and 'likes' in obj._prefetched_objects_cache:
+            return any(l.membre_id == user.id for l in obj.likes.all())
+        return EvenementLike.objects.filter(evenement=obj, membre=user).exists()
 
 
 class ParticipationEvenementSerializer(serializers.ModelSerializer):
@@ -47,17 +92,10 @@ class AnnonceSerializer(serializers.ModelSerializer):
         read_only_fields = ['date_publication', 'auteur']
 
 
-class GalerieMediaSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = GalerieMedia
-        fields = '__all__'
-        read_only_fields = ['date_upload', 'upload_par', 'vues']
-
-
 class NewsImageSerializer(serializers.ModelSerializer):
     class Meta:
         model = NewsImage
-        fields = ['id', 'image', 'ordre']
+        fields = ['id', 'image', 'type_media', 'ordre']
 
 
 class NewsCommentSerializer(serializers.ModelSerializer):

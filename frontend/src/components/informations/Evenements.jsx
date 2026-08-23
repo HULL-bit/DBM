@@ -19,7 +19,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material'
-import { Add, Edit, Delete, Event as EventIcon } from '@mui/icons-material'
+import { Add, Edit, Delete, Event as EventIcon, Favorite, FavoriteBorder, Comment as CommentIcon } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
 import { useAuth } from '../../context/AuthContext'
@@ -61,6 +61,12 @@ export default function Evenements() {
   const [editingId, setEditingId] = useState(null)
   const [detailEvt, setDetailEvt] = useState(null)
   const [fieldErrors, setFieldErrors] = useState({})
+  const [mediaFiles, setMediaFiles] = useState([])
+
+  const [openComments, setOpenComments] = useState(null)
+  const [comments, setComments] = useState([])
+  const [loadingComments, setLoadingComments] = useState(false)
+  const [newComment, setNewComment] = useState('')
 
   const loadList = () => {
     setLoading(true)
@@ -68,10 +74,50 @@ export default function Evenements() {
   }
   useEffect(() => { loadList() }, [])
 
+  const handleToggleLike = async (evt) => {
+    try {
+      const endpoint = evt.is_liked ? 'unlike' : 'like'
+      await api.post(`/informations/evenements/${evt.id}/${endpoint}/`)
+      const maj = (e) => (e.id !== evt.id ? e : { ...e, is_liked: !e.is_liked, nb_likes: (Number(e.nb_likes) || 0) + (e.is_liked ? -1 : 1) })
+      setList((prev) => prev.map(maj))
+      setDetailEvt((prev) => (prev && prev.id === evt.id ? maj(prev) : prev))
+    } catch (_) {}
+  }
+
+  const handleOpenComments = async (evt) => {
+    setOpenComments(evt)
+    setNewComment('')
+    setComments([])
+    setLoadingComments(true)
+    try {
+      const { data } = await api.get(`/informations/evenements/${evt.id}/comments/`)
+      setComments(data || [])
+    } catch (_) {
+      setComments([])
+    } finally {
+      setLoadingComments(false)
+    }
+  }
+
+  const handleSendComment = async () => {
+    if (!openComments) return
+    const texte = (newComment || '').trim()
+    if (!texte) return
+    try {
+      const { data } = await api.post(`/informations/evenements/${openComments.id}/comment/`, { texte })
+      setComments((prev) => [...prev, data])
+      setNewComment('')
+      const maj = (e) => (e.id !== openComments.id ? e : { ...e, nb_comments: (Number(e.nb_comments) || 0) + 1 })
+      setList((prev) => prev.map(maj))
+      setDetailEvt((prev) => (prev && prev.id === openComments.id ? maj(prev) : prev))
+    } catch (_) {}
+  }
+
   const handleOpenAdd = () => {
     setEditingId(null)
     setForm(initialForm)
     setFieldErrors({})
+    setMediaFiles([])
     setOpenForm(true)
   }
 
@@ -90,6 +136,7 @@ export default function Evenements() {
       est_publie: evt.est_publie ?? false,
     })
     setFieldErrors({})
+    setMediaFiles([])
     setOpenForm(true)
   }
 
@@ -107,20 +154,30 @@ export default function Evenements() {
     setSaving(true)
     setMessage({ type: '', text: '' })
     try {
-      const payload = {
-        ...form,
-        capacite_max: form.capacite_max ? Number(form.capacite_max) : null,
-      }
+      const fd = new FormData()
+      fd.append('titre', form.titre)
+      fd.append('description', form.description || '')
+      fd.append('type_evenement', form.type_evenement)
+      fd.append('date_debut', form.date_debut)
+      fd.append('date_fin', form.date_fin)
+      fd.append('lieu', form.lieu)
+      fd.append('adresse_complete', form.adresse_complete || '')
+      fd.append('lien_visio', form.lien_visio || '')
+      if (form.capacite_max) fd.append('capacite_max', String(Number(form.capacite_max)))
+      fd.append('est_publie', String(!!form.est_publie))
+      mediaFiles.forEach((f) => fd.append('medias', f))
+      const config = { headers: { 'Content-Type': 'multipart/form-data' } }
       if (editingId) {
-        await api.patch(`/informations/evenements/${editingId}/`, payload)
+        await api.patch(`/informations/evenements/${editingId}/`, fd, config)
         setMessage({ type: 'success', text: 'Événement modifié.' })
       } else {
-        await api.post('/informations/evenements/', payload)
+        await api.post('/informations/evenements/', fd, config)
         setMessage({ type: 'success', text: 'Événement créé.' })
       }
       loadList()
       setOpenForm(false)
       setEditingId(null)
+      setMediaFiles([])
     } catch (err) {
       const data = err.response?.data
       if (data && typeof data === 'object' && !Array.isArray(data)) {
@@ -191,16 +248,26 @@ export default function Evenements() {
                     <Typography variant="body2" color="text.secondary">{evt.lieu}</Typography>
                     <Typography variant="caption" display="block">{new Date(evt.date_debut).toLocaleDateString('fr-FR')}</Typography>
                   </CardContent>
-                  <CardActions>
-                    <Button size="small" sx={{ color: COLORS.vert }} onClick={() => setDetailEvt(evt)}>
-                      Voir détails
-                    </Button>
-                    {isAdmin && (
-                      <>
-                        <IconButton size="small" onClick={() => handleOpenEdit(evt)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                        <IconButton size="small" onClick={() => setOpenDelete(evt)} color="error"><Delete /></IconButton>
-                      </>
-                    )}
+                  <CardActions sx={{ flexWrap: 'wrap', justifyContent: 'space-between' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <IconButton size="small" onClick={() => handleToggleLike(evt)} sx={{ color: evt.is_liked ? '#c62828' : 'inherit' }}>
+                        {evt.is_liked ? <Favorite fontSize="small" /> : <FavoriteBorder fontSize="small" />}
+                      </IconButton>
+                      <Typography variant="caption" sx={{ mr: 1 }}>{evt.nb_likes ?? 0}</Typography>
+                      <IconButton size="small" onClick={() => handleOpenComments(evt)}><CommentIcon fontSize="small" /></IconButton>
+                      <Typography variant="caption">{evt.nb_comments ?? 0}</Typography>
+                    </Box>
+                    <Box>
+                      <Button size="small" sx={{ color: COLORS.vert }} onClick={() => setDetailEvt(evt)}>
+                        Détails
+                      </Button>
+                      {isAdmin && (
+                        <>
+                          <IconButton size="small" onClick={() => handleOpenEdit(evt)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
+                          <IconButton size="small" onClick={() => setOpenDelete(evt)} color="error"><Delete /></IconButton>
+                        </>
+                      )}
+                    </Box>
                   </CardActions>
                 </Card>
               </Grid>
@@ -256,6 +323,27 @@ export default function Evenements() {
                   Capacité : {detailEvt.capacite_max} personne(s)
                 </Typography>
               )}
+              {(detailEvt.medias || []).length > 0 && (
+                <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+                  {detailEvt.medias.map((m) => (
+                    <Box key={m.id} sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #eee', p: 0.75, bgcolor: '#fafafa' }}>
+                      {m.type_media === 'video' ? (
+                        <Box component="video" src={getMediaUrl(m.fichier)} controls sx={{ width: '100%', maxHeight: '50vh', objectFit: 'contain', display: 'block', mx: 'auto' }} />
+                      ) : (
+                        <Box component="img" src={getMediaUrl(m.fichier)} alt="" loading="lazy" sx={{ width: '100%', maxHeight: '50vh', objectFit: 'contain', display: 'block', mx: 'auto' }} />
+                      )}
+                    </Box>
+                  ))}
+                </Box>
+              )}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1 }}>
+                <IconButton size="small" onClick={() => handleToggleLike(detailEvt)} sx={{ color: detailEvt.is_liked ? '#c62828' : 'inherit' }}>
+                  {detailEvt.is_liked ? <Favorite fontSize="small" /> : <FavoriteBorder fontSize="small" />}
+                </IconButton>
+                <Typography variant="caption" sx={{ mr: 1 }}>{detailEvt.nb_likes ?? 0}</Typography>
+                <IconButton size="small" onClick={() => handleOpenComments(detailEvt)}><CommentIcon fontSize="small" /></IconButton>
+                <Typography variant="caption">{detailEvt.nb_comments ?? 0} commentaire(s)</Typography>
+              </Box>
             </Box>
           )}
         </DialogContent>
@@ -327,6 +415,13 @@ export default function Evenements() {
             <TextField label="Adresse complète" value={form.adresse_complete} onChange={(e) => setForm((f) => ({ ...f, adresse_complete: e.target.value }))} multiline fullWidth />
             <TextField label="Lien visio" value={form.lien_visio} onChange={(e) => setForm((f) => ({ ...f, lien_visio: e.target.value }))} fullWidth />
             <TextField label="Capacité max" type="number" value={form.capacite_max} onChange={(e) => setForm((f) => ({ ...f, capacite_max: e.target.value }))} fullWidth />
+            <Button variant="outlined" component="label" sx={{ borderColor: COLORS.vert, color: COLORS.vert }}>
+              Ajouter des photos ou vidéos
+              <input hidden type="file" multiple accept="image/*,video/*" onChange={(e) => setMediaFiles(Array.from(e.target.files || []))} />
+            </Button>
+            {mediaFiles.length > 0 && (
+              <Typography variant="caption" color="text.secondary">{mediaFiles.length} fichier(s) sélectionné(s)</Typography>
+            )}
             <TextField select label="Publié" value={form.est_publie ? 'oui' : 'non'} onChange={(e) => setForm((f) => ({ ...f, est_publie: e.target.value === 'oui' }))} fullWidth>
               <MenuItem value="non">Non</MenuItem>
               <MenuItem value="oui">Oui</MenuItem>
@@ -345,6 +440,51 @@ export default function Evenements() {
         <DialogActions>
           <Button onClick={() => setOpenDelete(null)}>Annuler</Button>
           <Button variant="contained" color="error" onClick={handleDelete} disabled={saving}>{saving ? <CircularProgress size={24} /> : 'Supprimer'}</Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={!!openComments} onClose={() => setOpenComments(null)} maxWidth="sm" fullWidth>
+        <DialogTitle>Commentaires</DialogTitle>
+        <DialogContent>
+          {loadingComments ? (
+            <Box sx={{ p: 3, textAlign: 'center' }}><CircularProgress /></Box>
+          ) : comments.length === 0 ? (
+            <Typography color="text.secondary" sx={{ py: 2 }}>Aucun commentaire.</Typography>
+          ) : (
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, py: 1 }}>
+              {comments.map((c) => (
+                <Box key={c.id} sx={{ p: 1.25, borderRadius: 2, bgcolor: '#fafafa', border: '1px solid #eee' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    {c.membre_nom || `#${c.membre}`} • {c.date_creation ? new Date(c.date_creation).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
+                  </Typography>
+                  <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>{c.texte}</Typography>
+                </Box>
+              ))}
+            </Box>
+          )}
+          <Box sx={{ display: 'flex', gap: 1, mt: 2 }}>
+            <TextField
+              fullWidth
+              placeholder="Écrire un commentaire…"
+              value={newComment}
+              onChange={(e) => setNewComment(e.target.value)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && !e.shiftKey) {
+                  e.preventDefault()
+                  handleSendComment()
+                }
+              }}
+              multiline
+              minRows={1}
+              maxRows={4}
+            />
+            <Button variant="contained" onClick={handleSendComment} sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
+              Envoyer
+            </Button>
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenComments(null)}>Fermer</Button>
         </DialogActions>
       </Dialog>
     </Box>

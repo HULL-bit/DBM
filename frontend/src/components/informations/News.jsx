@@ -28,6 +28,45 @@ import { useAuth } from '../../context/AuthContext'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
+function MediaItem({ media, maxHeight, onDimensions, dimensions }) {
+  const url = getMediaUrl(media.image)
+  if (media.type_media === 'video') {
+    return (
+      <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #eee', p: 0.75, bgcolor: '#fafafa' }}>
+        <Box
+          component="video"
+          src={url}
+          controls
+          sx={{ width: '100%', maxHeight, objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
+          onLoadedMetadata={(e) => onDimensions?.(e.target.videoWidth, e.target.videoHeight)}
+        />
+        {dimensions && (
+          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
+            {dimensions.w} × {dimensions.h} px
+          </Typography>
+        )}
+      </Box>
+    )
+  }
+  return (
+    <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #eee', p: 0.75, bgcolor: '#fafafa' }}>
+      <Box
+        component="img"
+        src={url}
+        alt=""
+        loading="lazy"
+        sx={{ width: '100%', maxHeight, objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
+        onLoad={(e) => onDimensions?.(e.target.naturalWidth, e.target.naturalHeight)}
+      />
+      {dimensions && (
+        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
+          {dimensions.w} × {dimensions.h} px
+        </Typography>
+      )}
+    </Box>
+  )
+}
+
 export default function News() {
   const { user, peut } = useAuth()
   const theme = useTheme()
@@ -196,26 +235,13 @@ export default function News() {
                 {(post.images || []).length > 0 && (
                   <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                     {(post.images || []).slice(0, isMobile ? 2 : 3).map((img) => (
-                      <Box key={img.id} sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #eee', p: 0.75, bgcolor: '#fafafa' }}>
-                        <Box
-                          component="img"
-                          src={getMediaUrl(img.image)}
-                          alt=""
-                          loading="lazy"
-                          sx={{ width: '100%', maxHeight: isMobile ? '55vh' : '45vh', objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
-                          onLoad={(e) => {
-                            const el = e.target
-                            const w = el.naturalWidth
-                            const h = el.naturalHeight
-                            setImageInfos((prev) => ({ ...prev, [img.id]: { w, h } }))
-                          }}
-                        />
-                        {imageInfos[img.id] && (
-                          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
-                            {imageInfos[img.id].w} × {imageInfos[img.id].h} px
-                          </Typography>
-                        )}
-                      </Box>
+                      <MediaItem
+                        key={img.id}
+                        media={img}
+                        maxHeight={isMobile ? '55vh' : '45vh'}
+                        dimensions={imageInfos[img.id]}
+                        onDimensions={(w, h) => setImageInfos((prev) => ({ ...prev, [img.id]: { w, h } }))}
+                      />
                     ))}
                   </Box>
                 )}
@@ -255,12 +281,12 @@ export default function News() {
             <TextField fullWidth label="Titre (optionnel)" value={form.titre} onChange={(e) => setForm((f) => ({ ...f, titre: e.target.value }))} />
             <TextField fullWidth label="Contenu (optionnel)" value={form.contenu} onChange={(e) => setForm((f) => ({ ...f, contenu: e.target.value }))} multiline rows={5} />
             <Button variant="outlined" component="label" sx={{ borderColor: COLORS.vert, color: COLORS.vert }}>
-              Ajouter des images
-              <input hidden type="file" multiple accept="image/*" onChange={(e) => setForm((f) => ({ ...f, images: Array.from(e.target.files || []) }))} />
+              Ajouter des images ou vidéos
+              <input hidden type="file" multiple accept="image/*,video/*" onChange={(e) => setForm((f) => ({ ...f, images: Array.from(e.target.files || []) }))} />
             </Button>
             {form.images?.length > 0 && (
               <Typography variant="caption" color="text.secondary">
-                {form.images.length} image(s) sélectionnée(s)
+                {form.images.length} fichier(s) sélectionné(s)
               </Typography>
             )}
           </Box>
@@ -339,26 +365,13 @@ export default function News() {
               {(openDetails.images || []).length > 0 && (
                 <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
                   {(openDetails.images || []).map((img) => (
-                    <Box key={img.id} sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #eee', p: 1, bgcolor: '#fafafa' }}>
-                        <Box
-                        component="img"
-                        src={getMediaUrl(img.image)}
-                        alt=""
-                        loading="lazy"
-                        sx={{ width: '100%', maxHeight: isMobile ? '70vh' : '75vh', objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
-                        onLoad={(e) => {
-                          const el = e.target
-                          const w = el.naturalWidth
-                          const h = el.naturalHeight
-                          setImageInfos((prev) => ({ ...prev, [img.id]: { w, h } }))
-                        }}
-                      />
-                      {imageInfos[img.id] && (
-                        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
-                          {imageInfos[img.id].w} × {imageInfos[img.id].h} px
-                        </Typography>
-                      )}
-                    </Box>
+                    <MediaItem
+                      key={img.id}
+                      media={img}
+                      maxHeight={isMobile ? '70vh' : '75vh'}
+                      dimensions={imageInfos[img.id]}
+                      onDimensions={(w, h) => setImageInfos((prev) => ({ ...prev, [img.id]: { w, h } }))}
+                    />
                   ))}
                 </Box>
               )}

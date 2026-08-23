@@ -158,6 +158,14 @@ class IsAdminOrJewrinOrganisation(BasePermission):
         return has_admin_access(request.user, 'organisation')
 
 
+class IsAdminOrJewrinInformations(BasePermission):
+    """Permission pour la rubrique Informations (News, Événements) — aucun rôle jewrine_*
+    dédié n'existe pour cette rubrique, l'accès passe par admin/jewrin ou une exception
+    par membre accordée depuis la page Rôles & Permissions."""
+    def has_permission(self, request, view):
+        return has_admin_access(request.user, 'informations')
+
+
 class IsAdminOrJewrinScientifique(BasePermission):
     """Permission pour la rubrique Scientifique"""
     def has_permission(self, request, view):

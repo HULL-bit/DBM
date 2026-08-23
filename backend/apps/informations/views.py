@@ -1,28 +1,36 @@
 from rest_framework import generics, viewsets, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from rest_framework.permissions import IsAuthenticated, IsAdminUser, AllowAny, BasePermission
+from rest_framework.permissions import IsAuthenticated, AllowAny
 from rest_framework.parsers import MultiPartParser, FormParser, JSONParser
 from django.db.models import Count, Q
 
 from .models import (
-    Groupe, Evenement, ParticipationEvenement, Publication, Annonce, GalerieMedia,
+    Groupe, Evenement, EvenementLike, EvenementComment,
+    ParticipationEvenement, Publication, Annonce, GalerieMedia,
     NewsPost, NewsImage, NewsLike, NewsBookmark, NewsComment,
 )
+from apps.accounts.permissions import IsAdminOrJewrinInformations, has_rubrique_access
 from apps.communication.push import send_push_to_user
 from .serializers import (
-    GroupeSerializer, EvenementSerializer, ParticipationEvenementSerializer, PublicationSerializer, AnnonceSerializer, GalerieMediaSerializer,
+    GroupeSerializer, EvenementSerializer, EvenementCommentSerializer, ParticipationEvenementSerializer,
+    PublicationSerializer, AnnonceSerializer, GalerieMediaSerializer,
     NewsPostSerializer, NewsCommentSerializer,
 )
 
 
-class IsAdminOrJewrinCommunication(BasePermission):
-    def has_permission(self, request, view):
-        u = getattr(request, 'user', None)
-        if not u or not getattr(u, 'is_authenticated', False):
-            return False
-        role = (getattr(u, 'role', '') or '').lower()
-        return u.is_staff or role == 'admin' or role == 'jewrine_communication'
+def _detecter_type_media(fichier):
+    content_type = getattr(fichier, 'content_type', '') or ''
+    if content_type.startswith('video/'):
+        return 'video'
+    if content_type.startswith('audio/'):
+        return 'audio'
+    nom = (getattr(fichier, 'name', '') or '').lower()
+    if nom.endswith(('.mp4', '.mov', '.webm', '.avi', '.mkv')):
+        return 'video'
+    if nom.endswith(('.mp3', '.wav', '.ogg', '.m4a')):
+        return 'audio'
+    return 'image'
 
 
 class GroupeViewSet(viewsets.ModelViewSet):
@@ -32,7 +40,7 @@ class GroupeViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinInformations()]
         return [IsAuthenticated()]
 
 
@@ -40,21 +48,56 @@ class EvenementViewSet(viewsets.ModelViewSet):
     queryset = Evenement.objects.select_related('cree_par').filter(est_publie=True).order_by('-date_debut')
     serializer_class = EvenementSerializer
     filterset_fields = ['type_evenement', 'est_publie']
+    parser_classes = [MultiPartParser, FormParser, JSONParser]
 
     def get_queryset(self):
-        qs = Evenement.objects.select_related('cree_par').all().order_by('-date_debut')
-        if not (self.request.user.is_staff or self.request.user.role == 'admin'):
+        qs = (
+            Evenement.objects.select_related('cree_par')
+            .prefetch_related('medias', 'likes')
+            .annotate(nb_likes=Count('likes', distinct=True), nb_comments=Count('comments', distinct=True))
+            .order_by('-date_debut')
+        )
+        if not has_rubrique_access(self.request.user, 'informations', 'gerer'):
             qs = qs.filter(est_publie=True)
         return qs
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinInformations()]
         return [IsAuthenticated()]
 
-    def perform_create(self, serializer):
-        evt = serializer.save(cree_par=self.request.user)
+    def create(self, request, *args, **kwargs):
+        serializer = self.get_serializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        evt = serializer.save(cree_par=request.user)
+        self._enregistrer_medias(evt, request)
+        self._notifier_creation(evt)
+        out = self.get_serializer(evt)
+        return Response(out.data, status=status.HTTP_201_CREATED)
 
+    def update(self, request, *args, **kwargs):
+        resp = super().update(request, *args, **kwargs)
+        if resp.status_code < 400:
+            self._enregistrer_medias(self.get_object(), request)
+            resp.data = self.get_serializer(self.get_object()).data
+        return resp
+
+    def _enregistrer_medias(self, evt, request):
+        fichiers = request.FILES.getlist('medias') or []
+        if fichiers:
+            batch = [
+                GalerieMedia(
+                    titre=f"{evt.titre} — média {i + 1}",
+                    type_media=_detecter_type_media(f),
+                    fichier=f,
+                    evenement=evt,
+                    upload_par=request.user,
+                )
+                for i, f in enumerate(fichiers)
+            ]
+            GalerieMedia.objects.bulk_create(batch)
+
+    def _notifier_creation(self, evt):
         from apps.accounts.models import CustomUser
         from django.conf import settings
 
@@ -99,6 +142,35 @@ class EvenementViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Non inscrit'}, status=400)
         return Response(status=204)
 
+    @action(detail=True, methods=['post'])
+    def like(self, request, pk=None):
+        evt = self.get_object()
+        EvenementLike.objects.get_or_create(evenement=evt, membre=request.user)
+        return Response({'detail': 'OK'})
+
+    @action(detail=True, methods=['post'])
+    def unlike(self, request, pk=None):
+        evt = self.get_object()
+        EvenementLike.objects.filter(evenement=evt, membre=request.user).delete()
+        return Response({'detail': 'OK'})
+
+    @action(detail=True, methods=['get'])
+    def comments(self, request, pk=None):
+        evt = self.get_object()
+        qs = EvenementComment.objects.filter(evenement=evt).select_related('membre').order_by('date_creation')
+        return Response(EvenementCommentSerializer(qs, many=True).data)
+
+    @action(detail=True, methods=['post'])
+    def comment(self, request, pk=None):
+        evt = self.get_object()
+        texte = (request.data.get('texte') or '').strip()
+        parent_id = request.data.get('parent')
+        if not texte:
+            return Response({'detail': 'Texte requis.'}, status=400)
+        parent = EvenementComment.objects.filter(id=parent_id, evenement=evt).first() if parent_id else None
+        c = EvenementComment.objects.create(evenement=evt, membre=request.user, parent=parent, texte=texte)
+        return Response(EvenementCommentSerializer(c).data, status=201)
+
 
 class PublicationViewSet(viewsets.ModelViewSet):
     queryset = Publication.objects.filter(est_publiee=True).order_by('-date_publication')
@@ -107,13 +179,13 @@ class PublicationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Publication.objects.all().order_by('-date_publication')
-        if not (self.request.user.is_staff or self.request.user.role == 'admin'):
+        if not has_rubrique_access(self.request.user, 'informations', 'gerer'):
             qs = qs.filter(est_publiee=True)
         return qs
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinInformations()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -127,13 +199,13 @@ class AnnonceViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         qs = Annonce.objects.all().order_by('-date_publication')
-        if not (self.request.user.is_staff or self.request.user.role == 'admin'):
+        if not has_rubrique_access(self.request.user, 'informations', 'gerer'):
             qs = qs.filter(est_active=True)
         return qs
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinInformations()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -147,7 +219,7 @@ class GalerieMediaViewSet(viewsets.ModelViewSet):
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminUser()]
+            return [IsAdminOrJewrinInformations()]
         return [IsAuthenticated()]
 
 
@@ -167,16 +239,13 @@ class NewsPostViewSet(viewsets.ModelViewSet):
             )
             .order_by('-date_creation')
         )
-        u = self.request.user
-        role = (getattr(u, 'role', '') or '').lower()
-        can_manage = u.is_staff or role == 'admin' or role == 'jewrine_communication'
-        if not can_manage:
+        if not has_rubrique_access(self.request.user, 'informations', 'gerer'):
             qs = qs.filter(est_publie=True)
         return qs
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
-            return [IsAdminOrJewrinCommunication()]
+            return [IsAdminOrJewrinInformations()]
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
@@ -189,7 +258,10 @@ class NewsPostViewSet(viewsets.ModelViewSet):
 
         images = request.FILES.getlist('images') or []
         if images:
-            batch = [NewsImage(post=post, image=f, ordre=i) for i, f in enumerate(images)]
+            batch = [
+                NewsImage(post=post, image=f, type_media=_detecter_type_media(f), ordre=i)
+                for i, f in enumerate(images)
+            ]
             NewsImage.objects.bulk_create(batch)
 
         out = self.get_serializer(post)
