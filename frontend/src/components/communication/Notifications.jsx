@@ -37,8 +37,10 @@ const TYPES = [
 ]
 
 export default function Notifications() {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const { user, peut } = useAuth()
+  // Admin global, ou droits de gestion sur la rubrique communication (rôle ou exception
+  // accordée par l'admin via la page Rôles & Permissions) — pas seulement role === 'admin'.
+  const isAdmin = user?.role === 'admin' || peut('communication', 'gerer')
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })
@@ -48,6 +50,8 @@ export default function Notifications() {
   const [fieldErrors, setFieldErrors] = useState({})
   const [membres, setMembres] = useState([])
   const [loadingMembres, setLoadingMembres] = useState(false)
+  const [canaux, setCanaux] = useState([])
+  const [canalCible, setCanalCible] = useState('')
 
   const loadList = () => {
     setLoading(true)
@@ -71,7 +75,18 @@ export default function Notifications() {
     if (openCreate && isAdmin && membres.length === 0 && !loadingMembres) {
       loadMembres()
     }
+    if (openCreate && isAdmin && canaux.length === 0) {
+      api.get('/communication/canaux/').then(({ data }) => setCanaux(data.results || data)).catch(() => setCanaux([]))
+    }
   }, [openCreate]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const handleChoisirCanal = (canalId) => {
+    setCanalCible(canalId)
+    if (!canalId) return
+    const canal = canaux.find((c) => c.id === canalId)
+    const ids = (canal?.membres || []).map((m) => m.user)
+    setForm((f) => ({ ...f, destinataires: ids }))
+  }
 
   const handleMarquerLue = async (id) => {
     try {
@@ -105,6 +120,7 @@ export default function Notifications() {
       setMessage({ type: 'success', text: detail || '1 message envoyé à tous les membres.' })
       setOpenCreate(false)
       setForm({ type_notification: 'info', titre: '', message: '', lien: '', destinataires: [] })
+      setCanalCible('')
       loadList()
     } catch (err) {
       const data = err.response?.data
@@ -195,8 +211,19 @@ export default function Notifications() {
           <DialogContent>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
               <Typography variant="body2" color="text.secondary" sx={{ mb: 0.5 }}>
-                Sélectionnez les destinataires (laissez vide pour envoyer à tous les membres).
+                Sélectionnez les destinataires (laissez vide pour envoyer à tous les membres), ou visez
+                directement les membres d'un canal.
               </Typography>
+              <TextField
+                select
+                fullWidth
+                label="Envoyer aux membres d'un canal (optionnel)"
+                value={canalCible}
+                onChange={(e) => handleChoisirCanal(e.target.value)}
+              >
+                <MenuItem value="">— Aucun (choisir les destinataires manuellement) —</MenuItem>
+                {canaux.map((c) => <MenuItem key={c.id} value={c.id}>{c.nom} ({c.nb_membres} membre(s))</MenuItem>)}
+              </TextField>
               <TextField
                 select
                 fullWidth

@@ -49,8 +49,8 @@ const initialForm = {
 }
 
 export default function Evenements() {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const { user, peut } = useAuth()
+  const isAdmin = user?.role === 'admin' || peut('informations', 'gerer')
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })

@@ -40,8 +40,8 @@ const TYPES = [
 ]
 
 export default function ActivitesReligieuses() {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const { user, peut } = useAuth()
+  const isAdmin = user?.role === 'admin' || peut('culturelle', 'gerer')
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })

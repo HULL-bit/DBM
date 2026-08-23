@@ -38,9 +38,10 @@ const STATUTS = [
 ]
 
 export default function LeveesFonds() {
-  const { user } = useAuth()
-  // Admin global, jewrin général, ou chargé de finance (jewrine_finance) : mêmes droits que le backend (has_admin_access).
-  const isAdmin = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_finance'
+  const { user, peut } = useAuth()
+  // Admin global, jewrin général, chargé de finance (jewrine_finance), ou exception accordée
+  // par l'admin via Rôles & Permissions — pas seulement un rôle codé en dur.
+  const isAdmin = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_finance' || peut('finance', 'gerer')
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })

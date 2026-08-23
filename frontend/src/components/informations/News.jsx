@@ -29,11 +29,11 @@ import { useAuth } from '../../context/AuthContext'
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
 export default function News() {
-  const { user } = useAuth()
+  const { user, peut } = useAuth()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
 
-  const canManage = user?.role === 'admin' || user?.role === 'jewrine_communication'
+  const canManage = user?.role === 'admin' || user?.role === 'jewrine_communication' || peut('informations', 'gerer')
 
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)

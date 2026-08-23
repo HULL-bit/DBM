@@ -233,9 +233,9 @@ function CircularMembersView({ kourel, allUsers }) {
 }
 
 export default function KourelsPage({ onBack }) {
-  const { user } = useAuth()
+  const { user, peut } = useAuth()
   const isAdmin = user?.role === 'admin'
-  const canManage = isAdmin || user?.role === 'jewrin' || user?.role === 'jewrine_conservatoire'
+  const canManage = isAdmin || user?.role === 'jewrin' || user?.role === 'jewrine_conservatoire' || peut('conservatoire', 'gerer')
   const [kourels, setKourels] = useState([])
   const [allUsers, setAllUsers] = useState([])
   const [loading, setLoading] = useState(true)

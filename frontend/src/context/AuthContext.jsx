@@ -7,6 +7,14 @@ const AuthContext = createContext(null)
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(null)
   const [loading, setLoading] = useState(true)
+  // Permissions RBAC effectives (rôle + exceptions par membre), source unique consultée par
+  // toutes les pages — évite les contrôles codés en dur sur le rôle qui ignorent les
+  // exceptions accordées par l'admin.
+  const [permissions, setPermissions] = useState(null)
+
+  const loadPermissions = () => {
+    api.get('/auth/rbac/mes-permissions/').then(({ data }) => setPermissions(data)).catch(() => {})
+  }
 
   useEffect(() => {
     // On stocke désormais les tokens uniquement en sessionStorage
@@ -14,7 +22,7 @@ export function AuthProvider({ children }) {
     const token = sessionStorage.getItem('access')
     if (token) {
       api.get('/auth/me/')
-        .then(({ data }) => { setUser(data); initPush() })
+        .then(({ data }) => { setUser(data); initPush(); loadPermissions() })
         .catch(() => {
           sessionStorage.removeItem('access')
           sessionStorage.removeItem('refresh')
@@ -25,12 +33,25 @@ export function AuthProvider({ children }) {
     }
   }, [])
 
+  useEffect(() => {
+    if (!user) return
+    const t = setInterval(loadPermissions, 60000)
+    return () => clearInterval(t)
+  }, [user?.id])
+
+  /** peut('communication', 'creer') → true/false selon les permissions effectives (rôle + exception membre) */
+  const peut = (rubrique, action = 'voir') => {
+    if (!permissions) return false
+    return permissions[rubrique]?.[action] === true
+  }
+
   const login = async (username, password) => {
     const { data } = await api.post('/auth/token/', { username, password })
     sessionStorage.setItem('access', data.access)
     sessionStorage.setItem('refresh', data.refresh)
     setUser(data.user)
     initPush()
+    loadPermissions()
     return data.user
   }
 
@@ -43,6 +64,7 @@ export function AuthProvider({ children }) {
     sessionStorage.removeItem('access')
     sessionStorage.removeItem('refresh')
     setUser(null)
+    setPermissions(null)
   }
 
   const refreshUser = async () => {
@@ -74,6 +96,8 @@ export function AuthProvider({ children }) {
     isAdmin,
     isJewrine,
     isMembre,
+    permissions,
+    peut,
   }
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
 }

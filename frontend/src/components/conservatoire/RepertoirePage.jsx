@@ -14,8 +14,8 @@ const getLien = (a) => (a?.lien_telegramme_du_son || '').trim()
 const toAbs = (url) => { const u = (url || '').trim(); if (!u) return ''; if (/^https?:\/\//i.test(u)) return u; return `https://${u}` }
 
 export default function RepertoirePage({ onBack }) {
-  const { user } = useAuth()
-  const canManage = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_conservatoire'
+  const { user, peut } = useAuth()
+  const canManage = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_conservatoire' || peut('conservatoire', 'gerer')
   const [archives, setArchives] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')

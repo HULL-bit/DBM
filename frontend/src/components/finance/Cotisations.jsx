@@ -54,9 +54,10 @@ const MOIS_LABELS = MOIS.reduce((acc, m) => {
 }, {})
 
 export default function Cotisations() {
-  const { user } = useAuth()
-  // Admin global, jewrin général, ou chargé de finance (jewrine_finance) : mêmes droits que le backend (has_admin_access).
-  const isAdmin = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_finance'
+  const { user, peut } = useAuth()
+  // Admin global, jewrin général, chargé de finance (jewrine_finance), ou exception accordée
+  // par l'admin via Rôles & Permissions — pas seulement un rôle codé en dur.
+  const isAdmin = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_finance' || peut('finance', 'gerer')
   const [list, setList] = useState([])
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
@@ -86,6 +87,9 @@ export default function Cotisations() {
   const [formErrors, setFormErrors] = useState({})
   const [typeFilter, setTypeFilter] = useState('')
   const [objetAssignationFilter, setObjetAssignationFilter] = useState('')
+  const [moisFilter, setMoisFilter] = useState('')
+  const [anneeFilter, setAnneeFilter] = useState('')
+  const [membreFilter, setMembreFilter] = useState('')
 
   const loadList = () => {
     setLoading(true)
@@ -384,7 +388,10 @@ export default function Cotisations() {
       !objetAssignationFilter ||
       (c.type_cotisation === 'assignation' &&
         (c.objet_assignation || '').toLowerCase() === objetAssignationFilter.toLowerCase())
-    return typeOk && objetOk
+    const moisOk = !moisFilter || Number(c.mois) === Number(moisFilter)
+    const anneeOk = !anneeFilter || Number(c.annee) === Number(anneeFilter)
+    const membreOk = !membreFilter || Number(c.membre) === Number(membreFilter)
+    return typeOk && objetOk && moisOk && anneeOk && membreOk
   })
 
   // Détails assignations par objet (MAGAL, GAMOU, etc.) selon les filtres
@@ -479,6 +486,24 @@ export default function Cotisations() {
                 <MenuItem value="XELCOM">XELCOM</MenuItem>
                 <MenuItem value="AUTRES">AUTRES</MenuItem>
               </TextField>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 2, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <TextField select size="small" label="Mois" value={moisFilter} onChange={(e) => setMoisFilter(e.target.value)} sx={{ minWidth: 130 }}>
+              <MenuItem value="">Tous</MenuItem>
+              {MOIS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
+            </TextField>
+            <TextField size="small" label="Année" type="number" value={anneeFilter} onChange={(e) => setAnneeFilter(e.target.value)} sx={{ width: 130 }} />
+            {isAdmin && (
+              <TextField select size="small" label="Membre" value={membreFilter} onChange={(e) => setMembreFilter(e.target.value)} sx={{ minWidth: 220 }}>
+                <MenuItem value="">Tous</MenuItem>
+                {users.map((u) => <MenuItem key={u.id} value={u.id}>{u.first_name} {u.last_name}</MenuItem>)}
+              </TextField>
+            )}
+            {(moisFilter || anneeFilter || membreFilter) && (
+              <Button size="small" onClick={() => { setMoisFilter(''); setAnneeFilter(''); setMembreFilter('') }} sx={{ color: COLORS.vert }}>
+                Réinitialiser
+              </Button>
             )}
           </Box>
           <Box sx={{ mb: 3, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>

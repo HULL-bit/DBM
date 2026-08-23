@@ -301,7 +301,7 @@ function SidebarContent({ sections, location, navigate, collapsed, onClose, isMo
 export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) {
   const navigate = useNavigate()
   const location = useLocation()
-  const { user } = useAuth()
+  const { user, permissions } = useAuth()
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
 
@@ -312,21 +312,9 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
   const sectionsBrutes = user?.role === 'admin' ? sectionsAdmin : isJewrine ? sectionsJewrin : sectionsMembre
   const width = collapsed ? SIDEBAR_COLLAPSED : SIDEBAR_WIDTH
 
-  // Permissions effectives de l'utilisateur : un item taggé `rubrique` n'est affiché que si
-  // `voir` (ou `gerer` pour les items d'administration) est vrai pour cette rubrique.
-  const [permissions, setPermissions] = useState(null)
-  useEffect(() => {
-    if (!user) return
-    const loadPermissions = () => {
-      api.get('/auth/rbac/mes-permissions/').then(({ data }) => setPermissions(data)).catch(() => {})
-    }
-    loadPermissions()
-    // Un admin peut changer les permissions d'un membre pendant que celui-ci est déjà
-    // connecté : on rafraîchit régulièrement pour que le menu reflète l'état réel sans
-    // attendre une reconnexion.
-    const t = setInterval(loadPermissions, 60000)
-    return () => clearInterval(t)
-  }, [user?.id])
+  // Permissions effectives de l'utilisateur (centralisées dans AuthContext, rafraîchies
+  // périodiquement) : un item taggé `rubrique` n'est affiché que si `voir` (ou `gerer` pour
+  // les items d'administration) est vrai pour cette rubrique.
 
   const sections = sectionsBrutes
     .map((group) => ({

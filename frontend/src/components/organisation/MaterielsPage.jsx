@@ -111,8 +111,8 @@ function MaterielCard({ item, isAdmin, onEdit, onDelete, moduleColor }) {
 }
 
 export default function MaterielsPage({ module: moduleProp, onBack }) {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin' || user?.role?.startsWith('jewrine_')
+  const { user, peut } = useAuth()
+  const isAdmin = user?.role === 'admin' || user?.role?.startsWith('jewrine_') || peut('organisation', 'gerer')
   const [list, setList] = useState([])
   const [stats, setStats] = useState(null)
   const [loading, setLoading] = useState(true)

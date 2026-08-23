@@ -45,8 +45,8 @@ function LightBox({ photo, onClose, onPrev, onNext }) {
 }
 
 export default function GaleriePage({ onBack }) {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const { user, peut } = useAuth()
+  const isAdmin = user?.role === 'admin' || peut('conservatoire', 'gerer')
   const [albums, setAlbums] = useState([])
   const [loading, setLoading] = useState(true)
   const [msg, setMsg] = useState({ type: '', text: '' })

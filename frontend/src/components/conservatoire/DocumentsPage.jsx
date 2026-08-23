@@ -21,8 +21,8 @@ const TYPE_COLORS = {
 }
 
 export default function DocumentsPage({ onBack }) {
-  const { user } = useAuth()
-  const canManage = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_conservatoire'
+  const { user, peut } = useAuth()
+  const canManage = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_conservatoire' || peut('conservatoire', 'gerer')
   const [docs, setDocs] = useState([])
   const [loading, setLoading] = useState(true)
   const [search, setSearch] = useState('')

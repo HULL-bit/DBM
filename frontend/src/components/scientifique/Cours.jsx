@@ -42,8 +42,8 @@ const STATUTS = [
 ]
 
 export default function Cours() {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const { user, peut } = useAuth()
+  const isAdmin = user?.role === 'admin' || peut('scientifique', 'gerer')
   const [list, setList] = useState([])
   const [domaines, setDomaines] = useState([])
   const [loading, setLoading] = useState(true)

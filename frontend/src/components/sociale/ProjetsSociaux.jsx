@@ -46,8 +46,8 @@ const CATEGORIES = [
 ]
 
 export default function ProjetsSociaux() {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const { user, peut } = useAuth()
+  const isAdmin = user?.role === 'admin' || peut('sociale', 'gerer')
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })

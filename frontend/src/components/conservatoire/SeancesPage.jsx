@@ -138,11 +138,11 @@ function SeanceCard({ s, kourels, canManage, onEdit, onDelete, onPresences }) {
 }
 
 export default function SeancesPage({ onBack }) {
-  const { user } = useAuth()
+  const { user, peut } = useAuth()
   const isAdmin = user?.role === 'admin'
-  // Le chargé du conservatoire (jewrine_conservatoire) et le jewrin général ont les mêmes droits
-  // que l'admin sur ce module (voir IsAdminOrJewrinConservatoire côté backend).
-  const canManage = isAdmin || user?.role === 'jewrin' || user?.role === 'jewrine_conservatoire'
+  // Le chargé du conservatoire (jewrine_conservatoire), le jewrin général, ou une exception
+  // accordée par l'admin via Rôles & Permissions ont les mêmes droits que l'admin ici.
+  const canManage = isAdmin || user?.role === 'jewrin' || user?.role === 'jewrine_conservatoire' || peut('conservatoire', 'gerer')
   const [seances, setSeances] = useState([])
   const [kourels, setKourels] = useState([])
   const [allUsers, setAllUsers] = useState([])

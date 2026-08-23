@@ -42,8 +42,8 @@ export default function Bibliotheque() {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const isSmall = useMediaQuery(theme.breakpoints.down(400))
-  const { user } = useAuth()
-  const isAdmin = user?.is_staff || user?.role === 'admin'
+  const { user, peut } = useAuth()
+  const isAdmin = user?.is_staff || user?.role === 'admin' || peut('bibliotheque', 'gerer')
 
   const [tab, setTab] = useState(0)
   const [livres, setLivres] = useState([])

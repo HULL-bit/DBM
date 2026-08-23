@@ -36,8 +36,8 @@ const STATUTS = [
 ]
 
 export default function Reunions({ onBack }) {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin'
+  const { user, peut } = useAuth()
+  const isAdmin = user?.role === 'admin' || peut('organisation', 'gerer')
   // Activités / réunions
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)

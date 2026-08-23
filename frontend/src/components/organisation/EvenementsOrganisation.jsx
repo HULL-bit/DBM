@@ -637,8 +637,8 @@ function JourneesSection({ evenement, isAdmin }) {
 
 // ─── Page principale ───────────────────────────────────────────────────────────
 export default function EvenementsOrganisation({ onBack }) {
-  const { user } = useAuth()
-  const isAdmin = user?.role === 'admin' || user?.role?.startsWith('jewrine_')
+  const { user, peut } = useAuth()
+  const isAdmin = user?.role === 'admin' || user?.role?.startsWith('jewrine_') || peut('organisation', 'gerer')
   const [evenements, setEvenements] = useState([])
   const [loading, setLoading] = useState(true)
   const [selectedEvent, setSelectedEvent] = useState(null)

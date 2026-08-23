@@ -74,12 +74,12 @@ function TempsRestantCard({ dateFin }) {
 export default function ProgrammeKamil() {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
-  const { user } = useAuth()
+  const { user, peut } = useAuth()
   const isJewrine =
     !!user?.role &&
     (user.role === 'jewrin' ||
       user.role.toLowerCase().startsWith('jewrine_'))
-  const canCreateProgramme = user?.role === 'admin'
+  const canCreateProgramme = user?.role === 'admin' || peut('culturelle', 'gerer')
   const canAssignJukki = canCreateProgramme || isJewrine
   const [kamils, setKamils] = useState([])
   const [jukkisByKamil, setJukkisByKamil] = useState({})
