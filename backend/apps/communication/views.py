@@ -430,9 +430,17 @@ class CanalViewSet(viewsets.ModelViewSet):
     permission_classes = [IsAuthenticated]
 
     def get_queryset(self):
+        if has_admin_access(self.request.user, 'communication'):
+            return Canal.objects.filter(est_actif=True).distinct().order_by('-date_creation')
         return Canal.objects.filter(
             membres_canal__user=self.request.user, est_actif=True
         ).distinct().order_by('-date_creation')
+
+    def update(self, request, *args, **kwargs):
+        canal = self.get_object()
+        if not _est_gestionnaire_canal(canal, request.user):
+            return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+        return super().update(request, *args, **kwargs)
 
     def create(self, request, *args, **kwargs):
         # Créer un canal est un droit accordé par l'admin (rubrique communication, action creer) :

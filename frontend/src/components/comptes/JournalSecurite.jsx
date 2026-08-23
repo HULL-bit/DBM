@@ -16,8 +16,15 @@ import {
   Pagination,
   Autocomplete,
   Tooltip,
+  Button,
+  Menu,
+  Dialog,
+  DialogTitle,
+  DialogContent,
+  DialogActions,
+  Alert,
 } from '@mui/material'
-import { History } from '@mui/icons-material'
+import { History, Download, DeleteSweep } from '@mui/icons-material'
 import api from '../../services/api'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
@@ -66,6 +73,55 @@ export default function JournalSecurite() {
   const [rubriqueFilter, setRubriqueFilter] = useState('')
   const [membreFilter, setMembreFilter] = useState(null)
   const [membres, setMembres] = useState([])
+  const [exportAnchor, setExportAnchor] = useState(null)
+  const [exporting, setExporting] = useState(false)
+  const [confirmPurge, setConfirmPurge] = useState(false)
+  const [purging, setPurging] = useState(false)
+  const [message, setMessage] = useState('')
+
+  const currentParams = () => ({
+    action: actionFilter || undefined,
+    rubrique: rubriqueFilter || undefined,
+    utilisateur: membreFilter?.id || undefined,
+  })
+
+  const handleExport = async (format) => {
+    setExportAnchor(null)
+    setExporting(true)
+    try {
+      const { data } = await api.get('/auth/audit/export/', {
+        params: { ...currentParams(), format },
+        responseType: 'blob',
+      })
+      const url = window.URL.createObjectURL(new Blob([data]))
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `journal_securite.${format === 'pdf' ? 'pdf' : 'xlsx'}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      window.URL.revokeObjectURL(url)
+    } catch (_) {
+      setMessage('Erreur lors de l\'export.')
+    } finally {
+      setExporting(false)
+    }
+  }
+
+  const handlePurge = async () => {
+    setPurging(true)
+    try {
+      const { data } = await api.delete('/auth/audit/', { params: currentParams() })
+      setMessage(data?.detail || 'Entrées supprimées.')
+      setConfirmPurge(false)
+      setPage(1)
+      load()
+    } catch (_) {
+      setMessage('Erreur lors de la suppression.')
+    } finally {
+      setPurging(false)
+    }
+  }
 
   useEffect(() => {
     api.get('/auth/users/').then(({ data }) => setMembres(data.results || data)).catch(() => setMembres([]))
@@ -73,14 +129,7 @@ export default function JournalSecurite() {
 
   const load = () => {
     setLoading(true)
-    api.get('/auth/audit/', {
-      params: {
-        page,
-        action: actionFilter || undefined,
-        rubrique: rubriqueFilter || undefined,
-        utilisateur: membreFilter?.id || undefined,
-      },
-    })
+    api.get('/auth/audit/', { params: { page, ...currentParams() } })
       .then(({ data }) => { setEntries(data.results || []); setCount(data.count || 0) })
       .catch(() => { setEntries([]); setCount(0) })
       .finally(() => setLoading(false))
@@ -91,15 +140,38 @@ export default function JournalSecurite() {
 
   return (
     <Box>
-      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1 }}>
-        <History sx={{ color: COLORS.vert, fontSize: 32 }} />
-        <Box>
-          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }}>Journal de sécurité</Typography>
-          <Typography variant="body2" color="text.secondary">
-            Traçabilité des actions sensibles : connexions, changements de rôle/permission, validations de paiement...
-          </Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 1 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+          <History sx={{ color: COLORS.vert, fontSize: 32 }} />
+          <Box>
+            <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }}>Journal de sécurité</Typography>
+            <Typography variant="body2" color="text.secondary">
+              Traçabilité des actions sensibles : connexions, changements de rôle/permission, validations de paiement...
+            </Typography>
+          </Box>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 1 }}>
+          <Button
+            size="small" variant="outlined" startIcon={exporting ? <CircularProgress size={16} /> : <Download />}
+            onClick={(e) => setExportAnchor(e.currentTarget)} disabled={exporting}
+            sx={{ borderColor: COLORS.vert, color: COLORS.vert }}
+          >
+            Exporter
+          </Button>
+          <Menu anchorEl={exportAnchor} open={!!exportAnchor} onClose={() => setExportAnchor(null)}>
+            <MenuItem onClick={() => handleExport('excel')}>Excel (.xlsx)</MenuItem>
+            <MenuItem onClick={() => handleExport('pdf')}>PDF</MenuItem>
+          </Menu>
+          <Button
+            size="small" variant="outlined" color="error" startIcon={<DeleteSweep />}
+            onClick={() => setConfirmPurge(true)}
+          >
+            Supprimer
+          </Button>
         </Box>
       </Box>
+
+      {message && <Alert severity="info" sx={{ mb: 2 }} onClose={() => setMessage('')}>{message}</Alert>}
 
       <Box sx={{ my: 2, display: 'flex', flexWrap: 'wrap', gap: 2 }}>
         <TextField
@@ -184,6 +256,22 @@ export default function JournalSecurite() {
           )}
         </>
       )}
+
+      <Dialog open={confirmPurge} onClose={() => setConfirmPurge(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Supprimer ces entrées ?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            Cette action supprime définitivement les entrées correspondant aux filtres actuellement
+            appliqués ({count} entrée(s)). Pensez à exporter le journal avant si vous voulez en garder une trace.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmPurge(false)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handlePurge} disabled={purging}>
+            {purging ? <CircularProgress size={20} color="inherit" /> : 'Supprimer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

@@ -166,6 +166,12 @@ export default function Canaux() {
   const [openGestionMembres, setOpenGestionMembres] = useState(false)
   const [nouveauMembre, setNouveauMembre] = useState(null)
 
+  const [canalMenuAnchor, setCanalMenuAnchor] = useState(null)
+  const [openEditCanal, setOpenEditCanal] = useState(false)
+  const [editForm, setEditForm] = useState({ nom: '', description: '', imageFile: null })
+  const [savingEdit, setSavingEdit] = useState(false)
+  const [confirmSupprimerCanal, setConfirmSupprimerCanal] = useState(false)
+
   const [enregistrement, setEnregistrement] = useState(false)
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
@@ -227,6 +233,46 @@ export default function Canaux() {
       setMessage({ type: 'error', text: 'Erreur lors de la création du canal.' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleOuvrirEditionCanal = () => {
+    if (!canalSelectionne) return
+    setEditForm({ nom: canalSelectionne.nom, description: canalSelectionne.description || '', imageFile: null })
+    setOpenEditCanal(true)
+    setCanalMenuAnchor(null)
+  }
+
+  const handleSauvegarderCanal = async () => {
+    if (!canalSelectionne || !editForm.nom.trim()) return
+    setSavingEdit(true)
+    try {
+      const fd = new FormData()
+      fd.append('nom', editForm.nom.trim())
+      fd.append('description', editForm.description.trim())
+      if (editForm.imageFile) fd.append('image', editForm.imageFile)
+      const { data } = await api.patch(`/communication/canaux/${canalSelectionne.id}/`, fd, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      setCanalSelectionne(data)
+      setCanaux((prev) => prev.map((c) => (c.id === data.id ? data : c)))
+      setOpenEditCanal(false)
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Erreur lors de la modification du canal.' })
+    } finally {
+      setSavingEdit(false)
+    }
+  }
+
+  const handleSupprimerCanal = async () => {
+    if (!canalSelectionne) return
+    try {
+      await api.delete(`/communication/canaux/${canalSelectionne.id}/`)
+      setCanaux((prev) => prev.filter((c) => c.id !== canalSelectionne.id))
+      setCanalSelectionne(null)
+      setConfirmSupprimerCanal(false)
+    } catch (err) {
+      setMessage({ type: 'error', text: 'Erreur lors de la suppression du canal.' })
     }
   }
 
@@ -406,9 +452,18 @@ export default function Canaux() {
         ) : (
           <>
             <Box sx={{ p: 2, borderBottom: `1px solid ${COLORS.or}30`, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
-              <Box>
-                <Typography variant="h6" sx={{ color: COLORS.vert, fontWeight: 700 }}>{canalSelectionne.nom}</Typography>
-                <Typography variant="caption" color="text.secondary">{canalSelectionne.nb_membres} membre(s)</Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+                <Avatar
+                  variant="rounded"
+                  src={canalSelectionne.image ? getMediaUrl(canalSelectionne.image) : null}
+                  sx={{ width: 44, height: 44, bgcolor: COLORS.vert }}
+                >
+                  {initials(canalSelectionne.nom)}
+                </Avatar>
+                <Box>
+                  <Typography variant="h6" sx={{ color: COLORS.vert, fontWeight: 700 }}>{canalSelectionne.nom}</Typography>
+                  <Typography variant="caption" color="text.secondary">{canalSelectionne.nb_membres} membre(s)</Typography>
+                </Box>
               </Box>
               <Box sx={{ display: 'flex', gap: 1 }}>
                 {canalSelectionne.lien_reunion ? (
@@ -428,9 +483,23 @@ export default function Canaux() {
                   </Button>
                 )}
                 {canalSelectionne.est_admin_canal && (
-                  <Tooltip title="Gérer les membres">
-                    <IconButton size="small" onClick={() => setOpenGestionMembres(true)} sx={{ color: COLORS.vert }}><Groups /></IconButton>
-                  </Tooltip>
+                  <>
+                    <Tooltip title="Gérer les membres">
+                      <IconButton size="small" onClick={() => setOpenGestionMembres(true)} sx={{ color: COLORS.vert }}><Groups /></IconButton>
+                    </Tooltip>
+                    <Tooltip title="Options du canal">
+                      <IconButton size="small" onClick={(e) => setCanalMenuAnchor(e.currentTarget)} sx={{ color: COLORS.vert }}><MoreVert /></IconButton>
+                    </Tooltip>
+                    <Menu anchorEl={canalMenuAnchor} open={!!canalMenuAnchor} onClose={() => setCanalMenuAnchor(null)}>
+                      <MenuItem onClick={handleOuvrirEditionCanal}>Modifier le canal</MenuItem>
+                      <MenuItem
+                        onClick={() => { setCanalMenuAnchor(null); setConfirmSupprimerCanal(true) }}
+                        sx={{ color: 'error.main' }}
+                      >
+                        Supprimer le canal
+                      </MenuItem>
+                    </Menu>
+                  </>
                 )}
               </Box>
             </Box>
@@ -567,6 +636,46 @@ export default function Canaux() {
             ))}
           </List>
         </DialogContent>
+      </Dialog>
+
+      <Dialog open={openEditCanal} onClose={() => setOpenEditCanal(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Modifier le canal</DialogTitle>
+        <DialogContent>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1, alignItems: 'center' }}>
+            <Avatar
+              variant="rounded"
+              src={editForm.imageFile ? URL.createObjectURL(editForm.imageFile) : (canalSelectionne?.image ? getMediaUrl(canalSelectionne.image) : null)}
+              sx={{ width: 80, height: 80, bgcolor: COLORS.vert }}
+            >
+              {initials(editForm.nom)}
+            </Avatar>
+            <Button size="small" component="label" sx={{ color: COLORS.vert }}>
+              Changer la photo
+              <input hidden type="file" accept="image/*" onChange={(e) => setEditForm((f) => ({ ...f, imageFile: e.target.files?.[0] || null }))} />
+            </Button>
+            <TextField fullWidth label="Nom du canal" value={editForm.nom} onChange={(e) => setEditForm((f) => ({ ...f, nom: e.target.value }))} />
+            <TextField fullWidth label="Description" value={editForm.description} onChange={(e) => setEditForm((f) => ({ ...f, description: e.target.value }))} multiline rows={2} />
+          </Box>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenEditCanal(false)}>Annuler</Button>
+          <Button variant="contained" onClick={handleSauvegarderCanal} disabled={savingEdit || !editForm.nom.trim()} sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
+            {savingEdit ? 'Enregistrement…' : 'Enregistrer'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={confirmSupprimerCanal} onClose={() => setConfirmSupprimerCanal(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: 'error.main', fontWeight: 700 }}>Supprimer ce canal ?</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">
+            « {canalSelectionne?.nom} » sera supprimé pour tous ses membres. Cette action est irréversible.
+          </Typography>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConfirmSupprimerCanal(false)}>Annuler</Button>
+          <Button variant="contained" color="error" onClick={handleSupprimerCanal}>Supprimer</Button>
+        </DialogActions>
       </Dialog>
     </Box>
   )

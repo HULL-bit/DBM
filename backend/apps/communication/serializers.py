@@ -75,7 +75,10 @@ class CanalSerializer(serializers.ModelSerializer):
         request = self.context.get('request')
         if not request:
             return False
-        return obj.membres_canal.filter(user=request.user, est_admin_canal=True).exists()
+        if obj.membres_canal.filter(user=request.user, est_admin_canal=True).exists():
+            return True
+        from apps.accounts.permissions import has_admin_access
+        return has_admin_access(request.user, 'communication')
 
 
 class MessageCanalSerializer(serializers.ModelSerializer):

@@ -543,10 +543,7 @@ def mes_permissions(request):
     return Response(resultat)
 
 
-@api_view(['GET'])
-@permission_classes([IsAdminRoleOrStaff])
-def journal_audit(request):
-    """Journal de sécurité/traçabilité, filtrable par utilisateur/action/rubrique/dates."""
+def _filtrer_journal_audit(request):
     qs = JournalAudit.objects.select_related('utilisateur').all()
     utilisateur_id = request.query_params.get('utilisateur')
     action = request.query_params.get('action')
@@ -563,9 +560,49 @@ def journal_audit(request):
         qs = qs.filter(date__gte=date_debut)
     if date_fin:
         qs = qs.filter(date__lte=date_fin)
+    return qs
+
+
+@api_view(['GET', 'DELETE'])
+@permission_classes([IsAdminRoleOrStaff])
+def journal_audit(request):
+    """GET : journal de sécurité/traçabilité, filtrable par utilisateur/action/rubrique/dates.
+    DELETE : purge les entrées correspondant aux mêmes filtres (irréversible)."""
+    qs = _filtrer_journal_audit(request)
+
+    if request.method == 'DELETE':
+        nb = qs.count()
+        qs.delete()
+        log_audit(request, 'suppression', description=f"Purge du journal de sécurité ({nb} entrée(s))")
+        return Response({'detail': f'{nb} entrée(s) supprimée(s).'})
 
     from rest_framework.pagination import PageNumberPagination
     paginator = PageNumberPagination()
     paginator.page_size = 50
     page = paginator.paginate_queryset(qs, request)
     return paginator.get_paginated_response(JournalAuditSerializer(page, many=True).data)
+
+
+@api_view(['GET'])
+@permission_classes([IsAdminRoleOrStaff])
+def journal_audit_export(request):
+    """Export du journal de sécurité (mêmes filtres que journal_audit) en Excel ou PDF."""
+    from django.http import HttpResponse
+    from .audit_export import export_audit_excel, export_audit_pdf
+
+    qs = _filtrer_journal_audit(request).order_by('-date')
+    fmt = request.query_params.get('format', 'excel').lower()
+
+    if fmt == 'pdf':
+        buf = export_audit_pdf(qs)
+        content_type, ext = 'application/pdf', 'pdf'
+    else:
+        buf = export_audit_excel(qs)
+        content_type, ext = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', 'xlsx'
+
+    if buf is None:
+        return Response({'detail': 'Erreur de génération du journal.'}, status=500)
+
+    resp = HttpResponse(buf.read(), content_type=content_type)
+    resp['Content-Disposition'] = f'attachment; filename="journal_securite.{ext}"'
+    return resp

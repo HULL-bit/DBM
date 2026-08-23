@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { useNavigate } from 'react-router-dom'
 import {
   Box,
   Typography,
@@ -39,6 +40,7 @@ const TYPES = [
 ]
 
 export default function Notifications() {
+  const navigate = useNavigate()
   const { user, peut } = useAuth()
   // Admin global, ou droits de gestion sur la rubrique communication (rôle ou exception
   // accordée par l'admin via la page Rôles & Permissions) — pas seulement role === 'admin'.
@@ -47,6 +49,7 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [openCreate, setOpenCreate] = useState(false)
+  const [detail, setDetail] = useState(null)
   const [saving, setSaving] = useState(false)
   const [mode, setMode] = useState('generale') // 'generale' | 'membres' | 'canal'
   const [form, setForm] = useState({ type_notification: 'info', message: '', lien: '', destinataires: [] })
@@ -88,6 +91,18 @@ export default function Notifications() {
       await api.post(`/communication/notifications/${id}/marquer_lue/`)
       loadList()
     } catch (_) {}
+  }
+
+  const handleOuvrirDetail = (n) => {
+    setDetail(n)
+    if (!n.est_lue) handleMarquerLue(n.id)
+  }
+
+  const handleOuvrirLien = (lien) => {
+    if (!lien) return
+    if (/^https?:\/\//i.test(lien)) window.open(lien, '_blank', 'noopener,noreferrer')
+    else navigate(lien)
+    setDetail(null)
   }
 
   const resetForm = () => {
@@ -178,9 +193,12 @@ export default function Notifications() {
                 <ListItem
                   key={n.id}
                   divider
+                  onClick={() => handleOuvrirDetail(n)}
                   sx={{
                     bgcolor: n.est_lue ? 'transparent' : `${COLORS.vert}08`,
                     alignItems: 'flex-start',
+                    cursor: 'pointer',
+                    '&:hover': { bgcolor: `${COLORS.vert}12` },
                   }}
                 >
                   <ListItemText
@@ -193,14 +211,14 @@ export default function Notifications() {
                     }
                     secondary={
                       <>
-                        <Typography variant="body2" sx={{ mt: 0.5 }}>{n.message}</Typography>
+                        <Typography variant="body2" sx={{ mt: 0.5, display: '-webkit-box', WebkitLineClamp: 2, WebkitBoxOrient: 'vertical', overflow: 'hidden' }}>{n.message}</Typography>
                         <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>{new Date(n.date_creation).toLocaleString('fr-FR')}</Typography>
                       </>
                     }
                   />
                   {!n.est_lue && (
                     <ListItemSecondaryAction>
-                      <IconButton size="small" onClick={() => handleMarquerLue(n.id)} title="Marquer comme lue" sx={{ color: COLORS.vert }}>
+                      <IconButton size="small" onClick={(e) => { e.stopPropagation(); handleMarquerLue(n.id) }} title="Marquer comme lue" sx={{ color: COLORS.vert }}>
                         <Done />
                       </IconButton>
                     </ListItemSecondaryAction>
@@ -211,6 +229,31 @@ export default function Notifications() {
           )}
         </Paper>
       )}
+
+      <Dialog open={!!detail} onClose={() => setDetail(null)} maxWidth="sm" fullWidth>
+        {detail && (
+          <>
+            <DialogTitle>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                {detail.titre}
+                <Chip size="small" label={detail.type_display || detail.type_notification} sx={{ bgcolor: `${COLORS.or}30` }} />
+              </Box>
+            </DialogTitle>
+            <DialogContent>
+              <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap', mb: 2 }}>{detail.message}</Typography>
+              <Typography variant="caption" color="text.secondary">{new Date(detail.date_creation).toLocaleString('fr-FR')}</Typography>
+            </DialogContent>
+            <DialogActions>
+              <Button onClick={() => setDetail(null)}>Fermer</Button>
+              {detail.lien && (
+                <Button variant="contained" onClick={() => handleOuvrirLien(detail.lien)} sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
+                  Voir plus
+                </Button>
+              )}
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
 
       {isAdmin && (
         <Dialog open={openCreate} onClose={() => { setOpenCreate(false); resetForm() }} maxWidth="sm" fullWidth>

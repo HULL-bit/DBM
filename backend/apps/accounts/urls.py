@@ -23,4 +23,5 @@ urlpatterns = [
     path('rbac/overrides/', views.rbac_overrides),
     path('rbac/mes-permissions/', views.mes_permissions),
     path('audit/', views.journal_audit),
+    path('audit/export/', views.journal_audit_export),
 ]
