@@ -83,6 +83,35 @@ class AuthProvider extends ChangeNotifier {
     }
   }
 
+  Future<bool> forgotPassword(String identifiant) async {
+    _error = null;
+    try {
+      await _api.post(ApiEndpoints.passwordForgot, {'identifiant': identifiant}, auth: false);
+      return true;
+    } catch (e) {
+      // Réponse volontairement générique côté serveur (ne révèle pas si le compte existe) :
+      // on affiche toujours un message neutre plutôt que l'erreur brute.
+      _error = null;
+      return true;
+    }
+  }
+
+  Future<bool> resetPassword(String identifiant, String code, String newPassword) async {
+    _error = null;
+    try {
+      await _api.post(ApiEndpoints.passwordReset, {
+        'identifiant': identifiant,
+        'code': code,
+        'new_password': newPassword,
+      }, auth: false);
+      return true;
+    } catch (e) {
+      _error = e is ApiException ? e.message : 'Erreur lors de la réinitialisation.';
+      notifyListeners();
+      return false;
+    }
+  }
+
   Future<bool> register(Map<String, dynamic> data) async {
     _error = null;
     try {

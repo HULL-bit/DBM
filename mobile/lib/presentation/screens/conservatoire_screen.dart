@@ -21,6 +21,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
   late TabController _tabController;
   final ApiService _api = ApiService();
   String _statsSearch = '';
+  String _seanceTypeFilter = '';
 
   @override
   void initState() {
@@ -763,17 +764,50 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
   }
 
   Widget _buildSeanceList() {
-    return FutureBuilder<Map<String, dynamic>>(
-      future: _api.get(ApiEndpoints.seancesConservatoire),
-      builder: (context, snapshot) {
-        if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
-        final list = snapshot.data?['results'] ?? snapshot.data?['data'] ?? [];
-        if (list.isEmpty) return const Center(child: Text('Aucune séance trouvée'));
+    return StatefulBuilder(
+      builder: (context, setLocalState) {
+        final query = _seanceTypeFilter.isEmpty
+            ? '?page_size=50'
+            : '?type_seance=$_seanceTypeFilter&page_size=50';
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.fromLTRB(12, 12, 12, 0),
+              child: Row(
+                children: [
+                  ChoiceChip(
+                    label: const Text('Toutes'),
+                    selected: _seanceTypeFilter.isEmpty,
+                    onSelected: (_) => setState(() => _seanceTypeFilter = ''),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Répétitions'),
+                    selected: _seanceTypeFilter == 'repetition',
+                    onSelected: (_) => setState(() => _seanceTypeFilter = 'repetition'),
+                  ),
+                  const SizedBox(width: 8),
+                  ChoiceChip(
+                    label: const Text('Prestations'),
+                    selected: _seanceTypeFilter == 'prestation',
+                    onSelected: (_) => setState(() => _seanceTypeFilter = 'prestation'),
+                  ),
+                ],
+              ),
+            ),
+            Expanded(
+              child: FutureBuilder<Map<String, dynamic>>(
+                key: ValueKey(_seanceTypeFilter),
+                future: _api.get('${ApiEndpoints.seancesConservatoire}$query'),
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState == ConnectionState.waiting) return const Center(child: CircularProgressIndicator());
+                  final list = snapshot.data?['results'] ?? snapshot.data?['data'] ?? [];
+                  if (list.isEmpty) return const Center(child: Text('Aucune séance trouvée'));
 
-        return ListView.builder(
-          padding: const EdgeInsets.all(12),
-          itemCount: list.length,
-          itemBuilder: (ctx, i) {
+                  return ListView.builder(
+                    padding: const EdgeInsets.all(12),
+                    itemCount: list.length,
+                    itemBuilder: (ctx, i) {
             final item = list[i];
             final isRepet = item['type_seance'] == 'repetition';
             
@@ -824,7 +858,12 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                 ],
               ),
             );
-          },
+                    },
+                  );
+                },
+              ),
+            ),
+          ],
         );
       },
     );

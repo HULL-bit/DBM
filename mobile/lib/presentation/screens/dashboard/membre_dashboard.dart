@@ -179,6 +179,8 @@ class _MembreDashboardState extends State<MembreDashboard> {
                             AppColors.primaryGreen, '/kamil', context),
                         _QuickCard('Événements', Icons.event_outlined,
                             AppColors.info, '/evenements', context),
+                        _QuickCard('Canaux', Icons.forum_outlined,
+                            AppColors.darkGreen, '/canaux', context),
                         _QuickCard('Messagerie', Icons.chat_outlined,
                             AppColors.warning, '/messagerie', context),
                         _QuickCard('Bibliothèque', Icons.library_books_outlined,

@@ -181,7 +181,6 @@ class _QuickAccessGrid extends StatelessWidget {
       ('Événements', Icons.event_outlined, '/evenements', AppColors.info),
       ('Actualités', Icons.newspaper_outlined, '/news', AppColors.warning),
       ('Kamil', Icons.menu_book_outlined, '/kamil', AppColors.darkGreen),
-      ('Réunions', Icons.meeting_room_outlined, '/reunions', AppColors.error),
       ('Bibliothèque', Icons.library_books_outlined, '/bibliotheque', AppColors.success),
       ('Conservatoire', Icons.archive_outlined, '/conservatoire', AppColors.darkGold),
     ];

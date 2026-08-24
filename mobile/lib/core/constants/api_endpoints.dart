@@ -6,6 +6,8 @@ class ApiEndpoints {
   static const String login = '/auth/token/';
   static const String refresh = '/auth/token/refresh/';
   static const String register = '/auth/register/';
+  static const String passwordForgot = '/auth/password/forgot/';
+  static const String passwordReset = '/auth/password/reset/';
   static const String me = '/auth/me/';
   static const String changePassword = '/auth/me/change-password/';
   static const String users = '/auth/users/';

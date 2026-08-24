@@ -2,10 +2,14 @@ import 'package:flutter/material.dart';
 import '../../core/constants/api_endpoints.dart';
 import '../../core/constants/colors.dart';
 import '../../data/services/api_service.dart';
-import 'package:provider/provider.dart';
-import '../../data/providers/auth_provider.dart';
 import '../widgets/app_drawer.dart';
+import '../widgets/safe_avatar.dart';
+import 'message_chat_screen.dart';
 
+/// Liste des contacts (tous les membres de la daara) avec un aperçu du dernier
+/// message échangé — le fil de discussion d'un contact précis s'ouvre dans un
+/// écran séparé (MessageChatScreen), pour que le retour ramène naturellement
+/// à cette liste plutôt que de sauter directement au tableau de bord.
 class MessagerieScreen extends StatefulWidget {
   const MessagerieScreen({super.key});
 
@@ -16,131 +20,116 @@ class MessagerieScreen extends StatefulWidget {
 class _MessagerieScreenState extends State<MessagerieScreen> {
   final ApiService _api = ApiService();
   bool _loading = true;
-  List<dynamic> _messages = [];
-  final TextEditingController _msgController = TextEditingController();
+  List<dynamic> _conversations = [];
+  String _search = '';
 
   @override
   void initState() {
     super.initState();
-    _loadMessages();
+    _load();
   }
 
-  Future<void> _loadMessages() async {
+  Future<void> _load() async {
     try {
-      final res = await _api.get(ApiEndpoints.messages);
-      final list = res['results'] ?? res['data'] ?? [];
-      if (mounted) setState(() { _messages = list is List ? list : []; _loading = false; });
+      final res = await _api.get('${ApiEndpoints.messages}conversations/');
+      final list = res['results'] ?? res['data'] ?? (res is List ? res : []);
+      if (mounted) {
+        setState(() {
+          _conversations = list is List ? list : [];
+          _loading = false;
+        });
+      }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
     }
   }
 
-  Future<void> _sendMessage() async {
-    if (_msgController.text.trim().isEmpty) return;
-    
-    final content = _msgController.text.trim();
-    _msgController.clear();
-    
-    try {
-      await _api.post(ApiEndpoints.messages, {'contenu': content});
-      _loadMessages();
-    } catch (_) {
-      // Erreur d'envoi
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
-    final user = context.read<AuthProvider>().user;
+    final filtered = _search.isEmpty
+        ? _conversations
+        : _conversations
+            .where((c) => (c['contact_name'] ?? '').toString().toLowerCase().contains(_search.toLowerCase()))
+            .toList();
 
     return Scaffold(
       appBar: AppBar(title: const Text('Messagerie')),
       drawer: const AppDrawer(),
       body: Column(
         children: [
-          Expanded(
-            child: _loading
-                ? const Center(child: CircularProgressIndicator())
-                : _messages.isEmpty
-                    ? const Center(child: Text('Aucun message. Commencez la discussion!', style: TextStyle(color: AppColors.textGrey)))
-                    : ListView.builder(
-                        padding: const EdgeInsets.all(16),
-                        reverse: true, // Pour afficher les nouveaux messages en bas s'ils sont triés, sinon false
-                        itemCount: _messages.length,
-                        itemBuilder: (context, index) {
-                          final msg = _messages[_messages.length - 1 - index]; // Affichage ordre chronologique inverse
-                          bool isMe = msg['expediteur_username'] == user?.username || msg['expediteur'] == user?.id;
-                          
-                          return Container(
-                            margin: const EdgeInsets.only(bottom: 12),
-                            alignment: isMe ? Alignment.centerRight : Alignment.centerLeft,
-                            child: Container(
-                              padding: const EdgeInsets.all(12),
-                              constraints: BoxConstraints(maxWidth: MediaQuery.of(context).size.width * 0.75),
-                              decoration: BoxDecoration(
-                                color: isMe ? AppColors.primaryGreen : AppColors.white,
-                                borderRadius: BorderRadius.only(
-                                  topLeft: const Radius.circular(16),
-                                  topRight: const Radius.circular(16),
-                                  bottomLeft: Radius.circular(isMe ? 16 : 0),
-                                  bottomRight: Radius.circular(isMe ? 0 : 16),
-                                ),
-                                border: isMe ? null : Border.all(color: AppColors.primaryGold.withOpacity(0.3)),
-                              ),
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  if (!isMe)
-                                    Text(
-                                      msg['expediteur_nom'] ?? 'Membre',
-                                      style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.primaryGold),
-                                    ),
-                                  if (!isMe) const SizedBox(height: 4),
-                                  Text(
-                                    msg['contenu'] ?? '',
-                                    style: TextStyle(color: isMe ? AppColors.white : AppColors.textDark, fontSize: 14),
-                                  ),
-                                ],
-                              ),
-                            ),
-                          );
-                        },
-                      ),
-          ),
           Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-            decoration: BoxDecoration(
-              color: AppColors.white,
-              boxShadow: [
-                BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -2))
-              ],
+            color: AppColors.primaryGreen,
+            padding: const EdgeInsets.fromLTRB(16, 0, 16, 12),
+            child: TextField(
+              style: const TextStyle(color: AppColors.white),
+              decoration: InputDecoration(
+                hintText: 'Rechercher un membre...',
+                hintStyle: TextStyle(color: AppColors.white.withOpacity(0.6)),
+                prefixIcon: const Icon(Icons.search, color: AppColors.white),
+                filled: true,
+                fillColor: AppColors.white.withOpacity(0.15),
+                border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
+                contentPadding: const EdgeInsets.symmetric(vertical: 10),
+              ),
+              onChanged: (v) => setState(() => _search = v),
             ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: TextField(
-                    controller: _msgController,
-                    decoration: InputDecoration(
-                      hintText: 'Votre message...',
-                      border: OutlineInputBorder(borderRadius: BorderRadius.circular(24), borderSide: BorderSide.none),
-                      filled: true,
-                      fillColor: Colors.grey.shade100,
-                      contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                CircleAvatar(
-                  backgroundColor: AppColors.primaryGold,
-                  radius: 22,
-                  child: IconButton(
-                    icon: const Icon(Icons.send, color: AppColors.white, size: 20),
-                    onPressed: _sendMessage,
-                  ),
-                )
-              ],
+          ),
+          Expanded(
+            child: RefreshIndicator(
+              onRefresh: _load,
+              color: AppColors.primaryGreen,
+              child: _loading
+                  ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
+                  : filtered.isEmpty
+                      ? ListView(
+                          children: const [
+                            SizedBox(height: 100),
+                            Center(child: Text('Aucun membre trouvé', style: TextStyle(color: AppColors.textGrey))),
+                          ],
+                        )
+                      : ListView.separated(
+                          itemCount: filtered.length,
+                          separatorBuilder: (_, __) => const Divider(height: 1),
+                          itemBuilder: (context, index) {
+                            final conv = filtered[index];
+                            final lastMsg = conv['last_message'];
+                            final unread = (conv['unread_count'] ?? 0) as int;
+                            return ListTile(
+                              leading: SafeAvatar(
+                                photoUrl: conv['contact_photo'] as String?,
+                                fallbackText: (conv['contact_name'] ?? '?').toString(),
+                                backgroundColor: AppColors.primaryGreen,
+                              ),
+                              title: Text(
+                                conv['contact_name'] ?? 'Membre',
+                                style: TextStyle(fontWeight: unread > 0 ? FontWeight.bold : FontWeight.w600),
+                              ),
+                              subtitle: lastMsg != null
+                                  ? Text(
+                                      lastMsg['contenu'] ?? '',
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: TextStyle(color: unread > 0 ? AppColors.textDark : AppColors.textGrey),
+                                    )
+                                  : const Text('Aucun message', style: TextStyle(color: AppColors.textGrey, fontStyle: FontStyle.italic)),
+                              trailing: unread > 0
+                                  ? CircleAvatar(
+                                      radius: 11,
+                                      backgroundColor: AppColors.primaryGold,
+                                      child: Text('$unread', style: const TextStyle(color: AppColors.white, fontSize: 11)),
+                                    )
+                                  : const Icon(Icons.chevron_right, color: AppColors.textGrey),
+                              onTap: () async {
+                                await Navigator.of(context).push(
+                                  MaterialPageRoute(builder: (_) => MessageChatScreen(contact: conv)),
+                                );
+                                _load();
+                              },
+                            );
+                          },
+                        ),
             ),
-          )
+          ),
         ],
       ),
     );

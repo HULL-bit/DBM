@@ -12,6 +12,7 @@ import '../../presentation/screens/dashboard/jewrin_dashboard.dart';
 import '../../presentation/screens/splash_screen.dart';
 import '../../presentation/screens/dashboard/membre_dashboard.dart';
 import '../../presentation/screens/auth/register_screen.dart';
+import '../../presentation/screens/auth/forgot_password_screen.dart';
 import '../../presentation/screens/messagerie_screen.dart';
 import '../../presentation/screens/communication/canaux_screen.dart';
 import '../../presentation/screens/placeholder_screen.dart';
@@ -29,8 +30,9 @@ class AppRouter {
       final isSplash = state.matchedLocation == '/splash';
       final isLoggingIn = state.matchedLocation == '/login';
       final isRegistering = state.matchedLocation == '/register';
+      final isForgotPassword = state.matchedLocation == '/mot-de-passe-oublie';
 
-      if (!isLoggedIn && !isLoggingIn && !isSplash && !isRegistering) return '/login';
+      if (!isLoggedIn && !isLoggingIn && !isSplash && !isRegistering && !isForgotPassword) return '/login';
       if (isLoggedIn && isLoggingIn) return '/';
       return null;
     },
@@ -131,6 +133,10 @@ class AppRouter {
       GoRoute(
         path: '/register',
         builder: (context, state) => const RegisterScreen(),
+      ),
+      GoRoute(
+        path: '/mot-de-passe-oublie',
+        builder: (context, state) => const ForgotPasswordScreen(),
       ),
       GoRoute(
         path: '/messagerie',

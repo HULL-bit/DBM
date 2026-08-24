@@ -118,11 +118,9 @@ class JewrinDashboard extends StatelessWidget {
         ('Projets sociaux', Icons.handshake_outlined, '/projets-sociaux', AppColors.success),
       ],
       if (role == 'jewrin' || role == 'jewrine_communication') ...[
+        ('Canaux', Icons.forum_outlined, '/canaux', AppColors.darkGreen),
         ('Messagerie', Icons.chat_outlined, '/messagerie', AppColors.info),
         ('Notifications', Icons.notifications_outlined, '/notifications', AppColors.warning),
-      ],
-      if (role == 'jewrin' || role == 'jewrine_organisation') ...[
-        ('Réunions', Icons.meeting_room_outlined, '/reunions', AppColors.error),
       ],
       if (role == 'jewrin' || role == 'jewrine_scientifique') ...[
         ('Cours scientifiques', Icons.science_outlined, '/cours', AppColors.info),

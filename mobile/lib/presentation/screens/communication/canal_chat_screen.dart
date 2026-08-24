@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/api_endpoints.dart';
 import '../../../core/constants/colors.dart';
 import '../../../data/providers/auth_provider.dart';
@@ -21,11 +22,15 @@ class _CanalChatScreenState extends State<CanalChatScreen> {
   final ScrollController _scrollController = ScrollController();
   bool _loading = true;
   bool _sending = false;
+  bool _reunionEnCours = false;
   List<dynamic> _messages = [];
+  String? _lienReunion;
 
   @override
   void initState() {
     super.initState();
+    _lienReunion = widget.canal['lien_reunion'] as String?;
+    if (_lienReunion != null && _lienReunion!.isEmpty) _lienReunion = null;
     _load();
   }
 
@@ -80,6 +85,48 @@ class _CanalChatScreenState extends State<CanalChatScreen> {
     }
   }
 
+  Future<void> _demarrerReunion() async {
+    setState(() => _reunionEnCours = true);
+    try {
+      final res = await _api.post('${ApiEndpoints.canaux}${widget.canal['id']}/demarrer-reunion/', {});
+      final lien = res['lien_reunion'] as String?;
+      if (mounted) setState(() => _lienReunion = lien);
+      if (lien != null) await _rejoindre(lien);
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Impossible de démarrer la réunion."), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _reunionEnCours = false);
+    }
+  }
+
+  Future<void> _terminerReunion() async {
+    setState(() => _reunionEnCours = true);
+    try {
+      await _api.post('${ApiEndpoints.canaux}${widget.canal['id']}/terminer-reunion/', {});
+      if (mounted) setState(() => _lienReunion = null);
+      await _load();
+    } catch (_) {
+    } finally {
+      if (mounted) setState(() => _reunionEnCours = false);
+    }
+  }
+
+  Future<void> _rejoindre(String lien) async {
+    final uri = Uri.parse(lien);
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri, mode: LaunchMode.externalApplication);
+    } else if (mounted) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text("Impossible d'ouvrir le lien de réunion."), backgroundColor: AppColors.error),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userId = context.read<AuthProvider>().user?.id;
@@ -102,6 +149,36 @@ class _CanalChatScreenState extends State<CanalChatScreen> {
             ),
           ],
         ),
+        actions: [
+          if (_reunionEnCours)
+            const Padding(
+              padding: EdgeInsets.symmetric(horizontal: 16),
+              child: Center(
+                child: SizedBox(
+                  width: 20,
+                  height: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white),
+                ),
+              ),
+            )
+          else if (_lienReunion != null) ...[
+            IconButton(
+              icon: const Icon(Icons.video_call),
+              tooltip: 'Rejoindre la réunion',
+              onPressed: () => _rejoindre(_lienReunion!),
+            ),
+            IconButton(
+              icon: const Icon(Icons.call_end),
+              tooltip: 'Terminer la réunion',
+              onPressed: _terminerReunion,
+            ),
+          ] else
+            IconButton(
+              icon: const Icon(Icons.videocam_outlined),
+              tooltip: 'Démarrer une réunion',
+              onPressed: _demarrerReunion,
+            ),
+        ],
       ),
       body: Column(
         children: [

@@ -146,7 +146,18 @@ class _LoginScreenState extends State<LoginScreen> {
                             v == null || v.isEmpty ? 'Champ requis' : null,
                         onFieldSubmitted: (_) => _login(),
                       ),
-                      const SizedBox(height: 28),
+                      const SizedBox(height: 8),
+                      Align(
+                        alignment: Alignment.centerRight,
+                        child: TextButton(
+                          onPressed: () => context.push('/mot-de-passe-oublie'),
+                          child: const Text(
+                            'Mot de passe oublié ?',
+                            style: TextStyle(color: AppColors.primaryGreen, fontSize: 13),
+                          ),
+                        ),
+                      ),
+                      const SizedBox(height: 20),
 
                       // Bouton connexion
                       SizedBox(

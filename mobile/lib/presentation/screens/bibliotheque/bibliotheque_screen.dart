@@ -17,6 +17,7 @@ class _BibliothequeScreenState extends State<BibliothequeScreen> {
   List<dynamic> _livres = [];
   bool _loading = true;
   String _search = '';
+  String _categorie = '';
 
   @override
   void initState() {
@@ -26,9 +27,12 @@ class _BibliothequeScreenState extends State<BibliothequeScreen> {
 
   Future<void> _load() async {
     try {
-      final endpoint = _search.isEmpty
+      final params = <String>[];
+      if (_search.isNotEmpty) params.add('search=$_search');
+      if (_categorie.isNotEmpty) params.add('categorie=$_categorie');
+      final endpoint = params.isEmpty
           ? ApiEndpoints.livres
-          : '${ApiEndpoints.livres}?search=$_search';
+          : '${ApiEndpoints.livres}?${params.join('&')}';
       final data = await _api.get(endpoint);
       if (mounted) {
         setState(() {
@@ -48,6 +52,41 @@ class _BibliothequeScreenState extends State<BibliothequeScreen> {
       drawer: const AppDrawer(),
       body: Column(
         children: [
+          // Filtre par type de document
+          Container(
+            color: AppColors.primaryGreen,
+            padding: const EdgeInsets.fromLTRB(16, 12, 16, 0),
+            child: Row(
+              children: [
+                ChoiceChip(
+                  label: const Text('Toutes'),
+                  selected: _categorie.isEmpty,
+                  onSelected: (_) {
+                    setState(() { _categorie = ''; _loading = true; });
+                    _load();
+                  },
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Al-Quran & Islâm'),
+                  selected: _categorie == 'alquran',
+                  onSelected: (_) {
+                    setState(() { _categorie = 'alquran'; _loading = true; });
+                    _load();
+                  },
+                ),
+                const SizedBox(width: 8),
+                ChoiceChip(
+                  label: const Text('Qassida'),
+                  selected: _categorie == 'qassida',
+                  onSelected: (_) {
+                    setState(() { _categorie = 'qassida'; _loading = true; });
+                    _load();
+                  },
+                ),
+              ],
+            ),
+          ),
           // Barre de recherche
           Container(
             color: AppColors.primaryGreen,
