@@ -1,8 +1,8 @@
 // App
-const String appTitle = 'EShop';
+const String appTitle = 'DBM';
 
 // Networking and APIs
-// const String baseUrl = 'http://192.168.1.157:4000'; // dev local
+// const String baseUrl = 'http://192.168.1.157:8000/api'; // dev local
 const String baseUrl = 'https://dbm-8ym4.onrender.com/api';
 const String defaultApiKey = '';
 const String defaultSources = '';

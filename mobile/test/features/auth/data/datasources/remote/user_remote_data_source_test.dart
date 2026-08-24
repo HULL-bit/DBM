@@ -24,23 +24,22 @@ void main() {
   });
 
   group('signIn', () {
+    const fakeParams = SignInParams(username: 'username', password: 'password');
+    final expectedUrl = Uri.parse('$baseUrl/auth/token/');
+    final expectedBody = jsonEncode({
+      'username': fakeParams.username,
+      'password': fakeParams.password,
+    });
+
     test(
-        'should perform a POST request to the correct URL with the given parameters',
+        'should perform a POST request to /auth/token/ with the given parameters',
         () async {
       /// Arrange
-      const fakeParams =
-          SignInParams(username: 'username', password: 'password');
-      const expectedUrl = '$baseUrl/authentication/local/sign-in';
       final fakeResponse = fixture('user/authentication_response.json');
       when(() => mockHttpClient.post(
-            Uri.parse(expectedUrl),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'identifier': fakeParams.username,
-              'password': fakeParams.password,
-            }),
+            expectedUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: expectedBody,
           )).thenAnswer((_) async => http.Response(fakeResponse, 200));
 
       /// Act
@@ -48,14 +47,9 @@ void main() {
 
       /// Assert
       verify(() => mockHttpClient.post(
-            Uri.parse(expectedUrl),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'identifier': fakeParams.username,
-              'password': fakeParams.password,
-            }),
+            expectedUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: expectedBody,
           ));
       expect(result, isA<AuthenticationResponseModel>());
     });
@@ -63,18 +57,10 @@ void main() {
     test('should throw a CredentialFailure on 400 or 401 status code',
         () async {
       /// Arrange
-      const fakeParams =
-          SignInParams(username: 'username', password: 'password');
-      const expectedUrl = '$baseUrl/authentication/local/sign-in';
       when(() => mockHttpClient.post(
-            Uri.parse(expectedUrl),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'identifier': fakeParams.username,
-              'password': fakeParams.password,
-            }),
+            expectedUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: expectedBody,
           )).thenAnswer((_) async => http.Response('Error message', 400));
 
       /// Act
@@ -88,18 +74,10 @@ void main() {
         'should throw a ServerException on non-200 status code other than 400 or 401',
         () async {
       /// Arrange
-      const fakeParams =
-          SignInParams(username: 'username', password: 'password');
-      const expectedUrl = '$baseUrl/authentication/local/sign-in';
       when(() => mockHttpClient.post(
-            Uri.parse(expectedUrl),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'identifier': fakeParams.username,
-              'password': fakeParams.password,
-            }),
+            expectedUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: expectedBody,
           )).thenAnswer((_) async => http.Response('Error message', 404));
 
       /// Act
@@ -111,71 +89,65 @@ void main() {
   });
 
   group('signUp', () {
+    const fakeParams = SignUpParams(
+      firstName: 'John',
+      lastName: 'Doe',
+      email: 'john.doe@example.com',
+      password: 'password',
+    );
+    final registerUrl = Uri.parse('$baseUrl/auth/register/');
+    final registerBody = jsonEncode({
+      'username': fakeParams.email.split('@').first,
+      'first_name': fakeParams.firstName,
+      'last_name': fakeParams.lastName,
+      'email': fakeParams.email,
+      'password': fakeParams.password,
+    });
+    final tokenUrl = Uri.parse('$baseUrl/auth/token/');
+    final tokenBody = jsonEncode({
+      'username': fakeParams.email.split('@').first,
+      'password': fakeParams.password,
+    });
+
     test(
-        'should perform a POST request to the correct URL with the given parameters',
+        'should register then auto sign-in to retrieve tokens on success',
         () async {
       /// Arrange
-      const fakeParams = SignUpParams(
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        password: 'password',
-      );
-      const expectedUrl = '$baseUrl/authentication/local/sign-up';
       final fakeResponse = fixture('user/authentication_response.json');
       when(() => mockHttpClient.post(
-            Uri.parse(expectedUrl),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'firstName': fakeParams.firstName,
-              'lastName': fakeParams.lastName,
-              'email': fakeParams.email,
-              'password': fakeParams.password,
-            }),
-          )).thenAnswer((_) async => http.Response(fakeResponse, 201));
+            registerUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: registerBody,
+          )).thenAnswer((_) async => http.Response('{}', 201));
+      when(() => mockHttpClient.post(
+            tokenUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: tokenBody,
+          )).thenAnswer((_) async => http.Response(fakeResponse, 200));
 
       /// Act
       final result = await dataSource.signUp(fakeParams);
 
       /// Assert
       verify(() => mockHttpClient.post(
-            Uri.parse(expectedUrl),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'firstName': fakeParams.firstName,
-              'lastName': fakeParams.lastName,
-              'email': fakeParams.email,
-              'password': fakeParams.password,
-            }),
+            registerUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: registerBody,
+          ));
+      verify(() => mockHttpClient.post(
+            tokenUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: tokenBody,
           ));
       expect(result, isA<AuthenticationResponseModel>());
     });
 
-    test('should throw a CredentialFailure on 400 or 401 status code',
-        () async {
+    test('should throw a CredentialFailure on 400 status code', () async {
       /// Arrange
-      const fakeParams = SignUpParams(
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        password: 'password',
-      );
-      const expectedUrl = '$baseUrl/authentication/local/sign-up';
       when(() => mockHttpClient.post(
-            Uri.parse(expectedUrl),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'firstName': fakeParams.firstName,
-              'lastName': fakeParams.lastName,
-              'email': fakeParams.email,
-              'password': fakeParams.password,
-            }),
+            registerUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: registerBody,
           )).thenAnswer((_) async => http.Response('Error message', 400));
 
       /// Act
@@ -186,28 +158,14 @@ void main() {
     });
 
     test(
-        'should throw a ServerException on non-200 status code other than 400 or 401',
+        'should throw a ServerException on non-201 status code other than 400',
         () async {
       /// Arrange
-      const fakeParams = SignUpParams(
-        firstName: 'John',
-        lastName: 'Doe',
-        email: 'john.doe@example.com',
-        password: 'password',
-      );
-      const expectedUrl = '$baseUrl/authentication/local/sign-up';
       when(() => mockHttpClient.post(
-            Uri.parse(expectedUrl),
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: jsonEncode({
-              'firstName': fakeParams.firstName,
-              'lastName': fakeParams.lastName,
-              'email': fakeParams.email,
-              'password': fakeParams.password,
-            }),
-          )).thenAnswer((_) async => http.Response('Error message', 404));
+            registerUrl,
+            headers: {'Content-Type': 'application/json'},
+            body: registerBody,
+          )).thenAnswer((_) async => http.Response('Error message', 500));
 
       /// Act
       final result = dataSource.signUp(fakeParams);

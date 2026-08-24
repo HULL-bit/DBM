@@ -10,21 +10,25 @@ String authenticationResponseModelToJson(AuthenticationResponseModel data) =>
 
 class AuthenticationResponseModel {
   final String token;
+  final String refreshToken;
   final UserModel user;
 
   const AuthenticationResponseModel({
     required this.token,
+    required this.refreshToken,
     required this.user,
   });
 
   factory AuthenticationResponseModel.fromJson(Map<String, dynamic> json) =>
       AuthenticationResponseModel(
         token: json["access"] ?? json["token"] ?? '',
+        refreshToken: json["refresh"] ?? '',
         user: UserModel.fromJson(json["user"] as Map<String, dynamic>),
       );
 
   Map<String, dynamic> toJson() => {
-        "token": token,
+        "access": token,
+        "refresh": refreshToken,
         "user": user.toJson(),
       };
 }

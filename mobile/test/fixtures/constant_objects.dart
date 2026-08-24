@@ -104,14 +104,16 @@ final tOrderItemModel = OrderItemModel(
 //user
 const tUserModel = UserModel(
   id: '1',
+  username: 'text',
   firstName: 'Text',
   lastName: 'Text',
   email: 'text@gmail.com',
+  role: 'membre',
 );
 
 //
-const tAuthenticationResponseModel =
-    AuthenticationResponseModel(token: 'token', user: tUserModel);
+const tAuthenticationResponseModel = AuthenticationResponseModel(
+    token: 'token', refreshToken: 'refresh', user: tUserModel);
 //params
 const tSignInParams = SignInParams(username: 'username', password: 'password');
 const tSignUpParams = SignUpParams(
