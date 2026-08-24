@@ -46,3 +46,16 @@ app.*.map.json
 
 # Cache d'agent tiers (Alibaba Cloud ARMS), généré localement, pas du code source
 arms_cache/
+
+# Fichiers générés localement par les outils Android/iOS (régénérés à chaque build)
+.gradle/
+local.properties
+android/.kotlin/
+android/gradlew
+android/gradlew.bat
+android/gradle/wrapper/gradle-wrapper.jar
+ios/Flutter/ephemeral/
+ios/Flutter/Generated.xcconfig
+ios/Flutter/flutter_export_environment.sh
+ios/Runner/GeneratedPluginRegistrant.h
+ios/Runner/GeneratedPluginRegistrant.m
