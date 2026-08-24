@@ -1,10 +1,21 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import '../../core/constants/api_endpoints.dart';
 import '../../core/constants/colors.dart';
 import '../../data/providers/auth_provider.dart';
 import '../../data/services/api_service.dart';
 import '../widgets/safe_avatar.dart';
+import '../widgets/voice_recorder_button.dart';
+import '../widgets/voice_message_player.dart';
+
+const _extensionsAudio = ['.m4a', '.mp3', '.wav', '.ogg', '.aac'];
+bool _estFichierAudio(String? url) {
+  if (url == null) return false;
+  final lower = url.toLowerCase();
+  return _extensionsAudio.any((ext) => lower.contains(ext));
+}
 
 class MessageChatScreen extends StatefulWidget {
   final Map<String, dynamic> contact;
@@ -84,6 +95,33 @@ class _MessageChatScreenState extends State<MessageChatScreen> {
     }
   }
 
+  Future<void> _sendVoiceMessage(File file, int dureeSecondes) async {
+    setState(() => _sending = true);
+    final userFirstName = context.read<AuthProvider>().user?.firstName ?? 'Moi';
+    try {
+      final bytes = await file.readAsBytes();
+      await _api.postMultipart(
+        ApiEndpoints.messages,
+        fields: {
+          'destinataires': widget.contact['contact_id'].toString(),
+          'sujet': 'Message de $userFirstName',
+          'contenu': 'Message vocal',
+        },
+        files: [http.MultipartFile.fromBytes('fichier_joint', bytes, filename: 'vocal.m4a')],
+      );
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Erreur lors de l'envoi du message vocal."), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+      if (await file.exists()) await file.delete();
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final userId = context.read<AuthProvider>().user?.id;
@@ -143,6 +181,7 @@ class _MessageChatScreenState extends State<MessageChatScreen> {
                       minLines: 1,
                       maxLines: 4,
                       textInputAction: TextInputAction.send,
+                      onChanged: (_) => setState(() {}),
                       onSubmitted: (_) => _sendMessage(),
                       decoration: InputDecoration(
                         hintText: 'Votre message...',
@@ -153,7 +192,9 @@ class _MessageChatScreenState extends State<MessageChatScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  if (_msgController.text.trim().isEmpty)
+                    VoiceRecorderButton(onRecorded: _sendVoiceMessage),
+                  const SizedBox(width: 4),
                   CircleAvatar(
                     backgroundColor: AppColors.primaryGold,
                     radius: 22,
@@ -202,10 +243,17 @@ class _MessageBubble extends StatelessWidget {
           ),
           border: isMe ? null : Border.all(color: AppColors.primaryGold.withOpacity(0.3)),
         ),
-        child: Text(
-          msg['contenu'] ?? '',
-          style: TextStyle(color: isMe ? AppColors.white : AppColors.textDark, fontSize: 14),
-        ),
+        child: _estFichierAudio(msg['fichier_joint'] as String?)
+            ? VoiceMessagePlayer(
+                url: (msg['fichier_joint'] as String).startsWith('http')
+                    ? msg['fichier_joint']
+                    : '${ApiEndpoints.mediaBaseUrl}${msg['fichier_joint']}',
+                light: isMe,
+              )
+            : Text(
+                msg['contenu'] ?? '',
+                style: TextStyle(color: isMe ? AppColors.white : AppColors.textDark, fontSize: 14),
+              ),
       ),
     );
   }

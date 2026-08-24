@@ -66,5 +66,7 @@
 		<string>UIInterfaceOrientationLandscapeLeft</string>
 		<string>UIInterfaceOrientationLandscapeRight</string>
 	</array>
+	<key>NSMicrophoneUsageDescription</key>
+	<string>DBM a besoin du microphone pour enregistrer des messages vocaux dans les canaux et la messagerie.</string>
 </dict>
 </plist>

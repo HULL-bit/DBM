@@ -1,4 +1,6 @@
+import 'dart:io';
 import 'package:flutter/material.dart';
+import 'package:http/http.dart' as http;
 import 'package:provider/provider.dart';
 import 'package:url_launcher/url_launcher.dart';
 import '../../../core/constants/api_endpoints.dart';
@@ -6,6 +8,8 @@ import '../../../core/constants/colors.dart';
 import '../../../data/providers/auth_provider.dart';
 import '../../../data/services/api_service.dart';
 import '../../widgets/safe_avatar.dart';
+import '../../widgets/voice_recorder_button.dart';
+import '../../widgets/voice_message_player.dart';
 
 class CanalChatScreen extends StatefulWidget {
   final Map<String, dynamic> canal;
@@ -82,6 +86,32 @@ class _CanalChatScreenState extends State<CanalChatScreen> {
       }
     } finally {
       if (mounted) setState(() => _sending = false);
+    }
+  }
+
+  Future<void> _sendVoiceMessage(File file, int dureeSecondes) async {
+    setState(() => _sending = true);
+    try {
+      final bytes = await file.readAsBytes();
+      await _api.postMultipart(
+        ApiEndpoints.messagesCanaux,
+        fields: {
+          'canal': widget.canal['id'].toString(),
+          'type_message': 'audio',
+          'duree': dureeSecondes.toString(),
+        },
+        files: [http.MultipartFile.fromBytes('fichier', bytes, filename: 'vocal.m4a')],
+      );
+      await _load();
+    } catch (_) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text("Erreur lors de l'envoi du message vocal."), backgroundColor: AppColors.error),
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _sending = false);
+      if (await file.exists()) await file.delete();
     }
   }
 
@@ -216,6 +246,7 @@ class _CanalChatScreenState extends State<CanalChatScreen> {
                       minLines: 1,
                       maxLines: 4,
                       textInputAction: TextInputAction.send,
+                      onChanged: (_) => setState(() {}),
                       onSubmitted: (_) => _sendMessage(),
                       decoration: InputDecoration(
                         hintText: 'Votre message...',
@@ -226,7 +257,11 @@ class _CanalChatScreenState extends State<CanalChatScreen> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  if (_msgController.text.trim().isEmpty)
+                    VoiceRecorderButton(onRecorded: _sendVoiceMessage)
+                  else
+                    const SizedBox.shrink(),
+                  const SizedBox(width: 4),
                   CircleAvatar(
                     backgroundColor: AppColors.primaryGold,
                     radius: 22,
@@ -299,10 +334,19 @@ class _MessageBubble extends StatelessWidget {
                         style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 11, color: AppColors.primaryGold),
                       ),
                     ),
-                  Text(
-                    msg['contenu'] ?? '',
-                    style: TextStyle(color: isMe ? AppColors.white : AppColors.textDark, fontSize: 14),
-                  ),
+                  if (msg['type_message'] == 'audio' && msg['fichier'] != null)
+                    VoiceMessagePlayer(
+                      url: (msg['fichier'] as String).startsWith('http')
+                          ? msg['fichier']
+                          : '${ApiEndpoints.mediaBaseUrl}${msg['fichier']}',
+                      dureeSecondes: msg['duree'] as int?,
+                      light: isMe,
+                    )
+                  else
+                    Text(
+                      msg['contenu'] ?? '',
+                      style: TextStyle(color: isMe ? AppColors.white : AppColors.textDark, fontSize: 14),
+                    ),
                 ],
               ),
             ),
