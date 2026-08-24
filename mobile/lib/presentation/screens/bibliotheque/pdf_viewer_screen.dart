@@ -1,13 +1,10 @@
-import 'dart:io';
-
 import 'package:flutter/material.dart';
-import 'package:flutter_pdfview/flutter_pdfview.dart';
-import 'package:http/http.dart' as http;
-import 'package:path_provider/path_provider.dart';
+import 'package:syncfusion_flutter_pdfviewer/pdfviewer.dart';
 import '../../../core/constants/colors.dart';
 
 /// Visionneuse PDF intégrée : le document reste consultable dans l'application,
-/// jamais ouvert dans une appli externe.
+/// jamais ouvert dans une appli externe. Recherche de texte dans le document
+/// via l'icône loupe de l'AppBar.
 class PdfViewerScreen extends StatefulWidget {
   final String url;
   final String title;
@@ -19,31 +16,37 @@ class PdfViewerScreen extends StatefulWidget {
 }
 
 class _PdfViewerScreenState extends State<PdfViewerScreen> {
-  String? _localPath;
+  final PdfViewerController _controller = PdfViewerController();
+  final TextEditingController _searchController = TextEditingController();
+  PdfTextSearchResult _searchResult = PdfTextSearchResult();
+  bool _searching = false;
   String? _error;
-  int _pages = 0;
-  int _currentPage = 0;
 
   @override
-  void initState() {
-    super.initState();
-    _download();
+  void dispose() {
+    _searchController.dispose();
+    _searchResult.removeListener(_onSearchResultChanged);
+    super.dispose();
   }
 
-  Future<void> _download() async {
-    try {
-      final response = await http.get(Uri.parse(widget.url));
-      if (response.statusCode != 200) {
-        throw Exception('HTTP ${response.statusCode}');
-      }
-      final dir = await getTemporaryDirectory();
-      final fileName = widget.url.split('/').last.split('?').first;
-      final file = File('${dir.path}/$fileName');
-      await file.writeAsBytes(response.bodyBytes, flush: true);
-      if (mounted) setState(() => _localPath = file.path);
-    } catch (_) {
-      if (mounted) setState(() => _error = "Impossible de charger le document.");
-    }
+  void _onSearchResultChanged() {
+    if (mounted) setState(() {});
+  }
+
+  void _lancerRecherche(String query) {
+    if (query.trim().isEmpty) return;
+    _searchResult.removeListener(_onSearchResultChanged);
+    _searchResult = _controller.searchText(query.trim());
+    _searchResult.addListener(_onSearchResultChanged);
+    setState(() {});
+  }
+
+  void _fermerRecherche() {
+    _searchResult.clear();
+    setState(() {
+      _searching = false;
+      _searchController.clear();
+    });
   }
 
   @override
@@ -52,39 +55,54 @@ class _PdfViewerScreenState extends State<PdfViewerScreen> {
       backgroundColor: Colors.black,
       appBar: AppBar(
         backgroundColor: AppColors.primaryGreen,
-        title: Text(widget.title, overflow: TextOverflow.ellipsis),
+        title: _searching
+            ? TextField(
+                controller: _searchController,
+                autofocus: true,
+                style: const TextStyle(color: Colors.white),
+                cursorColor: Colors.white,
+                textInputAction: TextInputAction.search,
+                decoration: const InputDecoration(
+                  hintText: 'Rechercher dans le document...',
+                  hintStyle: TextStyle(color: Colors.white70),
+                  border: InputBorder.none,
+                ),
+                onSubmitted: _lancerRecherche,
+              )
+            : Text(widget.title, overflow: TextOverflow.ellipsis),
         actions: [
-          if (_pages > 0)
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12),
-              child: Center(
-                child: Text('${_currentPage + 1}/$_pages', style: const TextStyle(fontSize: 13)),
+          if (_searching && _searchResult.hasResult) ...[
+            Center(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 4),
+                child: Text(
+                  '${_searchResult.currentInstanceIndex}/${_searchResult.totalInstanceCount}',
+                  style: const TextStyle(fontSize: 13, color: Colors.white),
+                ),
               ),
             ),
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_up),
+              onPressed: () => _searchResult.previousInstance(),
+            ),
+            IconButton(
+              icon: const Icon(Icons.keyboard_arrow_down),
+              onPressed: () => _searchResult.nextInstance(),
+            ),
+          ],
+          IconButton(
+            icon: Icon(_searching ? Icons.close : Icons.search),
+            onPressed: () => _searching ? _fermerRecherche() : setState(() => _searching = true),
+          ),
         ],
       ),
-      body: _buildBody(),
-    );
-  }
-
-  Widget _buildBody() {
-    if (_error != null) {
-      return Center(
-        child: Text(_error!, style: const TextStyle(color: Colors.white70)),
-      );
-    }
-    if (_localPath == null) {
-      return const Center(child: CircularProgressIndicator(color: AppColors.primaryGold));
-    }
-    return PDFView(
-      filePath: _localPath!,
-      enableSwipe: true,
-      swipeHorizontal: false,
-      autoSpacing: true,
-      pageFling: true,
-      onRender: (pages) => setState(() => _pages = pages ?? 0),
-      onPageChanged: (page, total) => setState(() => _currentPage = page ?? 0),
-      onError: (error) => setState(() => _error = 'Erreur de lecture du document.'),
+      body: _error != null
+          ? Center(child: Text(_error!, style: const TextStyle(color: Colors.white70)))
+          : SfPdfViewer.network(
+              widget.url,
+              controller: _controller,
+              onDocumentLoadFailed: (details) => setState(() => _error = 'Impossible de charger le document.'),
+            ),
     );
   }
 }
