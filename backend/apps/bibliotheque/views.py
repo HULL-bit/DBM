@@ -1,4 +1,5 @@
-from rest_framework import viewsets
+from django_filters.rest_framework import DjangoFilterBackend
+from rest_framework import viewsets, filters
 from rest_framework.decorators import action
 from rest_framework.exceptions import ValidationError
 from rest_framework.pagination import PageNumberPagination
@@ -25,7 +26,12 @@ class LivreNumeriqueViewSet(viewsets.ModelViewSet):
     queryset = LivreNumerique.objects.select_related('ajoute_par').order_by('categorie', 'ordre', 'nom')
     serializer_class = LivreNumeriqueSerializer
     permission_classes = [IsAuthenticated]
+    filter_backends = [DjangoFilterBackend, filters.SearchFilter]
     filterset_fields = ['categorie']
+    # ?search= ne faisait rien jusqu'ici (seul DjangoFilterBackend était branché, qui ignore
+    # silencieusement un paramètre hors de filterset_fields) : la recherche par nom/description
+    # (ex. un jukki, une khassida) ne fonctionnait donc jamais côté web ni mobile.
+    search_fields = ['nom', 'description']
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     pagination_class = BibliothequePagination
 
