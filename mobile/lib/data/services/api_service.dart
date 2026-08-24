@@ -118,6 +118,32 @@ class ApiService {
     return _parseResponse(response);
   }
 
+  /// Envoie une requête multipart (POST) : `fields` pour les champs texte,
+  /// `files` pour les fichiers déjà construits (http.MultipartFile), regroupés
+  /// sous `fileFieldName` (ex: 'images' pour un post accepteant plusieurs fichiers).
+  Future<Map<String, dynamic>> postMultipart(
+    String endpoint, {
+    Map<String, String> fields = const {},
+    List<http.MultipartFile> files = const [],
+  }) async {
+    Future<http.StreamedResponse> doRequest() async {
+      final request = http.MultipartRequest('POST', Uri.parse('${ApiEndpoints.baseUrl}$endpoint'));
+      final token = await getAccessToken();
+      if (token != null) request.headers['Authorization'] = 'Bearer $token';
+      request.fields.addAll(fields);
+      request.files.addAll(files);
+      return request.send();
+    }
+
+    var streamed = await doRequest();
+    if (streamed.statusCode == 401) {
+      final refreshed = await _refreshToken();
+      if (refreshed) streamed = await doRequest();
+    }
+    final response = await http.Response.fromStream(streamed);
+    return _parseResponse(response);
+  }
+
   Future<Map<String, dynamic>> patch(
     String endpoint,
     Map<String, dynamic> body,

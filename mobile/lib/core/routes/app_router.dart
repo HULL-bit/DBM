@@ -79,10 +79,6 @@ class AppRouter {
         builder: (context, state) => const MembresScreen(),
       ),
       GoRoute(
-        path: '/annonces',
-        builder: (context, state) => const AnnoncesScreen(),
-      ),
-      GoRoute(
         path: '/conservatoire',
         builder: (context, state) => const ConservatoireScreen(),
       ),

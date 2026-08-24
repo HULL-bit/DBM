@@ -113,9 +113,9 @@ class AppDrawer extends StatelessWidget {
                     onTap: () => _nav(context, '/evenements'),
                   ),
                   _DrawerItem(
-                    icon: Icons.announcement_outlined,
-                    label: 'Annonces',
-                    onTap: () => _nav(context, '/annonces'),
+                    icon: Icons.newspaper_outlined,
+                    label: 'Actualités',
+                    onTap: () => _nav(context, '/news'),
                   ),
 
                   _SectionLabel('FINANCE'),
