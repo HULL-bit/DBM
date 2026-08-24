@@ -6,9 +6,10 @@ import {
   CircularProgress, Tabs, Tab, Dialog, DialogTitle, DialogContent, DialogActions,
   TextField, MenuItem, Alert, Divider,
 } from '@mui/material'
-import { ArrowBack, Edit, EmojiEvents, Add, Close } from '@mui/icons-material'
+import { ArrowBack, Edit, EmojiEvents, Add, Close, Badge as BadgeIcon } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
+import CarteMembre from './CarteMembre'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
@@ -45,6 +46,7 @@ export default function FicheMembre() {
   const [loading, setLoading] = useState(true)
   const [tab, setTab] = useState('finance')
 
+  const [openCarte, setOpenCarte] = useState(false)
   const [openBadge, setOpenBadge] = useState(false)
   const [badgeDefs, setBadgeDefs] = useState([])
   const [nouveauBadge, setNouveauBadge] = useState(false)
@@ -132,7 +134,10 @@ export default function FicheMembre() {
         <IconButton onClick={() => navigate('/admin/membres')} sx={{ bgcolor: `${C.vert}12` }}>
           <ArrowBack sx={{ color: C.vert }} />
         </IconButton>
-        <Typography variant="h5" sx={{ color: C.vert, fontWeight: 700 }}>Dossier du membre</Typography>
+        <Typography variant="h5" sx={{ color: C.vert, fontWeight: 700, flex: 1 }}>Dossier du membre</Typography>
+        <Button variant="outlined" startIcon={<BadgeIcon />} onClick={() => setOpenCarte(true)} sx={{ borderColor: C.vert, color: C.vert }}>
+          Carte de membre
+        </Button>
       </Box>
 
       <Paper sx={{ p: 3, borderRadius: 3, border: `1px solid ${C.or}30`, mb: 3 }}>
@@ -308,6 +313,16 @@ export default function FicheMembre() {
             {savingBadge ? <CircularProgress size={20} color="inherit" /> : 'Attribuer'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      <Dialog open={openCarte} onClose={() => setOpenCarte(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Carte de membre
+          <IconButton onClick={() => setOpenCarte(false)} size="small"><Close /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pb: 3 }}>
+          <CarteMembre membre={membre} />
+        </DialogContent>
       </Dialog>
 
       {tab === 'culturelle' && (

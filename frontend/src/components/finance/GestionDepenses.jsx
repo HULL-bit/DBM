@@ -92,7 +92,24 @@ export default function GestionDepenses() {
 
   const loadDepenses = () => {
     setLoadingDepenses(true)
-    api.get('/finance/depenses/').then(({ data }) => setDepenses(data.results || data)).catch(() => setDepenses([])).finally(() => setLoadingDepenses(false))
+    const accumulate = (acc, data) => {
+      const results = data.results || data || []
+      return [...acc, ...(Array.isArray(results) ? results : [])]
+    }
+    api
+      .get('/finance/depenses/', { params: { page_size: 500 } })
+      .then(async ({ data }) => {
+        let all = accumulate([], data)
+        let nextUrl = data.next
+        while (nextUrl) {
+          const { data: nextData } = await api.get(nextUrl)
+          all = accumulate(all, nextData)
+          nextUrl = nextData?.next
+        }
+        setDepenses(all)
+      })
+      .catch(() => setDepenses([]))
+      .finally(() => setLoadingDepenses(false))
   }
   useEffect(() => { loadDepenses() }, [])
 

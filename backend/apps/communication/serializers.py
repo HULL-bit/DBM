@@ -63,7 +63,12 @@ class CanalSerializer(serializers.ModelSerializer):
             'id', 'nom', 'description', 'image', 'cree_par', 'cree_par_nom', 'date_creation',
             'est_actif', 'lien_reunion', 'membres', 'nb_membres', 'est_admin_canal',
         ]
-        read_only_fields = ['cree_par', 'date_creation', 'lien_reunion']
+        # est_actif est un indicateur interne de suppression logique, basculé uniquement par
+        # CanalViewSet.destroy() directement sur l'instance — jamais via l'API. Le laisser
+        # modifiable posait un vrai bug : en multipart (photo à la création), DRF traite un
+        # BooleanField absent des données comme une case à cocher HTML décochée et le force à
+        # False, ce qui désactivait silencieusement tout canal créé avec une photo.
+        read_only_fields = ['cree_par', 'date_creation', 'lien_reunion', 'est_actif']
 
     def get_membres(self, obj):
         return MembreCanalSerializer(obj.membres_canal.select_related('user'), many=True).data

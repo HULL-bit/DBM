@@ -1,5 +1,7 @@
+import mimetypes
 from datetime import datetime
-from django.http import HttpResponse
+from django.http import HttpResponse, Http404
+from django.utils.encoding import smart_str
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
@@ -71,6 +73,47 @@ class DocumentNumeriqueViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(telecharge_par=self.request.user)
+
+    def _serve_fichier(self, document, as_attachment=False):
+        """Sert le fichier via le storage (compatible FileSystem, S3, etc.)."""
+        if not document.fichier or not document.fichier.name:
+            raise Http404("Fichier non disponible.")
+        try:
+            with document.fichier.storage.open(document.fichier.name, 'rb') as f:
+                content = f.read()
+        except (FileNotFoundError, OSError) as e:
+            if getattr(e, 'errno', None) == 2 or 'No such file' in str(e):
+                raise Http404(
+                    "Fichier introuvable sur le serveur. En hébergement cloud, les fichiers peuvent être perdus après un redéploiement. Veuillez supprimer ce document et le réajouter."
+                )
+            raise Http404(f"Fichier non accessible: {e!s}")
+        except Exception as e:
+            raise Http404(f"Fichier non accessible: {e!s}")
+        if not content:
+            raise Http404("Fichier vide.")
+        content_type = mimetypes.guess_type(document.fichier.name)[0] or 'application/octet-stream'
+        ext = document.fichier.name.rsplit('.', 1)[-1] if '.' in document.fichier.name else 'bin'
+        filename = smart_str(document.titre or 'document') + '.' + ext
+        resp = HttpResponse(content, content_type=content_type)
+        resp['Content-Disposition'] = ('attachment; filename="%s"' % filename) if as_attachment else ('inline; filename="%s"' % filename)
+        resp['Content-Length'] = len(content)
+        return resp
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def lire(self, request, pk=None):
+        """Sert le fichier pour lecture (iframe ou nouvel onglet) et incrémente les vues."""
+        document = self.get_object()
+        document.vues += 1
+        document.save(update_fields=['vues'])
+        return self._serve_fichier(document, as_attachment=False)
+
+    @action(detail=True, methods=['get'], permission_classes=[IsAuthenticated])
+    def telecharger(self, request, pk=None):
+        """Télécharge le fichier et incrémente le compteur."""
+        document = self.get_object()
+        document.telechargements += 1
+        document.save(update_fields=['telechargements'])
+        return self._serve_fichier(document, as_attachment=True)
 
 
 class MediaAudioViewSet(viewsets.ModelViewSet):

@@ -5,6 +5,7 @@ import Accueil from './components/accueil/Accueil'
 import Login from './components/auth/Login'
 import Register from './components/auth/Register'
 import ForgotPassword from './components/auth/ForgotPassword'
+import PolitiqueConfidentialite from './components/legal/PolitiqueConfidentialite'
 import DashboardAdmin from './components/dashboard/DashboardAdmin'
 import DashboardMembre from './components/dashboard/DashboardMembre'
 import DashboardJewrin from './components/dashboard/DashboardJewrin'
@@ -64,6 +65,8 @@ function AppRoutes() {
       <Route path="/login" element={user ? <Navigate to={defaultDashboard} replace /> : <Login />} />
       <Route path="/register" element={user ? <Navigate to={defaultDashboard} replace /> : <Register />} />
       <Route path="/mot-de-passe-oublie" element={user ? <Navigate to={defaultDashboard} replace /> : <ForgotPassword />} />
+      <Route path="/privacy" element={<PolitiqueConfidentialite />} />
+      <Route path="/confidentialite" element={<PolitiqueConfidentialite />} />
       <Route
         path="/"
         element={

@@ -26,6 +26,7 @@ import {
   Tabs,
   Tab,
   Checkbox,
+  Autocomplete,
   useMediaQuery,
   useTheme,
 } from '@mui/material'
@@ -35,10 +36,28 @@ import { useAuth } from '../../context/AuthContext'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 const WAVE_PAYMENT_URL = 'https://pay.wave.com/m/M_sn_A4og8Zu7m589/c/sn/'
+// Suggestions courantes pour l'objet d'une assignation — la liste n'est pas fermée : on peut
+// toujours taper un nom différent (ex. "Tabaski", "Waxtaan"), qui devient alors son propre
+// type au lieu d'être fondu dans "AUTRES".
+const OBJETS_ASSIGNATION_COURANTS = ['MAGAL', 'GAMOU', 'KAZU RAJABB', 'KOOR', 'SOCIAL', 'XELCOM']
+// Trie avec les objets courants dans leur ordre habituel, "AUTRES" en dernier, et tout objet
+// personnalisé entre les deux par ordre alphabétique.
+function ordonnerObjetsAssignation(valeurs) {
+  const ordreConnu = [...OBJETS_ASSIGNATION_COURANTS, 'AUTRES']
+  return [...valeurs].sort((a, b) => {
+    const ia = ordreConnu.indexOf(a)
+    const ib = ordreConnu.indexOf(b)
+    if (ia !== -1 && ib !== -1) return ia - ib
+    if (ia !== -1) return -1
+    if (ib !== -1) return 1
+    return a.localeCompare(b)
+  })
+}
 const STATUTS = [
   { value: 'en_attente', label: 'En attente' },
   { value: 'declare', label: 'Déclaré' },
   { value: 'payee', label: 'Payée' },
+  { value: 'retard', label: 'En retard' },
   { value: 'annulee', label: 'Annulée' },
 ]
 const MODES_PAIEMENT = [
@@ -95,10 +114,28 @@ export default function Cotisations() {
   const [moisFilter, setMoisFilter] = useState('')
   const [anneeFilter, setAnneeFilter] = useState('')
   const [membreFilter, setMembreFilter] = useState('')
+  const [statutFilter, setStatutFilter] = useState('')
 
   const loadList = () => {
     setLoading(true)
-    api.get('/finance/cotisations/').then(({ data }) => setList(data.results || data)).catch(() => setList([])).finally(() => setLoading(false))
+    const accumulate = (acc, data) => {
+      const results = data.results || data || []
+      return [...acc, ...(Array.isArray(results) ? results : [])]
+    }
+    api
+      .get('/finance/cotisations/', { params: { page_size: 500 } })
+      .then(async ({ data }) => {
+        let all = accumulate([], data)
+        let nextUrl = data.next
+        while (nextUrl) {
+          const { data: nextData } = await api.get(nextUrl)
+          all = accumulate(all, nextData)
+          nextUrl = nextData?.next
+        }
+        setList(all)
+      })
+      .catch(() => setList([]))
+      .finally(() => setLoading(false))
   }
   useEffect(() => { loadList() }, [])
   useEffect(() => {
@@ -188,7 +225,7 @@ export default function Cotisations() {
           date_echeance: form.date_echeance,
           statut: form.statut,
           type_cotisation: form.type_cotisation,
-          objet_assignation: form.type_cotisation === 'assignation' ? form.objet_assignation || '' : '',
+          objet_assignation: form.type_cotisation === 'assignation' ? String(form.objet_assignation || '').trim().toUpperCase() : '',
           mode_paiement: form.mode_paiement,
           notes: form.notes || '',
         }
@@ -220,7 +257,7 @@ export default function Cotisations() {
           date_echeance: form.date_echeance,
           statut: form.statut,
           type_cotisation: form.type_cotisation,
-          objet_assignation: form.type_cotisation === 'assignation' ? form.objet_assignation || '' : '',
+          objet_assignation: form.type_cotisation === 'assignation' ? String(form.objet_assignation || '').trim().toUpperCase() : '',
           mode_paiement: form.mode_paiement,
           notes: form.notes || '',
         }
@@ -327,6 +364,7 @@ export default function Cotisations() {
     const statutLower = String(s || '').toLowerCase()
     if (statutLower === 'payee') return 'success'
     if (statutLower === 'declare') return 'warning'
+    if (statutLower === 'retard') return 'error'
     return 'default'
   }
 
@@ -400,26 +438,35 @@ export default function Cotisations() {
     const moisOk = !moisFilter || Number(c.mois) === Number(moisFilter)
     const anneeOk = !anneeFilter || Number(c.annee) === Number(anneeFilter)
     const membreOk = !membreFilter || Number(c.membre) === Number(membreFilter)
-    return typeOk && objetOk && moisOk && anneeOk && membreOk
+    const statutOk = !statutFilter || c.statut === statutFilter
+    return typeOk && objetOk && moisOk && anneeOk && membreOk && statutOk
   })
 
-  // Détails assignations par objet (MAGAL, GAMOU, etc.) selon les filtres
+  // Détails assignations par objet selon les filtres — chaque objet réellement utilisé (y
+  // compris un nom personnalisé tapé à la création) apparaît sous son propre libellé ; seules
+  // les assignations sans objet précisé tombent dans "AUTRES".
   const assignationsFiltrees = filteredList.filter((c) => c.type_cotisation === 'assignation')
   const assignationSums = assignationsFiltrees.reduce((acc, c) => {
-    const brut = (c.objet_assignation || '').toString().trim().toUpperCase()
-    const key =
-      brut === 'MAGAL' ||
-      brut === 'GAMOU' ||
-      brut === 'KAZU RAJABB' ||
-      brut === 'KOOR' ||
-      brut === 'SOCIAL' ||
-      brut === 'XELCOM'
-        ? brut
-        : 'AUTRES'
-    const current = acc[key] || 0
-    acc[key] = current + Number(c.montant || 0)
+    const key = (c.objet_assignation || '').toString().trim().toUpperCase() || 'AUTRES'
+    acc[key] = (acc[key] || 0) + Number(c.montant || 0)
     return acc
   }, {})
+  const labelsAssignations = ordonnerObjetsAssignation(Object.keys(assignationSums))
+
+  // Options du filtre "Assignation" : les suggestions courantes + tout objet personnalisé déjà
+  // utilisé dans les cotisations existantes, pour qu'il devienne filtrable comme les autres.
+  const objetsAssignationDisponibles = ordonnerObjetsAssignation(
+    Array.from(
+      new Set([
+        ...OBJETS_ASSIGNATION_COURANTS,
+        'AUTRES',
+        ...list
+          .filter((c) => c.type_cotisation === 'assignation')
+          .map((c) => (c.objet_assignation || '').toString().trim().toUpperCase())
+          .filter(Boolean),
+      ]),
+    ),
+  )
 
   // Détails mensualités par mois (toutes années) selon les filtres
   const mensualitesFiltrees = filteredList.filter((c) => c.type_cotisation === 'mensualite')
@@ -487,13 +534,9 @@ export default function Cotisations() {
                 sx={{ minWidth: 220, mt: 1.5 }}
               >
                 <MenuItem value="">Toutes</MenuItem>
-                <MenuItem value="MAGAL">MAGAL</MenuItem>
-                <MenuItem value="GAMOU">GAMOU</MenuItem>
-                <MenuItem value="KAZU RAJABB">KAZU RAJABB</MenuItem>
-                <MenuItem value="KOOR">KOOR</MenuItem>
-                <MenuItem value="SOCIAL">SOCIAL</MenuItem>
-                <MenuItem value="XELCOM">XELCOM</MenuItem>
-                <MenuItem value="AUTRES">AUTRES</MenuItem>
+                {objetsAssignationDisponibles.map((o) => (
+                  <MenuItem key={o} value={o}>{o}</MenuItem>
+                ))}
               </TextField>
             )}
           </Box>
@@ -503,14 +546,18 @@ export default function Cotisations() {
               {MOIS.map((m) => <MenuItem key={m.value} value={m.value}>{m.label}</MenuItem>)}
             </TextField>
             <TextField size="small" label="Année" type="number" value={anneeFilter} onChange={(e) => setAnneeFilter(e.target.value)} sx={{ width: 130 }} />
+            <TextField select size="small" label="Statut" value={statutFilter} onChange={(e) => setStatutFilter(e.target.value)} sx={{ minWidth: 160 }}>
+              <MenuItem value="">Tous</MenuItem>
+              {STATUTS.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
+            </TextField>
             {isAdmin && (
               <TextField select size="small" label="Membre" value={membreFilter} onChange={(e) => setMembreFilter(e.target.value)} sx={{ minWidth: 220 }}>
                 <MenuItem value="">Tous</MenuItem>
                 {users.map((u) => <MenuItem key={u.id} value={u.id}>{u.first_name} {u.last_name}</MenuItem>)}
               </TextField>
             )}
-            {(moisFilter || anneeFilter || membreFilter) && (
-              <Button size="small" onClick={() => { setMoisFilter(''); setAnneeFilter(''); setMembreFilter('') }} sx={{ color: COLORS.vert }}>
+            {(moisFilter || anneeFilter || membreFilter || statutFilter) && (
+              <Button size="small" onClick={() => { setMoisFilter(''); setAnneeFilter(''); setMembreFilter(''); setStatutFilter('') }} sx={{ color: COLORS.vert }}>
                 Réinitialiser
               </Button>
             )}
@@ -558,9 +605,9 @@ export default function Cotisations() {
                   Aucune assignation pour ce filtre.
                 </Typography>
               ) : (
-                // On affiche uniquement les types réellement présents dans les données filtrées,
-                // dans un ordre lisible (MAGAL, GAMOU, ... AUTRES)
-                ['MAGAL', 'GAMOU', 'KAZU RAJABB', 'KOOR', 'SOCIAL', 'XELCOM', 'AUTRES']
+                // On affiche tous les objets réellement présents dans les données filtrées
+                // (y compris un nom personnalisé), dans un ordre lisible (courants... AUTRES)
+                labelsAssignations
                   .filter((label) => assignationSums[label] > 0)
                   .map((label) => {
                     const montant = assignationSums[label] || 0
@@ -885,26 +932,27 @@ export default function Cotisations() {
               ))}
             </TextField>
             {form.type_cotisation === 'assignation' && (
-              <TextField
-                select
-                label="Objet de l'assignation"
+              <Autocomplete
+                freeSolo
+                options={objetsAssignationDisponibles}
                 value={form.objet_assignation}
-                onChange={(e) => {
-                  setForm((f) => ({ ...f, objet_assignation: e.target.value }))
+                onInputChange={(e, value) => {
+                  setForm((f) => ({ ...f, objet_assignation: value }))
                   setFormErrors((fe) => ({ ...fe, objet_assignation: undefined }))
                 }}
-                fullWidth
-                error={!!formErrors.objet_assignation}
-                helperText={formErrors.objet_assignation || 'MAGAL, GAMOU, KAZU RAJABB, KOOR, SOCIAL, XELCOM ou AUTRES'}
-              >
-                <MenuItem value="MAGAL">MAGAL</MenuItem>
-                <MenuItem value="GAMOU">GAMOU</MenuItem>
-                <MenuItem value="KAZU RAJABB">KAZU RAJABB</MenuItem>
-                <MenuItem value="KOOR">KOOR</MenuItem>
-                <MenuItem value="SOCIAL">SOCIAL</MenuItem>
-                <MenuItem value="XELCOM">XELCOM</MenuItem>
-                <MenuItem value="AUTRES">AUTRES</MenuItem>
-              </TextField>
+                renderInput={(params) => (
+                  <TextField
+                    {...params}
+                    label="Objet de l'assignation"
+                    fullWidth
+                    error={!!formErrors.objet_assignation}
+                    helperText={
+                      formErrors.objet_assignation ||
+                      'Choisissez un objet courant (MAGAL, GAMOU, …) ou tapez-en un nouveau (ex : Tabaski)'
+                    }
+                  />
+                )}
+              />
             )}
             <TextField
               select

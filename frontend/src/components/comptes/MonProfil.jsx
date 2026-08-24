@@ -13,11 +13,15 @@ import {
   Alert,
   Divider,
   CircularProgress,
+  Dialog,
+  DialogTitle,
+  DialogContent,
 } from '@mui/material'
-import { Visibility, VisibilityOff, PhotoCamera, Save } from '@mui/icons-material'
+import { Visibility, VisibilityOff, PhotoCamera, Save, Badge as BadgeIcon, Close } from '@mui/icons-material'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
+import CarteMembre from './CarteMembre'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', beige: '#F4EAD5', vertFonce: '#1e4029' }
 
@@ -33,6 +37,7 @@ export default function MonProfil() {
   const [passwordLoading, setPasswordLoading] = useState(false)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [showPassword, setShowPassword] = useState({ old: false, new: false, confirm: false })
+  const [openCarte, setOpenCarte] = useState(false)
 
   const [form, setForm] = useState({
     first_name: '',
@@ -186,6 +191,14 @@ export default function MonProfil() {
               </Typography>
               <Typography variant="body2" sx={{ color: COLORS.vert }}>{user.role_display || user.role}</Typography>
               <Typography variant="caption" sx={{ color: COLORS.vertFonce }}>{user.email}</Typography>
+              <Button
+                size="small"
+                startIcon={<BadgeIcon fontSize="small" />}
+                onClick={() => setOpenCarte(true)}
+                sx={{ display: 'block', mt: 0.5, color: COLORS.vert }}
+              >
+                Voir ma carte de membre
+              </Button>
             </Box>
           </Box>
 
@@ -304,6 +317,16 @@ export default function MonProfil() {
           </Grid>
         </CardContent>
       </Card>
+
+      <Dialog open={openCarte} onClose={() => setOpenCarte(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+          Ma carte de membre
+          <IconButton onClick={() => setOpenCarte(false)} size="small"><Close /></IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pb: 3 }}>
+          <CarteMembre membre={user} />
+        </DialogContent>
+      </Dialog>
     </Box>
   )
 }

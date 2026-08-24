@@ -19,6 +19,8 @@ import {
   ToggleButtonGroup,
   ToggleButton,
   Chip,
+  useMediaQuery,
+  useTheme,
 } from '@mui/material'
 import { Security } from '@mui/icons-material'
 import api from '../../services/api'
@@ -46,6 +48,8 @@ const ACTIONS = [
 ]
 
 export default function GestionRolesPermissions() {
+  const theme = useTheme()
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'))
   const [tab, setTab] = useState('roles')
   const [message, setMessage] = useState({ type: '', text: '' })
 
@@ -178,18 +182,24 @@ export default function GestionRolesPermissions() {
           {loadingMatrice ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
           ) : (
+            <>
+            {isMobile && (
+              <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: COLORS.vertFonce }}>
+                ← Faites glisser le tableau pour voir toutes les actions →
+              </Typography>
+            )}
             <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${COLORS.or}30` }}>
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ '& th': { fontWeight: 700, color: COLORS.vertFonce, bgcolor: `${COLORS.vert}08` } }}>
-                    <TableCell>Rubrique</TableCell>
+                    <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: '#EAF1EC !important' }}>Rubrique</TableCell>
                     {ACTIONS.map((a) => <TableCell key={a.field} align="center">{a.label}</TableCell>)}
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   {lignesRoleActif.map((ligne) => (
                     <TableRow key={ligne.id} hover>
-                      <TableCell sx={{ fontWeight: 600, color: COLORS.vert }}>{ligne.rubrique_display}</TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: COLORS.vert, position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', whiteSpace: 'nowrap' }}>{ligne.rubrique_display}</TableCell>
                       {ACTIONS.map((a) => (
                         <TableCell key={a.field} align="center">
                           <Checkbox
@@ -206,6 +216,7 @@ export default function GestionRolesPermissions() {
                 </TableBody>
               </Table>
             </TableContainer>
+            </>
           )}
         </Box>
       )}
@@ -258,11 +269,16 @@ export default function GestionRolesPermissions() {
               {`${membreSelectionne.first_name || ''} ${membreSelectionne.last_name || ''}`.trim() || membreSelectionne.username}
               {' '}<Chip label={membreSelectionne.role_display || membreSelectionne.role} size="small" sx={{ ml: 1, bgcolor: `${COLORS.or}25`, color: COLORS.vertFonce }} />
             </Typography>
+            {isMobile && (
+              <Typography variant="caption" sx={{ display: 'block', mb: 0.5, color: COLORS.vertFonce }}>
+                ← Faites glisser le tableau pour voir toutes les colonnes →
+              </Typography>
+            )}
             <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${COLORS.or}30` }}>
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ '& th': { fontWeight: 700, color: COLORS.vertFonce, bgcolor: `${COLORS.vert}08` } }}>
-                    <TableCell>Rubrique</TableCell>
+                    <TableCell sx={{ position: 'sticky', left: 0, zIndex: 2, backgroundColor: '#EAF1EC !important' }}>Rubrique</TableCell>
                     <TableCell align="center">Visibilité</TableCell>
                     <TableCell align="center">Droits de gestion</TableCell>
                   </TableRow>
@@ -270,7 +286,7 @@ export default function GestionRolesPermissions() {
                 <TableBody>
                   {overrides.map((ligne) => (
                     <TableRow key={ligne.rubrique} hover>
-                      <TableCell sx={{ fontWeight: 600, color: COLORS.vert }}>{ligne.rubrique_display}</TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: COLORS.vert, position: 'sticky', left: 0, zIndex: 1, bgcolor: '#fff', whiteSpace: 'nowrap' }}>{ligne.rubrique_display}</TableCell>
                       <TableCell align="center">
                         <ToggleButtonGroup
                           size="small"

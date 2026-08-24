@@ -1,4 +1,5 @@
 import { Box, Typography, Link } from '@mui/material'
+import { Link as RouterLink } from 'react-router-dom'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', beige: '#F4EAD5', beigeClair: '#faf5eb', vertFonce: '#1e4029' }
 
@@ -22,7 +23,7 @@ export default function Footer({ sidebarWidth = 0 }) {
         © {new Date().getFullYear()} Daara Barakatul Mahaahidi — Plateforme de gestion
       </Typography>
       <Typography variant="caption" sx={{ color: COLORS.vert, display: 'block', mt: 0.5 }}>
-        <Link href="#" sx={{ color: COLORS.vert, '&:hover': { textDecoration: 'underline' } }} underline="hover">Mentions légales</Link>
+        <Link component={RouterLink} to="/privacy" sx={{ color: COLORS.vert, '&:hover': { textDecoration: 'underline' } }} underline="hover">Mentions légales</Link>
         {' · '}
         <Link href="#" sx={{ color: COLORS.vert, '&:hover': { textDecoration: 'underline' } }} underline="hover">Contact</Link>
       </Typography>

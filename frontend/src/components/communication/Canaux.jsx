@@ -164,6 +164,7 @@ export default function Canaux() {
   const [openCreation, setOpenCreation] = useState(false)
   const [nomCanal, setNomCanal] = useState('')
   const [descCanal, setDescCanal] = useState('')
+  const [imageCanal, setImageCanal] = useState(null)
   const [membresChoisis, setMembresChoisis] = useState([])
   const [tousMembres, setTousMembres] = useState([])
   const [saving, setSaving] = useState(false)
@@ -225,13 +226,25 @@ export default function Canaux() {
     if (!nomCanal.trim()) return
     setSaving(true)
     try {
-      const { data } = await api.post('/communication/canaux/', {
-        nom: nomCanal.trim(),
-        description: descCanal.trim(),
-        membres: membresChoisis.map((m) => m.id),
-      })
+      let payload
+      let config = {}
+      if (imageCanal) {
+        payload = new FormData()
+        payload.append('nom', nomCanal.trim())
+        payload.append('description', descCanal.trim())
+        membresChoisis.forEach((m) => payload.append('membres', m.id))
+        payload.append('image', imageCanal)
+        config = { headers: { 'Content-Type': 'multipart/form-data' } }
+      } else {
+        payload = {
+          nom: nomCanal.trim(),
+          description: descCanal.trim(),
+          membres: membresChoisis.map((m) => m.id),
+        }
+      }
+      const { data } = await api.post('/communication/canaux/', payload, config)
       setOpenCreation(false)
-      setNomCanal(''); setDescCanal(''); setMembresChoisis([])
+      setNomCanal(''); setDescCanal(''); setMembresChoisis([]); setImageCanal(null)
       loadCanaux()
       setCanalSelectionne(data)
     } catch (err) {
@@ -451,7 +464,7 @@ export default function Canaux() {
               <ListItemButton key={c.id} selected={canalSelectionne?.id === c.id} onClick={() => setCanalSelectionne(c)}>
                 <ListItemAvatar>
                   <Badge color="success" variant="dot" invisible={!c.lien_reunion}>
-                    <Avatar sx={{ bgcolor: COLORS.vert }}>{initials(c.nom)}</Avatar>
+                    <Avatar src={c.image ? getMediaUrl(c.image) : null} sx={{ bgcolor: COLORS.vert }}>{initials(c.nom)}</Avatar>
                   </Badge>
                 </ListItemAvatar>
                 <ListItemText
@@ -488,16 +501,33 @@ export default function Canaux() {
                     <ArrowBack />
                   </IconButton>
                 )}
-                <Avatar
-                  variant="rounded"
-                  src={canalSelectionne.image ? getMediaUrl(canalSelectionne.image) : null}
-                  sx={{ width: 44, height: 44, bgcolor: COLORS.vert }}
+                <Box
+                  onClick={canalSelectionne.est_admin_canal ? handleOuvrirEditionCanal : undefined}
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 1.5,
+                    cursor: canalSelectionne.est_admin_canal ? 'pointer' : 'default',
+                    borderRadius: 2,
+                    px: canalSelectionne.est_admin_canal ? 1 : 0,
+                    py: 0.5,
+                    ml: canalSelectionne.est_admin_canal ? -1 : 0,
+                    transition: 'background-color 0.2s ease',
+                    '&:hover': canalSelectionne.est_admin_canal ? { bgcolor: `${COLORS.or}15` } : undefined,
+                  }}
+                  title={canalSelectionne.est_admin_canal ? 'Modifier la photo ou le nom du canal' : undefined}
                 >
-                  {initials(canalSelectionne.nom)}
-                </Avatar>
-                <Box>
-                  <Typography variant="h6" sx={{ color: COLORS.vert, fontWeight: 700 }}>{canalSelectionne.nom}</Typography>
-                  <Typography variant="caption" color="text.secondary">{canalSelectionne.nb_membres} membre(s)</Typography>
+                  <Avatar
+                    variant="rounded"
+                    src={canalSelectionne.image ? getMediaUrl(canalSelectionne.image) : null}
+                    sx={{ width: 44, height: 44, bgcolor: COLORS.vert }}
+                  >
+                    {initials(canalSelectionne.nom)}
+                  </Avatar>
+                  <Box>
+                    <Typography variant="h6" sx={{ color: COLORS.vert, fontWeight: 700 }}>{canalSelectionne.nom}</Typography>
+                    <Typography variant="caption" color="text.secondary">{canalSelectionne.nb_membres} membre(s)</Typography>
+                  </Box>
                 </Box>
               </Box>
               <Box sx={{ display: 'flex', gap: 1 }}>
@@ -591,6 +621,19 @@ export default function Canaux() {
         <DialogTitle>Nouveau canal</DialogTitle>
         <DialogContent>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 1 }}>
+              <Avatar
+                variant="rounded"
+                src={imageCanal ? URL.createObjectURL(imageCanal) : null}
+                sx={{ width: 72, height: 72, bgcolor: COLORS.vert, fontSize: '1.5rem' }}
+              >
+                {initials(nomCanal)}
+              </Avatar>
+              <Button size="small" component="label" sx={{ color: COLORS.vert }}>
+                {imageCanal ? 'Changer la photo' : 'Ajouter une photo'}
+                <input hidden type="file" accept="image/*" onChange={(e) => setImageCanal(e.target.files?.[0] || null)} />
+              </Button>
+            </Box>
             <TextField label="Nom du canal" value={nomCanal} onChange={(e) => setNomCanal(e.target.value)} fullWidth required />
             <TextField label="Description (optionnel)" value={descCanal} onChange={(e) => setDescCanal(e.target.value)} fullWidth multiline rows={2} />
             <Box>

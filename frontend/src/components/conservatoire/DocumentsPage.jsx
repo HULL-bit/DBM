@@ -4,9 +4,8 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, TextField,
   Alert, CircularProgress, Chip, InputAdornment,
 } from '@mui/material'
-import { ArrowBack, Add, Edit, Delete, Download, Description, Search } from '@mui/icons-material'
+import { ArrowBack, Add, Edit, Delete, Download, Description, Search, Visibility, Close, PictureAsPdf } from '@mui/icons-material'
 import api from '../../services/api'
-import { getMediaUrl } from '../../services/media'
 import { useAuth } from '../../context/AuthContext'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
@@ -33,6 +32,10 @@ export default function DocumentsPage({ onBack }) {
   const [form, setForm] = useState({ titre: '', auteur: '', description: '' })
   const [file, setFile] = useState(null)
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [openReader, setOpenReader] = useState(null)
+  const [readerBlobUrl, setReaderBlobUrl] = useState(null)
+  const [loadingReader, setLoadingReader] = useState(false)
+  const estPdf = (d) => (d?.fichier || '').toLowerCase().endsWith('.pdf')
 
   const load = () => api.get('/conservatoire/documents/')
     .then(({ data }) => setDocs(data.results || data))
@@ -75,6 +78,46 @@ export default function DocumentsPage({ onBack }) {
       setMsg({ type: 'success', text: 'Document supprimé.' }); load(); setDeleteTarget(null)
     } catch { setMsg({ type: 'error', text: 'Erreur suppression.' }) }
     finally { setSaving(false) }
+  }
+
+  const handleLire = async (d) => {
+    setOpenReader(d)
+    setReaderBlobUrl(null)
+    setLoadingReader(true)
+    setMsg({ type: '', text: '' })
+    try {
+      const res = await api.get(`/conservatoire/documents/${d.id}/lire/`, { responseType: 'blob', validateStatus: () => true })
+      if (res.status !== 200) {
+        const text = await (res.data instanceof Blob ? res.data.text() : Promise.resolve(String(res.data)))
+        let errMsg = 'Impossible de charger le document.'
+        try { errMsg = JSON.parse(text).detail || errMsg } catch { if (text && text.length < 200) errMsg = text }
+        setMsg({ type: 'error', text: errMsg }); setOpenReader(null); return
+      }
+      setReaderBlobUrl(URL.createObjectURL(res.data))
+    } catch (e) {
+      setMsg({ type: 'error', text: e?.message || 'Impossible de charger le document.' }); setOpenReader(null)
+    } finally { setLoadingReader(false) }
+  }
+
+  const handleCloseReader = () => {
+    if (readerBlobUrl) URL.revokeObjectURL(readerBlobUrl)
+    setReaderBlobUrl(null); setOpenReader(null)
+  }
+
+  const handleTelecharger = async (d) => {
+    setMsg({ type: '', text: '' })
+    try {
+      const res = await api.get(`/conservatoire/documents/${d.id}/telecharger/`, { responseType: 'blob', validateStatus: () => true })
+      if (res.status !== 200) { setMsg({ type: 'error', text: 'Impossible de télécharger le document.' }); return }
+      const url = URL.createObjectURL(res.data)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = `${d.titre || 'document'}.${(d.fichier || '').split('.').pop() || 'pdf'}`
+      link.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      setMsg({ type: 'error', text: 'Impossible de télécharger le document.' })
+    }
   }
 
   const filtered = docs.filter(d =>
@@ -158,13 +201,22 @@ export default function DocumentsPage({ onBack }) {
                   )}
                   <Box sx={{ display: 'flex', gap: 1, mt: 'auto', pt: 1.5, flexWrap: 'wrap' }}>
                     {d.fichier && (
-                      <Button
-                        size="small" variant="contained" startIcon={<Download />}
-                        href={getMediaUrl(d.fichier)} target="_blank" rel="noopener noreferrer"
-                        sx={{ bgcolor: C.vert, '&:hover': { bgcolor: C.vertFonce }, flex: 1, borderRadius: 1.5 }}
-                      >
-                        Télécharger
-                      </Button>
+                      <>
+                        <Button
+                          size="small" variant="contained" startIcon={<Visibility />}
+                          onClick={() => handleLire(d)}
+                          sx={{ bgcolor: C.vert, '&:hover': { bgcolor: C.vertFonce }, flex: 1, borderRadius: 1.5 }}
+                        >
+                          Lire
+                        </Button>
+                        <Button
+                          size="small" variant="outlined" startIcon={<Download />}
+                          onClick={() => handleTelecharger(d)}
+                          sx={{ borderColor: C.vert, color: C.vert, borderRadius: 1.5 }}
+                        >
+                          Télécharger
+                        </Button>
+                      </>
                     )}
                     {canManage && (
                       <Box sx={{ display: 'flex', gap: 0.5 }}>
@@ -229,6 +281,64 @@ export default function DocumentsPage({ onBack }) {
             {saving ? <CircularProgress size={20} /> : 'Supprimer'}
           </Button>
         </DialogActions>
+      </Dialog>
+
+      {/* Reader dialog */}
+      <Dialog
+        open={!!openReader}
+        onClose={handleCloseReader}
+        maxWidth={false}
+        fullWidth
+        fullScreen
+        PaperProps={{ sx: { borderRadius: 0, bgcolor: '#1a1a1a', display: 'flex', flexDirection: 'column', overflow: 'hidden' } }}
+      >
+        <Box sx={{
+          flexShrink: 0, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1,
+          px: { xs: 1, sm: 2 }, py: { xs: 1, sm: 1.5 }, bgcolor: C.vertFonce, color: 'white', minHeight: 56,
+        }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: 1 }}>
+            <PictureAsPdf sx={{ fontSize: { xs: 22, sm: 28 }, flexShrink: 0 }} />
+            <Typography variant="h6" fontWeight={700} noWrap sx={{ fontSize: { xs: '0.95rem', sm: 'inherit' } }}>
+              {openReader?.titre}
+            </Typography>
+          </Box>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 0, flexShrink: 0 }}>
+            <IconButton onClick={() => openReader && handleTelecharger(openReader)} sx={{ color: C.or }} title="Télécharger" aria-label="Télécharger">
+              <Download />
+            </IconButton>
+            <IconButton onClick={handleCloseReader} sx={{ color: 'white' }} aria-label="Fermer">
+              <Close />
+            </IconButton>
+          </Box>
+        </Box>
+        <DialogContent sx={{
+          p: 0, flex: 1, display: 'flex', flexDirection: 'column', minHeight: 0, overflow: 'hidden',
+          bgcolor: '#2d2d2d', height: { xs: 'calc(100dvh - 56px)', sm: 'calc(100vh - 56px)' },
+        }}>
+          {loadingReader && (
+            <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, gap: 2 }}>
+              <CircularProgress size={56} sx={{ color: C.or }} />
+              <Typography sx={{ color: 'rgba(255,255,255,0.8)' }}>Ouverture du document…</Typography>
+            </Box>
+          )}
+          {readerBlobUrl && !loadingReader && (
+            estPdf(openReader) ? (
+              <Box sx={{ flex: 1, minHeight: 0, width: '100%', position: 'relative', overflow: 'auto', WebkitOverflowScrolling: 'touch' }}>
+                <iframe title={openReader?.titre} src={readerBlobUrl} style={{ display: 'block', width: '100%', height: '100%', border: 'none' }} />
+              </Box>
+            ) : (
+              <Box sx={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center', flex: 1, gap: 2, px: 3, textAlign: 'center' }}>
+                <Description sx={{ fontSize: 64, color: 'rgba(255,255,255,0.5)' }} />
+                <Typography sx={{ color: 'rgba(255,255,255,0.8)' }}>
+                  L'aperçu en ligne n'est disponible que pour les PDF. Téléchargez ce document pour le consulter.
+                </Typography>
+                <Button variant="contained" startIcon={<Download />} onClick={() => openReader && handleTelecharger(openReader)} sx={{ bgcolor: C.vert, '&:hover': { bgcolor: C.vertFonce } }}>
+                  Télécharger
+                </Button>
+              </Box>
+            )
+          )}
+        </DialogContent>
       </Dialog>
     </Box>
   )

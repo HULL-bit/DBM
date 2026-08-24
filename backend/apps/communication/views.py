@@ -456,7 +456,13 @@ class CanalViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         canal = serializer.save(cree_par=self.request.user)
         MembreCanal.objects.create(canal=canal, user=self.request.user, est_admin_canal=True)
-        membres_ids = self.request.data.get('membres', [])
+        # En multipart (photo à la création), request.data est un QueryDict : .get() ne renvoie
+        # que la dernière valeur d'une clé répétée, il faut .getlist() pour récupérer tous les
+        # membres sélectionnés. En JSON, .get() renvoie déjà la liste complète.
+        if hasattr(self.request.data, 'getlist'):
+            membres_ids = self.request.data.getlist('membres')
+        else:
+            membres_ids = self.request.data.get('membres', [])
         if isinstance(membres_ids, str):
             membres_ids = [membres_ids]
         for uid in membres_ids or []:

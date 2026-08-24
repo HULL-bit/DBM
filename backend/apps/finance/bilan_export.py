@@ -11,25 +11,47 @@ from .models import CotisationMensuelle, Depense, CATEGORIES_CHARGE
 
 
 def calculer_bilan(annee=None):
-    """Retourne une ligne par catégorie + une ligne total."""
+    """Retourne une ligne par catégorie + une ligne total.
+
+    Les catégories de dépense sont un choix fermé (CATEGORIES_CHARGE), mais l'objet d'une
+    assignation (cotisation) est un texte libre : un objet personnalisé (ex. "Tabaski",
+    "Social Segn Fallou") ne correspond à aucun des codes fixes. Sans le détecter ici, son
+    montant collecté disparaissait purement et simplement du bilan (et donc du total). On
+    ajoute donc une ligne pour chaque objet réellement utilisé, en plus des catégories connues.
+    """
     lignes = []
     total_collecte = Decimal('0')
     total_depense = Decimal('0')
 
-    for code, libelle in CATEGORIES_CHARGE:
-        cotisations = CotisationMensuelle.objects.filter(statut='payee')
+    cotisations_payees = CotisationMensuelle.objects.filter(statut='payee')
+    depenses_validees = Depense.objects.filter(statut='validee')
+    if annee:
+        cotisations_payees = cotisations_payees.filter(annee=annee)
+        depenses_validees = depenses_validees.filter(date_depense__year=annee)
+
+    codes_connus = [code for code, _ in CATEGORIES_CHARGE]
+    libelles_connus = dict(CATEGORIES_CHARGE)
+    codes_personnalises = sorted({
+        v.strip().upper()
+        for v in cotisations_payees.filter(type_cotisation='assignation')
+        .exclude(objet_assignation__iexact='')
+        .values_list('objet_assignation', flat=True)
+        .distinct()
+        if v.strip().upper() not in codes_connus
+    })
+
+    for code in [*codes_connus, *codes_personnalises]:
+        libelle = libelles_connus.get(code, code.title())
         if code == 'MENSUALITE':
-            cotisations = cotisations.filter(type_cotisation='mensualite')
+            cotisations = cotisations_payees.filter(type_cotisation='mensualite')
         else:
-            cotisations = cotisations.filter(type_cotisation='assignation', objet_assignation__iexact=code)
-        if annee:
-            cotisations = cotisations.filter(annee=annee)
+            cotisations = cotisations_payees.filter(type_cotisation='assignation', objet_assignation__iexact=code)
         collecte = cotisations.aggregate(total=Sum('montant'))['total'] or Decimal('0')
 
-        depenses = Depense.objects.filter(statut='validee', categorie=code)
-        if annee:
-            depenses = depenses.filter(date_depense__year=annee)
-        depense = depenses.aggregate(total=Sum('montant'))['total'] or Decimal('0')
+        # Sans objet pour une dépense (categorie est un choix fermé) : ne matche que les
+        # codes connus, ce qui est correct puisqu'une dépense ne peut pas avoir un objet
+        # personnalisé.
+        depense = depenses_validees.filter(categorie=code).aggregate(total=Sum('montant'))['total'] or Decimal('0')
 
         lignes.append({
             'categorie': code,
