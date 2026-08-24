@@ -412,7 +412,15 @@ export default function Canaux() {
   }
 
   return (
-    <Box sx={{ display: 'flex', gap: { xs: 0, md: 2 }, height: { xs: 'calc(100vh - 140px)', md: 'calc(100vh - 180px)' }, minHeight: 500 }}>
+    <Box
+      sx={{
+        display: 'flex',
+        gap: { xs: 0, md: 2 },
+        flex: { xs: 1, md: 'none' },
+        minHeight: { xs: 0, md: 500 },
+        height: { md: 'calc(100vh - 180px)' },
+      }}
+    >
       {/* Liste des canaux */}
       <Paper
         sx={{

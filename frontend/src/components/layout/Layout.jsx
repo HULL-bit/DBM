@@ -44,6 +44,8 @@ export default function Layout() {
         component="main"
         sx={{
           flexGrow: 1,
+          display: 'flex',
+          flexDirection: 'column',
           ml: `${mainMarginLeft}px`,
           p: { xs: 2, sm: 3 },
           minHeight: 'calc(100vh - 64px - 72px)',

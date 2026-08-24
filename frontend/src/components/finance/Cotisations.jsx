@@ -297,9 +297,11 @@ export default function Cotisations() {
     }
   }
 
-  // --- Confirmation groupée par le chargé de finance ---
+  // --- Validation groupée par l'admin / le chargé de finance ---
+  // Un membre peut être marqué payé même s'il n'a rien déclaré : seules les cotisations
+  // déjà payées ou annulées ne sont plus proposées à la validation.
   const [selection, setSelection] = useState([])
-  const confirmables = filteredList => filteredList.filter((c) => c.statut === 'declare')
+  const confirmables = filteredList => filteredList.filter((c) => c.statut !== 'payee' && c.statut !== 'annulee')
 
   const toggleSelection = (id) => {
     setSelection((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
@@ -311,11 +313,11 @@ export default function Cotisations() {
     setMessage({ type: '', text: '' })
     try {
       await Promise.all(selection.map((id) => api.patch(`/finance/cotisations/${id}/`, { statut: 'payee' })))
-      setMessage({ type: 'success', text: `${selection.length} paiement(s) confirmé(s).` })
+      setMessage({ type: 'success', text: `${selection.length} paiement(s) validé(s).` })
       setSelection([])
       loadList()
     } catch (err) {
-      setMessage({ type: 'error', text: 'Erreur lors de la confirmation groupée.' })
+      setMessage({ type: 'error', text: 'Erreur lors de la validation groupée.' })
     } finally {
       setSaving(false)
     }
@@ -652,7 +654,7 @@ export default function Cotisations() {
                 onClick={handleConfirmerSelection}
                 sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}
               >
-                Confirmer les paiements sélectionnés ({selection.length})
+                Valider les paiements sélectionnés ({selection.length})
               </Button>
               {selection.length > 0 && (
                 <Button size="small" onClick={() => setSelection([])}>Désélectionner</Button>
@@ -689,7 +691,7 @@ export default function Cotisations() {
                 const canPay = canPayCotisation(c)
                 const dejaDeclare = c.statut === 'declare'
                 const isMine = Number(c.membre) === Number(user?.id)
-                const estConfirmable = c.statut === 'declare'
+                const estConfirmable = c.statut !== 'payee' && c.statut !== 'annulee'
                 return (
                   <TableRow key={c.id} hover selected={selection.includes(c.id)}>
                     {isAdmin && (

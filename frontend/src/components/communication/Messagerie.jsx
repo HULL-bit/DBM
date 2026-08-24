@@ -546,7 +546,7 @@ export default function Messagerie() {
   const groupedMessages = useMemo(() => groupMessagesByDate(messages), [messages, groupMessagesByDate])
 
   return (
-    <Box>
+    <Box sx={{ display: 'flex', flexDirection: 'column', flex: { xs: 1, md: 'none' }, minHeight: { xs: 0, md: 'auto' } }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2, mb: { xs: 2, md: 3 } }}>
         <Box>
           <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600, fontSize: { xs: '1.5rem', md: '2rem' } }} gutterBottom>
@@ -564,7 +564,17 @@ export default function Messagerie() {
         </Alert>
       )}
 
-      <Paper sx={{ borderRadius: 2, overflow: 'hidden', borderLeft: `4px solid ${COLORS.or}`, height: { xs: 'calc(100vh - 200px)', md: 'calc(100vh - 250px)' }, display: 'flex' }}>
+      <Paper
+        sx={{
+          borderRadius: 2,
+          overflow: 'hidden',
+          borderLeft: `4px solid ${COLORS.or}`,
+          display: 'flex',
+          flex: { xs: 1, md: 'none' },
+          minHeight: { xs: 0, md: 500 },
+          height: { md: 'calc(100vh - 250px)' },
+        }}
+      >
         {/* Liste des contacts à gauche */}
         <Box sx={{ 
           width: { xs: selectedContact ? '0%' : '100%', md: '380px' }, 
