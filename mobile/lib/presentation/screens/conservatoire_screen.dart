@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:file_picker/file_picker.dart';
+import 'package:intl/intl.dart';
 import 'dart:io';
 import 'package:http/http.dart' as http;
 import '../../core/constants/colors.dart';
@@ -326,6 +327,13 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
     DateTime? selectedDate;
     TimeOfDay? selectedTime;
     TimeOfDay? selectedEndTime;
+    final List<Map<String, TextEditingController>> khassidas = ((item?['khassidas'] as List?) ?? [])
+        .map<Map<String, TextEditingController>>((k) => {
+              'nom_khassida': TextEditingController(text: k['nom_khassida'] ?? ''),
+              'dathie': TextEditingController(text: k['dathie'] ?? ''),
+              'khassida_portion': TextEditingController(text: k['khassida_portion'] ?? ''),
+            })
+        .toList();
 
     if (item?['date_heure'] != null) {
       final dt = DateTime.tryParse(item['date_heure'].toString());
@@ -429,6 +437,48 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                   ],
                   onChanged: (v) => setDialogState(() => selectedType = v!),
                 ),
+                const SizedBox(height: 16),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: Text('Programme de répétition (khassidas)', style: TextStyle(fontSize: 13, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
+                ),
+                const SizedBox(height: 8),
+                ...khassidas.asMap().entries.map((entry) {
+                  final i = entry.key;
+                  final k = entry.value;
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            children: [
+                              TextField(controller: k['nom_khassida'], decoration: const InputDecoration(labelText: 'Khassida', isDense: true)),
+                              const SizedBox(height: 6),
+                              TextField(controller: k['dathie'], decoration: const InputDecoration(labelText: 'Dathie (auteur)', isDense: true)),
+                              const SizedBox(height: 6),
+                              TextField(controller: k['khassida_portion'], decoration: const InputDecoration(labelText: 'Portion (optionnel)', isDense: true)),
+                            ],
+                          ),
+                        ),
+                        IconButton(
+                          icon: const Icon(Icons.delete_outline, color: AppColors.error, size: 20),
+                          onPressed: () => setDialogState(() => khassidas.removeAt(i)),
+                        ),
+                      ],
+                    ),
+                  );
+                }),
+                TextButton.icon(
+                  onPressed: () => setDialogState(() => khassidas.add({
+                        'nom_khassida': TextEditingController(),
+                        'dathie': TextEditingController(),
+                        'khassida_portion': TextEditingController(),
+                      })),
+                  icon: const Icon(Icons.add, size: 18, color: AppColors.primaryGreen),
+                  label: const Text('Ajouter une khassida', style: TextStyle(color: AppColors.primaryGreen)),
+                ),
               ],
             ),
           ),
@@ -470,8 +520,23 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                   if (selectedEndTime != null) {
                     data['heure_fin'] = '${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}:00';
                   }
-                  if (item == null) { await _api.post(ApiEndpoints.seancesConservatoire, data); }
-                  else { await _api.patch('${ApiEndpoints.seancesConservatoire}${item['id']}/', data); }
+                  int seanceId;
+                  if (item == null) {
+                    final created = await _api.post(ApiEndpoints.seancesConservatoire, data);
+                    seanceId = created['id'] as int;
+                  } else {
+                    seanceId = item['id'] as int;
+                    await _api.patch('${ApiEndpoints.seancesConservatoire}$seanceId/', data);
+                  }
+                  final khassidasPayload = khassidas
+                      .where((k) => k['nom_khassida']!.text.trim().isNotEmpty)
+                      .map((k) => {
+                            'nom_khassida': k['nom_khassida']!.text.trim(),
+                            'dathie': k['dathie']!.text.trim(),
+                            'khassida_portion': k['khassida_portion']!.text.trim(),
+                          })
+                      .toList();
+                  await _api.post('${ApiEndpoints.seancesConservatoire}$seanceId/khassidas/', {'khassidas': khassidasPayload});
                   if (mounted) { Navigator.pop(ctx); this.setState(() {}); }
                 } catch (e) { ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'))); }
               },
@@ -501,14 +566,13 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                 builder: (context, snapshot) {
                   if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
                   final data = snapshot.data!;
-                  final memberIds = (data['membres'] as List?)?.map((e) => e as int).toList() ?? [];
-                  final memberNames = (data['membres_noms'] as List?)?.map((e) => e.toString()).toList() ?? [];
-
-                  // Build list of {id, nom}
-                  final members = List.generate(memberIds.length, (i) => {
-                    'id': memberIds[i],
-                    'nom': i < memberNames.length ? memberNames[i] : 'Membre ${memberIds[i]}',
-                  });
+                  // membres_noms est déjà la liste exploitable : [{id, nom, photo}, ...].
+                  // membres (bruts, juste des IDs) sert uniquement à reconstruire la liste
+                  // à envoyer au PATCH — jamais à l'affichage.
+                  final members = ((data['membres_noms'] as List?) ?? [])
+                      .map((e) => e as Map<String, dynamic>)
+                      .toList();
+                  final memberIds = members.map((m) => m['id'] as int).toList();
 
                   return Column(
                     mainAxisSize: MainAxisSize.min,
@@ -998,7 +1062,10 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
 
                   return Card(
                     margin: const EdgeInsets.only(bottom: 12),
-                    child: Padding(
+                    child: InkWell(
+                      onTap: () => _showMemberPresenceDetails(item),
+                      borderRadius: BorderRadius.circular(12),
+                      child: Padding(
                       padding: const EdgeInsets.all(16),
                       child: Column(
                         children: [
@@ -1021,9 +1088,15 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                               Text('Présences: ${item['nb_presents']}', style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
                               Text('Total: ${item['nb_total']}', style: const TextStyle(fontSize: 12, color: AppColors.textGrey)),
                             ],
-                          )
+                          ),
+                          const SizedBox(height: 4),
+                          const Align(
+                            alignment: Alignment.centerRight,
+                            child: Text('Voir le détail →', style: TextStyle(fontSize: 11, color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
+                          ),
                         ],
                       ),
+                    ),
                     ),
                   );
                 },
@@ -1032,6 +1105,60 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
           ),
         ),
       ],
+    );
+  }
+
+  void _showMemberPresenceDetails(dynamic memberStat) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      shape: const RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      builder: (ctx) => DraggableScrollableSheet(
+        expand: false,
+        initialChildSize: 0.7,
+        builder: (ctx, scrollController) => FutureBuilder<Map<String, dynamic>>(
+          future: _api.get('${ApiEndpoints.presences}?membre=${memberStat['membre_id']}&page_size=200'),
+          builder: (context, snapshot) {
+            final list = snapshot.data?['results'] ?? snapshot.data?['data'] ?? [];
+            return Column(
+              children: [
+                const SizedBox(height: 12),
+                Container(width: 40, height: 4, decoration: BoxDecoration(color: Colors.grey.shade300, borderRadius: BorderRadius.circular(2))),
+                Padding(
+                  padding: const EdgeInsets.all(16),
+                  child: Text(
+                    'Présences — ${memberStat['membre_nom']}',
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                  ),
+                ),
+                Expanded(
+                  child: snapshot.connectionState == ConnectionState.waiting
+                      ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
+                      : (list as List).isEmpty
+                          ? const Center(child: Text('Aucune présence enregistrée', style: TextStyle(color: AppColors.textGrey)))
+                          : ListView.separated(
+                              controller: scrollController,
+                              padding: const EdgeInsets.symmetric(horizontal: 16),
+                              itemCount: list.length,
+                              separatorBuilder: (_, __) => const Divider(height: 1),
+                              itemBuilder: (_, i) {
+                                final p = list[i];
+                                final present = p['statut'] == 'present';
+                                final date = DateTime.tryParse(p['seance_date'] ?? '');
+                                return ListTile(
+                                  leading: Icon(present ? Icons.check_circle : Icons.cancel, color: present ? AppColors.success : AppColors.error),
+                                  title: Text(p['seance_titre'] ?? 'Séance', style: const TextStyle(fontSize: 14)),
+                                  subtitle: date != null ? Text(DateFormat('d MMM yyyy', 'fr_FR').format(date), style: const TextStyle(fontSize: 12)) : null,
+                                  trailing: Text(p['statut_display'] ?? '', style: TextStyle(fontSize: 11, color: present ? AppColors.success : AppColors.error, fontWeight: FontWeight.bold)),
+                                );
+                              },
+                            ),
+                ),
+              ],
+            );
+          },
+        ),
+      ),
     );
   }
 
