@@ -169,7 +169,7 @@ class _MessageChatScreenState extends State<MessageChatScreen> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
             decoration: BoxDecoration(
               color: AppColors.white,
-              boxShadow: [BoxShadow(color: Colors.black.withOpacity(0.05), blurRadius: 10, offset: const Offset(0, -2))],
+              boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.05), blurRadius: 10, offset: const Offset(0, -2))],
             ),
             child: SafeArea(
               top: false,
@@ -241,7 +241,7 @@ class _MessageBubble extends StatelessWidget {
             bottomLeft: Radius.circular(isMe ? 16 : 4),
             bottomRight: Radius.circular(isMe ? 4 : 16),
           ),
-          border: isMe ? null : Border.all(color: AppColors.primaryGold.withOpacity(0.3)),
+          border: isMe ? null : Border.all(color: AppColors.primaryGold.withValues(alpha: 0.3)),
         ),
         child: _estFichierAudio(msg['fichier_joint'] as String?)
             ? VoiceMessagePlayer(

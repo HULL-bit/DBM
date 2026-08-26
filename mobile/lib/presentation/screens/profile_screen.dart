@@ -45,7 +45,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           controller: _tabController,
           indicatorColor: AppColors.primaryGold,
           labelColor: AppColors.white,
-          unselectedLabelColor: AppColors.white.withOpacity(0.6),
+          unselectedLabelColor: AppColors.white.withValues(alpha: 0.6),
           tabs: const [
             Tab(icon: Icon(Icons.person_outline), text: 'Profil'),
             Tab(icon: Icon(Icons.workspace_premium_outlined), text: 'Badges'),
@@ -412,7 +412,7 @@ class _EditProfileTabState extends State<_EditProfileTab> {
       margin: const EdgeInsets.symmetric(horizontal: 4),
       padding: const EdgeInsets.symmetric(vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.primaryGreen.withOpacity(0.08),
+        color: AppColors.primaryGreen.withValues(alpha: 0.08),
         borderRadius: BorderRadius.circular(10),
       ),
       child: Column(children: [
@@ -505,9 +505,9 @@ class _ChangePasswordTabState extends State<_ChangePasswordTab> {
             Container(
               padding: const EdgeInsets.all(16),
               decoration: BoxDecoration(
-                color: AppColors.primaryGold.withOpacity(0.08),
+                color: AppColors.primaryGold.withValues(alpha: 0.08),
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: AppColors.primaryGold.withOpacity(0.3)),
+                border: Border.all(color: AppColors.primaryGold.withValues(alpha: 0.3)),
               ),
               child: Row(
                 children: [
@@ -516,7 +516,7 @@ class _ChangePasswordTabState extends State<_ChangePasswordTab> {
                   Expanded(
                     child: Text(
                       'Utilisez un mot de passe fort d\'au moins 8 caractères, avec des chiffres et caractères spéciaux.',
-                      style: TextStyle(color: AppColors.primaryGold.withOpacity(0.9), fontSize: 13),
+                      style: TextStyle(color: AppColors.primaryGold.withValues(alpha: 0.9), fontSize: 13),
                     ),
                   ),
                 ],
@@ -615,8 +615,8 @@ class _BadgesTab extends StatelessWidget {
                     child: Container(
                       decoration: BoxDecoration(
                         shape: BoxShape.circle,
-                        color: AppColors.primaryGold.withOpacity(0.1),
-                        border: Border.all(color: AppColors.primaryGold.withOpacity(0.3)),
+                        color: AppColors.primaryGold.withValues(alpha: 0.1),
+                        border: Border.all(color: AppColors.primaryGold.withValues(alpha: 0.3)),
                       ),
                       child: const Center(
                         child: Icon(Icons.workspace_premium, color: AppColors.primaryGold, size: 30),
@@ -656,7 +656,7 @@ class _BadgesTab extends StatelessWidget {
             if (b['points'] != null)
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                decoration: BoxDecoration(color: AppColors.primaryGreen.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+                decoration: BoxDecoration(color: AppColors.primaryGreen.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(20)),
                 child: Text('+${b['points']} points', style: const TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
               ),
             const SizedBox(height: 20),

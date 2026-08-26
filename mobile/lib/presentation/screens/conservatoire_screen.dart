@@ -49,7 +49,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
           isScrollable: true,
           indicatorColor: AppColors.primaryGold,
           labelColor: AppColors.white,
-          unselectedLabelColor: AppColors.white.withOpacity(0.6),
+          unselectedLabelColor: AppColors.white.withValues(alpha: 0.6),
           tabs: const [
             Tab(text: 'Documents'),
             Tab(text: 'Kourels'),
@@ -286,7 +286,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                   dense: true,
                   title: Text(selectedMember?['nom'] ?? selectedMember?['fullName'] ?? 'Maître de Coeur'),
                   trailing: const Icon(Icons.person_search),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: AppColors.textGrey.withOpacity(0.3))),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.3))),
                   onTap: () async {
                     final m = await _selectMember(context);
                     if (m != null) setState(() => selectedMember = m);
@@ -372,7 +372,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                       ? '${selectedDate!.day}/${selectedDate!.month}/${selectedDate!.year} \u00e0 ${selectedTime!.hour.toString().padLeft(2, '0')}:${selectedTime!.minute.toString().padLeft(2, '0')}'
                       : 'Date et heure de d\u00e9but *'),
                   trailing: const Icon(Icons.calendar_today, size: 18),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: AppColors.textGrey.withOpacity(0.3))),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.3))),
                   onTap: () async {
                     final date = await showDatePicker(
                       context: context,
@@ -403,7 +403,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                       ? 'Fin: ${selectedEndTime!.hour.toString().padLeft(2, '0')}:${selectedEndTime!.minute.toString().padLeft(2, '0')}'
                       : 'Heure de fin (optionnel)'),
                   trailing: const Icon(Icons.access_time, size: 18),
-                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: AppColors.textGrey.withOpacity(0.3))),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.3))),
                   onTap: () async {
                     final time = await showTimePicker(
                       context: context,
@@ -614,7 +614,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                                 dense: true,
                                 leading: CircleAvatar(
                                   radius: 16,
-                                  backgroundColor: AppColors.primaryGreen.withOpacity(0.1),
+                                  backgroundColor: AppColors.primaryGreen.withValues(alpha: 0.1),
                                   child: Text((m['nom'] as String)[0].toUpperCase(), style: const TextStyle(fontSize: 12, color: AppColors.primaryGreen, fontWeight: FontWeight.bold)),
                                 ),
                                 title: Text(m['nom'] as String, style: const TextStyle(fontSize: 14)),
@@ -688,7 +688,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                       : (m['nom'] ?? m['username'] ?? '');
                   return ListTile(
                     dense: true,
-                    leading: CircleAvatar(radius: 16, backgroundColor: AppColors.primaryGreen.withOpacity(0.1),
+                    leading: CircleAvatar(radius: 16, backgroundColor: AppColors.primaryGreen.withValues(alpha: 0.1),
                         child: Text(name.isNotEmpty ? name[0].toUpperCase() : '?', style: const TextStyle(fontSize: 12, color: AppColors.primaryGreen))),
                     title: Text(name),
                     subtitle: Text(m['email'] ?? '', style: const TextStyle(fontSize: 11)),
@@ -742,7 +742,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
             return Card(
               margin: const EdgeInsets.only(bottom: 10),
               child: ListTile(
-                leading: CircleAvatar(backgroundColor: AppColors.primaryGreen.withOpacity(0.1), child: Icon(icon, color: AppColors.primaryGreen, size: 20)),
+                leading: CircleAvatar(backgroundColor: AppColors.primaryGreen.withValues(alpha: 0.1), child: Icon(icon, color: AppColors.primaryGreen, size: 20)),
                 title: Text(item['titre'] ?? 'Sans titre', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
                 subtitle: Text(item['description'] ?? item['auteur'] ?? '', maxLines: 1, overflow: TextOverflow.ellipsis),
                 trailing: Row(
@@ -790,7 +790,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                         Text(item['nom'] ?? 'Kourel', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: AppColors.primaryGreen)),
                         Container(
                           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-                          decoration: BoxDecoration(color: AppColors.primaryGold.withOpacity(0.1), borderRadius: BorderRadius.circular(8)),
+                          decoration: BoxDecoration(color: AppColors.primaryGold.withValues(alpha: 0.1), borderRadius: BorderRadius.circular(8)),
                           child: Text('${item['nb_membres'] ?? 0} membres', style: const TextStyle(color: AppColors.primaryGold, fontSize: 11, fontWeight: FontWeight.bold)),
                         ),
                       ],
@@ -1079,7 +1079,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                           const SizedBox(height: 12),
                           ClipRRect(
                             borderRadius: BorderRadius.circular(5),
-                            child: LinearProgressIndicator(value: pct / 100, backgroundColor: color.withOpacity(0.1), valueColor: AlwaysStoppedAnimation<Color>(color), minHeight: 10),
+                            child: LinearProgressIndicator(value: pct / 100, backgroundColor: color.withValues(alpha: 0.1), valueColor: AlwaysStoppedAnimation<Color>(color), minHeight: 10),
                           ),
                           const SizedBox(height: 8),
                           Row(
@@ -1231,10 +1231,10 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                           dense: true,
                           leading: CircleAvatar(
                             backgroundColor: !hasPresence 
-                                ? AppColors.textGrey.withOpacity(0.1) 
+                                ? AppColors.textGrey.withValues(alpha: 0.1) 
                                 : (isPresent 
-                                    ? AppColors.success.withOpacity(0.1) 
-                                    : Colors.red.withOpacity(0.1)),
+                                    ? AppColors.success.withValues(alpha: 0.1) 
+                                    : Colors.red.withValues(alpha: 0.1)),
                             child: Icon(
                               !hasPresence 
                                   ? Icons.person_outline 
@@ -1271,7 +1271,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                               IconButton(
                                 icon: Icon(
                                   Icons.check_circle, 
-                                  color: isPresent ? AppColors.success : AppColors.textGrey.withOpacity(0.3),
+                                  color: isPresent ? AppColors.success : AppColors.textGrey.withValues(alpha: 0.3),
                                 ),
                                 onPressed: () async {
                                   try {
@@ -1299,7 +1299,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                               IconButton(
                                 icon: Icon(
                                   Icons.assignment_turned_in, 
-                                  color: isAbsentJustifie ? AppColors.info : AppColors.textGrey.withOpacity(0.3),
+                                  color: isAbsentJustifie ? AppColors.info : AppColors.textGrey.withValues(alpha: 0.3),
                                 ),
                                 onPressed: () async {
                                   try {
@@ -1325,7 +1325,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                               IconButton(
                                 icon: Icon(
                                   Icons.cancel, 
-                                  color: isAbsentNonJustifie ? Colors.red : AppColors.textGrey.withOpacity(0.3),
+                                  color: isAbsentNonJustifie ? Colors.red : AppColors.textGrey.withValues(alpha: 0.3),
                                 ),
                                 onPressed: () async {
                                   try {

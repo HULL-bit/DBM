@@ -147,7 +147,7 @@ class _MembreDashboardState extends State<MembreDashboard> {
                                   DateFormat('EEEE d MMMM', 'fr_FR')
                                       .format(DateTime.now()),
                                   style: TextStyle(
-                                    color: AppColors.white.withOpacity(0.7),
+                                    color: AppColors.white.withValues(alpha: 0.7),
                                     fontSize: 11,
                                   ),
                                 ),
@@ -234,7 +234,7 @@ Widget _QuickCard(
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryGold.withOpacity(0.3)),
+        border: Border.all(color: AppColors.primaryGold.withValues(alpha: 0.3)),
       ),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       child: Column(
@@ -244,7 +244,7 @@ Widget _QuickCard(
           Container(
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
-              color: color.withOpacity(0.12),
+              color: color.withValues(alpha: 0.12),
               shape: BoxShape.circle,
             ),
             child: Icon(icon, color: color, size: 20),
@@ -281,7 +281,7 @@ class _EvenementCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryGold.withOpacity(0.3)),
+        border: Border.all(color: AppColors.primaryGold.withValues(alpha: 0.3)),
       ),
       child: Row(
         children: [
@@ -351,12 +351,12 @@ class _NotifCard extends StatelessWidget {
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: lu ? AppColors.white : AppColors.primaryGreen.withOpacity(0.05),
+        color: lu ? AppColors.white : AppColors.primaryGreen.withValues(alpha: 0.05),
         borderRadius: BorderRadius.circular(10),
         border: Border.all(
           color: lu
-              ? AppColors.primaryGold.withOpacity(0.2)
-              : AppColors.primaryGreen.withOpacity(0.3),
+              ? AppColors.primaryGold.withValues(alpha: 0.2)
+              : AppColors.primaryGreen.withValues(alpha: 0.3),
         ),
       ),
       child: Row(
@@ -408,12 +408,12 @@ class _EmptyState extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: AppColors.primaryGold.withOpacity(0.2)),
+        border: Border.all(color: AppColors.primaryGold.withValues(alpha: 0.2)),
       ),
       child: Column(
         children: [
           Icon(Icons.inbox_outlined,
-              color: AppColors.textGrey.withOpacity(0.5), size: 36),
+              color: AppColors.textGrey.withValues(alpha: 0.5), size: 36),
           const SizedBox(height: 8),
           Text(message, style: Theme.of(context).textTheme.bodyMedium),
         ],

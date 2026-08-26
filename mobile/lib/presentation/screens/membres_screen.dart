@@ -216,7 +216,7 @@ class _MembresScreenState extends State<MembresScreen> {
         decoration: BoxDecoration(
           color: selected ? AppColors.primaryGreen : AppColors.white,
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? AppColors.primaryGreen : AppColors.textGrey.withOpacity(0.3)),
+          border: Border.all(color: selected ? AppColors.primaryGreen : AppColors.textGrey.withValues(alpha: 0.3)),
         ),
         child: Text(label, style: TextStyle(color: selected ? AppColors.white : AppColors.textDark, fontSize: 12, fontWeight: FontWeight.w500)),
       ),
@@ -486,7 +486,7 @@ class _MemberCard extends StatelessWidget {
   Widget _badge(String text, Color color) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
-      decoration: BoxDecoration(color: color.withOpacity(0.12), borderRadius: BorderRadius.circular(8)),
+      decoration: BoxDecoration(color: color.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(8)),
       child: Text(text, style: TextStyle(color: color, fontSize: 10, fontWeight: FontWeight.bold)),
     );
   }
@@ -510,7 +510,7 @@ class _MemberDetailSheet extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Center(
-              child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.textGrey.withOpacity(0.3), borderRadius: BorderRadius.circular(2))),
+              child: Container(width: 40, height: 4, decoration: BoxDecoration(color: AppColors.textGrey.withValues(alpha: 0.3), borderRadius: BorderRadius.circular(2))),
             ),
             const SizedBox(height: 20),
             // Header
@@ -623,7 +623,7 @@ class _MemberDetailSheet extends StatelessWidget {
     child: Container(
       margin: const EdgeInsets.symmetric(horizontal: 4),
       padding: const EdgeInsets.symmetric(vertical: 10),
-      decoration: BoxDecoration(color: AppColors.primaryGreen.withOpacity(0.08), borderRadius: BorderRadius.circular(10)),
+      decoration: BoxDecoration(color: AppColors.primaryGreen.withValues(alpha: 0.08), borderRadius: BorderRadius.circular(10)),
       child: Column(children: [
         Text(value, style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
         Text(label, style: const TextStyle(fontSize: 10, color: AppColors.textGrey)),
@@ -666,7 +666,7 @@ class _MemberDetailSheet extends StatelessWidget {
         const SizedBox(height: 6),
         LinearProgressIndicator(
           value: progress,
-          backgroundColor: AppColors.primaryGreen.withOpacity(0.15),
+          backgroundColor: AppColors.primaryGreen.withValues(alpha: 0.15),
           valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
           minHeight: 6,
           borderRadius: BorderRadius.circular(3),

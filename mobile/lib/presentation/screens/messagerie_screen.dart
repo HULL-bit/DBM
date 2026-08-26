@@ -64,10 +64,10 @@ class _MessagerieScreenState extends State<MessagerieScreen> {
               style: const TextStyle(color: AppColors.white),
               decoration: InputDecoration(
                 hintText: 'Rechercher un membre...',
-                hintStyle: TextStyle(color: AppColors.white.withOpacity(0.6)),
+                hintStyle: TextStyle(color: AppColors.white.withValues(alpha: 0.6)),
                 prefixIcon: const Icon(Icons.search, color: AppColors.white),
                 filled: true,
-                fillColor: AppColors.white.withOpacity(0.15),
+                fillColor: AppColors.white.withValues(alpha: 0.15),
                 border: OutlineInputBorder(borderRadius: BorderRadius.circular(10), borderSide: BorderSide.none),
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),

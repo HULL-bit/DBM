@@ -28,7 +28,7 @@ class SafeAvatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final bgColor = backgroundColor ?? AppColors.primaryGreen.withOpacity(0.15);
+    final bgColor = backgroundColor ?? AppColors.primaryGreen.withValues(alpha: 0.15);
     final fgColor = textColor ?? AppColors.primaryGreen;
     final initial = fallbackText.isNotEmpty ? fallbackText[0].toUpperCase() : '?';
 

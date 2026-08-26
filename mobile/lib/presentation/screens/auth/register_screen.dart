@@ -118,7 +118,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
               // Indicateur d'étape
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 16),
-                color: AppColors.primaryGreen.withOpacity(0.06),
+                color: AppColors.primaryGreen.withValues(alpha: 0.06),
                 child: Row(
                   children: List.generate(3, (i) {
                     final active = i == _step;
@@ -130,7 +130,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             radius: 14,
                             backgroundColor: done || active
                                 ? AppColors.primaryGreen
-                                : AppColors.textGrey.withOpacity(0.3),
+                                : AppColors.textGrey.withValues(alpha: 0.3),
                             child: done
                                 ? const Icon(Icons.check, color: AppColors.white, size: 14)
                                 : Text('${i + 1}', style: TextStyle(
@@ -141,7 +141,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                             Expanded(
                               child: Container(
                                 height: 2,
-                                color: i < _step ? AppColors.primaryGreen : AppColors.textGrey.withOpacity(0.3),
+                                color: i < _step ? AppColors.primaryGreen : AppColors.textGrey.withValues(alpha: 0.3),
                               ),
                             ),
                         ],

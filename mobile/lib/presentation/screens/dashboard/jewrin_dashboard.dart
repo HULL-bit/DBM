@@ -54,7 +54,7 @@ class JewrinDashboard extends StatelessWidget {
                           Text(
                             'As-salamu alaykum',
                             style: TextStyle(
-                              color: AppColors.white.withOpacity(0.8),
+                              color: AppColors.white.withValues(alpha: 0.8),
                               fontSize: 12,
                             ),
                           ),
@@ -74,7 +74,7 @@ class JewrinDashboard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryGreen.withOpacity(0.3),
+                      color: AppColors.primaryGreen.withValues(alpha: 0.3),
                       borderRadius: BorderRadius.circular(20),
                     ),
                     child: Text(
@@ -154,7 +154,7 @@ class JewrinDashboard extends StatelessWidget {
             decoration: BoxDecoration(
               color: AppColors.white,
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(color: AppColors.primaryGold.withOpacity(0.3)),
+              border: Border.all(color: AppColors.primaryGold.withValues(alpha: 0.3)),
             ),
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -162,7 +162,7 @@ class JewrinDashboard extends StatelessWidget {
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
-                    color: m.$4.withOpacity(0.12),
+                    color: m.$4.withValues(alpha: 0.12),
                     shape: BoxShape.circle,
                   ),
                   child: Icon(m.$2, color: m.$4, size: 22),

@@ -52,9 +52,9 @@ class _LogoDaaraState extends State<LogoDaara> with SingleTickerProviderStateMix
         shape: BoxShape.circle,
         gradient: SweepGradient(
           colors: [
-            AppColors.primaryGold.withOpacity(0.35),
-            AppColors.primaryGold.withOpacity(0.05),
-            AppColors.primaryGold.withOpacity(0.35),
+            AppColors.primaryGold.withValues(alpha: 0.35),
+            AppColors.primaryGold.withValues(alpha: 0.05),
+            AppColors.primaryGold.withValues(alpha: 0.35),
           ],
         ),
       ),
@@ -83,7 +83,7 @@ class _LogoDaaraState extends State<LogoDaara> with SingleTickerProviderStateMix
                   height: height * 1.2,
                   decoration: BoxDecoration(
                     shape: BoxShape.circle,
-                    border: Border.all(color: AppColors.primaryGold.withOpacity(0.15), width: 1),
+                    border: Border.all(color: AppColors.primaryGold.withValues(alpha: 0.15), width: 1),
                   ),
                 ),
               )
@@ -93,7 +93,7 @@ class _LogoDaaraState extends State<LogoDaara> with SingleTickerProviderStateMix
                 height: height * 1.2,
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
-                  border: Border.all(color: AppColors.primaryGold.withOpacity(0.15), width: 1),
+                  border: Border.all(color: AppColors.primaryGold.withValues(alpha: 0.15), width: 1),
                 ),
               ),
             // Le logo lui-même
@@ -101,7 +101,7 @@ class _LogoDaaraState extends State<LogoDaara> with SingleTickerProviderStateMix
               decoration: BoxDecoration(
                 shape: BoxShape.circle,
                 boxShadow: [
-                  BoxShadow(color: Colors.black.withOpacity(0.2), blurRadius: 10, spreadRadius: 2),
+                  BoxShadow(color: Colors.black.withValues(alpha: 0.2), blurRadius: 10, spreadRadius: 2),
                 ],
               ),
               child: Image.asset(

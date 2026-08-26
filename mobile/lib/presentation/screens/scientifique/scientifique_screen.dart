@@ -152,7 +152,7 @@ class _ScientifiqueScreenState extends State<ScientifiqueScreen> with SingleTick
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
               child: ListTile(
                 leading: CircleAvatar(
-                  backgroundColor: AppColors.primaryGreen.withOpacity(0.1),
+                  backgroundColor: AppColors.primaryGreen.withValues(alpha: 0.1),
                   child: Icon(icon, color: AppColors.primaryGreen, size: 20),
                 ),
                 title: Text(item['titre'] ?? 'Sans titre', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 14)),
@@ -180,14 +180,14 @@ class _FilterChip extends StatelessWidget {
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
         decoration: BoxDecoration(
-          color: selected ? AppColors.primaryGold : AppColors.white.withOpacity(0.15),
+          color: selected ? AppColors.primaryGold : AppColors.white.withValues(alpha: 0.15),
           borderRadius: BorderRadius.circular(20),
-          border: Border.all(color: selected ? AppColors.primaryGold : AppColors.white.withOpacity(0.3)),
+          border: Border.all(color: selected ? AppColors.primaryGold : AppColors.white.withValues(alpha: 0.3)),
         ),
         child: Text(
           label,
           style: TextStyle(
-            color: selected ? AppColors.white : AppColors.white.withOpacity(0.8),
+            color: selected ? AppColors.white : AppColors.white.withValues(alpha: 0.8),
             fontSize: 12,
             fontWeight: selected ? FontWeight.w600 : FontWeight.w400,
           ),
@@ -211,7 +211,7 @@ class _CoursCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.white,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: AppColors.primaryGold.withOpacity(0.3)),
+        border: Border.all(color: AppColors.primaryGold.withValues(alpha: 0.3)),
       ),
       child: ListTile(
         contentPadding: const EdgeInsets.all(14),
@@ -245,7 +245,7 @@ class _CoursCard extends StatelessWidget {
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                     decoration: BoxDecoration(
-                      color: AppColors.primaryGold.withOpacity(0.15),
+                      color: AppColors.primaryGold.withValues(alpha: 0.15),
                       borderRadius: BorderRadius.circular(10),
                     ),
                     child: Text(domaine, style: const TextStyle(fontSize: 10, color: AppColors.primaryGold)),

@@ -287,7 +287,7 @@ class _NewsCard extends StatelessWidget {
                           fullUrl,
                           fit: BoxFit.cover,
                           width: double.infinity,
-                          errorBuilder: (_, __, ___) => Container(color: AppColors.primaryGreen.withOpacity(0.08), child: const Icon(Icons.image_not_supported)),
+                          errorBuilder: (_, __, ___) => Container(color: AppColors.primaryGreen.withValues(alpha: 0.08), child: const Icon(Icons.image_not_supported)),
                         );
                 },
               ),

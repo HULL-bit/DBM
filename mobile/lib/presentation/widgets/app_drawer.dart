@@ -31,7 +31,7 @@ class AppDrawer extends StatelessWidget {
                 color: AppColors.primaryGreen,
                 border: Border(
                   bottom: BorderSide(
-                    color: AppColors.primaryGold.withOpacity(0.5),
+                    color: AppColors.primaryGold.withValues(alpha: 0.5),
                     width: 1,
                   ),
                 ),
@@ -259,7 +259,7 @@ class _DrawerItem extends StatelessWidget {
         style: TextStyle(color: c, fontSize: 13, fontWeight: FontWeight.w500),
       ),
       onTap: onTap,
-      hoverColor: AppColors.primaryGold.withOpacity(0.1),
+      hoverColor: AppColors.primaryGold.withValues(alpha: 0.1),
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 0),
     );
@@ -277,7 +277,7 @@ class _SectionLabel extends StatelessWidget {
       child: Text(
         label,
         style: TextStyle(
-          color: AppColors.primaryGold.withOpacity(0.7),
+          color: AppColors.primaryGold.withValues(alpha: 0.7),
           fontSize: 10,
           fontWeight: FontWeight.w700,
           letterSpacing: 1.2,

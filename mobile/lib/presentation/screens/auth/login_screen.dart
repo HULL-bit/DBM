@@ -216,12 +216,12 @@ class _LoginScreenState extends State<LoginScreen> {
                       // Séparateur décoratif
                       Row(
                         children: [
-                          Expanded(child: Divider(color: AppColors.primaryGold.withOpacity(0.4))),
+                          Expanded(child: Divider(color: AppColors.primaryGold.withValues(alpha: 0.4))),
                           Padding(
                             padding: const EdgeInsets.symmetric(horizontal: 12),
                             child: Text('☪', style: TextStyle(color: AppColors.primaryGold, fontSize: 18)),
                           ),
-                          Expanded(child: Divider(color: AppColors.primaryGold.withOpacity(0.4))),
+                          Expanded(child: Divider(color: AppColors.primaryGold.withValues(alpha: 0.4))),
                         ],
                       ),
                       const SizedBox(height: 24),

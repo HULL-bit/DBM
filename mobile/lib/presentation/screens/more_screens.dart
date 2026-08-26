@@ -105,7 +105,7 @@ class _KamilScreenState extends State<KamilScreen> {
                 Text(item['description'], style: const TextStyle(fontSize: 12, color: AppColors.textGrey), maxLines: 1, overflow: TextOverflow.ellipsis),
               const SizedBox(height: 4),
               Row(children: [
-                Expanded(child: LinearProgressIndicator(value: progress.toDouble(), backgroundColor: AppColors.primaryGreen.withOpacity(0.15), valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen), minHeight: 4, borderRadius: BorderRadius.circular(2))),
+                Expanded(child: LinearProgressIndicator(value: progress.toDouble(), backgroundColor: AppColors.primaryGreen.withValues(alpha: 0.15), valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen), minHeight: 4, borderRadius: BorderRadius.circular(2))),
                 const SizedBox(width: 8),
                 Text('${(progress * 100).round()}%', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold, color: AppColors.primaryGreen)),
               ]),
@@ -228,7 +228,7 @@ class _KamilValidationsScreenState extends State<KamilValidationsScreen> {
         children: [
           Container(
             padding: const EdgeInsets.all(16),
-            color: AppColors.primaryGreen.withOpacity(0.05),
+            color: AppColors.primaryGreen.withValues(alpha: 0.05),
             child: Column(
               children: [
                 Row(
@@ -242,7 +242,7 @@ class _KamilValidationsScreenState extends State<KamilValidationsScreen> {
                 const SizedBox(height: 16),
                 LinearProgressIndicator(
                   value: progress / 100,
-                  backgroundColor: AppColors.primaryGreen.withOpacity(0.1),
+                  backgroundColor: AppColors.primaryGreen.withValues(alpha: 0.1),
                   valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGreen),
                   minHeight: 8,
                   borderRadius: BorderRadius.circular(4),
@@ -262,7 +262,7 @@ class _KamilValidationsScreenState extends State<KamilValidationsScreen> {
                   dense: true,
                   leading: CircleAvatar(
                     radius: 14,
-                    backgroundColor: isValid ? AppColors.success : AppColors.textGrey.withOpacity(0.1),
+                    backgroundColor: isValid ? AppColors.success : AppColors.textGrey.withValues(alpha: 0.1),
                     child: Text('${j['numero']}', style: const TextStyle(fontSize: 11, color: AppColors.white)),
                   ),
                   title: Text(mName, style: TextStyle(fontWeight: isValid ? FontWeight.bold : FontWeight.normal)),
@@ -361,7 +361,7 @@ class ReunionsScreen extends StatelessWidget {
                 ),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                  decoration: BoxDecoration(color: statutColor.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                  decoration: BoxDecoration(color: statutColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
                   child: Text(statut.replaceAll('_', ' '), style: TextStyle(color: statutColor, fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ]),
@@ -431,7 +431,7 @@ class _BibliothequeScreenState extends State<BibliothequeScreen> {
                 width: 56,
                 height: 72,
                 decoration: BoxDecoration(
-                  color: AppColors.primaryGreen.withOpacity(0.1),
+                  color: AppColors.primaryGreen.withValues(alpha: 0.1),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: const Icon(Icons.picture_as_pdf, color: AppColors.primaryGreen, size: 32),
@@ -662,7 +662,7 @@ class CotisationsScreen extends StatelessWidget {
               children: [
                 Row(children: [
                   CircleAvatar(
-                    backgroundColor: statusColor.withOpacity(0.15),
+                    backgroundColor: statusColor.withValues(alpha: 0.15),
                     child: Icon(isPaid ? Icons.check_circle : Icons.pending, color: statusColor),
                   ),
                   const SizedBox(width: 14),
@@ -677,7 +677,7 @@ class CotisationsScreen extends StatelessWidget {
                   ],
                   Container(
                     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                    decoration: BoxDecoration(color: statusColor.withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                    decoration: BoxDecoration(color: statusColor.withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
                     child: Text(statusLabel, style: TextStyle(color: statusColor, fontSize: 11, fontWeight: FontWeight.bold)),
                   ),
                 ]),
@@ -732,7 +732,7 @@ class ProjetsSociauxScreen extends StatelessWidget {
               Image.network(
                 item['image'].toString().startsWith('http') ? item['image'] : '${ApiEndpoints.mediaBaseUrl}${item['image']}',
                 height: 120, width: double.infinity, fit: BoxFit.cover,
-                errorBuilder: (_, __, ___) => Container(height: 60, color: AppColors.primaryGreen.withOpacity(0.1)),
+                errorBuilder: (_, __, ___) => Container(height: 60, color: AppColors.primaryGreen.withValues(alpha: 0.1)),
               ),
             Padding(padding: const EdgeInsets.all(14), child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
               Text(item['titre'] ?? 'Projet', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15)),
@@ -745,7 +745,7 @@ class ProjetsSociauxScreen extends StatelessWidget {
                   Text('${(progress * 100).round()}%', style: const TextStyle(color: AppColors.primaryGreen, fontSize: 12, fontWeight: FontWeight.bold)),
                 ]),
                 const SizedBox(height: 6),
-                LinearProgressIndicator(value: progress, backgroundColor: AppColors.primaryGold.withOpacity(0.2), valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGold), minHeight: 6, borderRadius: BorderRadius.circular(3)),
+                LinearProgressIndicator(value: progress, backgroundColor: AppColors.primaryGold.withValues(alpha: 0.2), valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGold), minHeight: 6, borderRadius: BorderRadius.circular(3)),
               ],
             ])),
           ]),
@@ -790,9 +790,9 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
           margin: const EdgeInsets.only(bottom: 8),
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
-            color: lu ? AppColors.white : AppColors.primaryGreen.withOpacity(0.04),
+            color: lu ? AppColors.white : AppColors.primaryGreen.withValues(alpha: 0.04),
             borderRadius: BorderRadius.circular(12),
-            border: Border.all(color: lu ? AppColors.textGrey.withOpacity(0.15) : AppColors.primaryGreen.withOpacity(0.25)),
+            border: Border.all(color: lu ? AppColors.textGrey.withValues(alpha: 0.15) : AppColors.primaryGreen.withValues(alpha: 0.25)),
           ),
           child: Row(crossAxisAlignment: CrossAxisAlignment.start, children: [
             Container(
@@ -807,7 +807,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                   style: TextStyle(fontWeight: lu ? FontWeight.w500 : FontWeight.bold, fontSize: 14))),
                 Container(
                   padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
-                  decoration: BoxDecoration(color: typeColor.withOpacity(0.12), borderRadius: BorderRadius.circular(6)),
+                  decoration: BoxDecoration(color: typeColor.withValues(alpha: 0.12), borderRadius: BorderRadius.circular(6)),
                   child: Text(type, style: TextStyle(color: typeColor, fontSize: 10, fontWeight: FontWeight.bold)),
                 ),
               ]),
@@ -866,7 +866,7 @@ class _NotificationsScreenState extends State<NotificationsScreen> {
                       label: Text(m['nom'] ?? m['username'] ?? m['fullName'] ?? 'Membre', style: const TextStyle(fontSize: 10)),
                       onDeleted: () => setDialogState(() => targetMembers.remove(m)),
                       deleteIconColor: AppColors.error,
-                      backgroundColor: AppColors.primaryGreen.withOpacity(0.1),
+                      backgroundColor: AppColors.primaryGreen.withValues(alpha: 0.1),
                     )),
                     ActionChip(
                       label: const Icon(Icons.person_add, size: 16),
@@ -934,12 +934,12 @@ class LeveesFondsScreen extends StatelessWidget {
               Expanded(child: Text(item['titre'] ?? 'Campagne', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 15))),
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                decoration: BoxDecoration(color: (actif == true ? AppColors.success : AppColors.textGrey).withOpacity(0.15), borderRadius: BorderRadius.circular(8)),
+                decoration: BoxDecoration(color: (actif == true ? AppColors.success : AppColors.textGrey).withValues(alpha: 0.15), borderRadius: BorderRadius.circular(8)),
                 child: Text(actif == true ? 'Actif' : 'Terminé', style: TextStyle(color: actif == true ? AppColors.success : AppColors.textGrey, fontSize: 10, fontWeight: FontWeight.bold)),
               ),
             ]),
             const SizedBox(height: 12),
-            LinearProgressIndicator(value: progress, backgroundColor: AppColors.primaryGold.withOpacity(0.2), valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGold), minHeight: 8, borderRadius: BorderRadius.circular(4)),
+            LinearProgressIndicator(value: progress, backgroundColor: AppColors.primaryGold.withValues(alpha: 0.2), valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primaryGold), minHeight: 8, borderRadius: BorderRadius.circular(4)),
             const SizedBox(height: 8),
             Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
               Text('Récolté: $recolte CFA', style: const TextStyle(fontSize: 12, color: AppColors.textDark)),
@@ -984,7 +984,7 @@ class _ProgressionsScreenState extends State<ProgressionsScreen> {
             child: Row(
               children: [
                 CircleAvatar(
-                  backgroundColor: isValid ? AppColors.success.withOpacity(0.1) : AppColors.primaryGold.withOpacity(0.1),
+                  backgroundColor: isValid ? AppColors.success.withValues(alpha: 0.1) : AppColors.primaryGold.withValues(alpha: 0.1),
                   child: Icon(isValid ? Icons.check_circle : Icons.menu_book, 
                     color: isValid ? AppColors.success : AppColors.primaryGold),
                 ),
@@ -1142,7 +1142,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                 margin: const EdgeInsets.only(bottom: 10),
                                 child: ListTile(
                                   leading: CircleAvatar(
-                                    backgroundColor: color.withOpacity(0.1),
+                                    backgroundColor: color.withValues(alpha: 0.1),
                                     child: Icon(Icons.receipt_long, color: color, size: 20),
                                   ),
                                   title: Text(
@@ -1156,7 +1156,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
                                   trailing: Container(
                                     padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
                                     decoration: BoxDecoration(
-                                      color: color.withOpacity(0.1),
+                                      color: color.withValues(alpha: 0.1),
                                       borderRadius: BorderRadius.circular(8),
                                     ),
                                     child: Text(
@@ -1243,7 +1243,7 @@ void _showCotisationForm(BuildContext context, {dynamic item}) {
                 title: Text(selectedMember?['fullName'] ?? selectedMember?['nom'] ?? 'Cibler un membre spécifique'),
                 trailing: const Icon(Icons.person, size: 20),
                 subtitle: const Text('Ignoré si une cellule est choisie', style: TextStyle(fontSize: 10)),
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: AppColors.textGrey.withOpacity(0.3))),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8), side: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.3))),
                 onTap: () async {
                   final m = await _selectMember(context);
                   if (m != null) setState(() { selectedMember = m; selectedCellule = null; });
@@ -1433,14 +1433,14 @@ void _showJukkiAssignmentDialog(BuildContext context, dynamic item, {VoidCallbac
 
                       return Container(
                         decoration: BoxDecoration(
-                          border: Border(bottom: BorderSide(color: AppColors.textGrey.withOpacity(0.05))),
-                          color: mId != null ? AppColors.primaryGreen.withOpacity(0.02) : Colors.transparent,
+                          border: Border(bottom: BorderSide(color: AppColors.textGrey.withValues(alpha: 0.05))),
+                          color: mId != null ? AppColors.primaryGreen.withValues(alpha: 0.02) : Colors.transparent,
                         ),
                         child: ListTile(
                           dense: true,
                           leading: CircleAvatar(
                             radius: 14,
-                            backgroundColor: mId != null ? AppColors.primaryGreen : AppColors.textGrey.withOpacity(0.1),
+                            backgroundColor: mId != null ? AppColors.primaryGreen : AppColors.textGrey.withValues(alpha: 0.1),
                             child: Text('$numero', style: const TextStyle(fontSize: 11, color: AppColors.white, fontWeight: FontWeight.bold)),
                           ),
                           title: Text('JUKKI $numero', style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13)),

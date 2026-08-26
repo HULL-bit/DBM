@@ -99,7 +99,7 @@ class _AdminDashboardState extends State<AdminDashboard> {
                             DateFormat('EEEE d MMMM yyyy', 'fr_FR')
                                 .format(DateTime.now()),
                             style: TextStyle(
-                              color: AppColors.white.withOpacity(0.7),
+                              color: AppColors.white.withValues(alpha: 0.7),
                               fontSize: 12,
                             ),
                           ),
@@ -208,10 +208,10 @@ class _QuickAccessGrid extends StatelessWidget {
                 width: 48,
                 height: 48,
                 decoration: BoxDecoration(
-                  color: item.$4.withOpacity(0.12),
+                  color: item.$4.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(14),
                   border:
-                      Border.all(color: item.$4.withOpacity(0.3), width: 1),
+                      Border.all(color: item.$4.withValues(alpha: 0.3), width: 1),
                 ),
                 child: Icon(item.$2, color: item.$4, size: 20),
               ),

@@ -75,6 +75,8 @@ class AppTheme {
         backgroundColor: AppColors.primaryGreen,
         foregroundColor: AppColors.white,
         elevation: 0,
+        scrolledUnderElevation: 0,
+        surfaceTintColor: Colors.transparent,
         centerTitle: false,
         titleTextStyle: GoogleFonts.poppins(
           fontSize: 18,
@@ -121,7 +123,7 @@ class AppTheme {
         ),
         enabledBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
-          borderSide: BorderSide(color: AppColors.primaryGold.withOpacity(0.5)),
+          borderSide: BorderSide(color: AppColors.primaryGold.withValues(alpha: 0.5)),
         ),
         focusedBorder: OutlineInputBorder(
           borderRadius: BorderRadius.circular(10),
@@ -135,27 +137,33 @@ class AppTheme {
         labelStyle: GoogleFonts.poppins(color: AppColors.textGrey),
         hintStyle: GoogleFonts.poppins(color: AppColors.textGrey, fontSize: 13),
       ),
+      // surfaceTintColor: transparent partout où on force une couleur (Card, Dialog,
+      // BottomSheet, NavigationBar) : Material 3 applique par défaut un voile teinté
+      // avec colorScheme.primary (notre vert) sur toute surface élevée, ce qui verdit
+      // légèrement cartes/dialogs blancs et casse le rendu voulu.
       cardTheme: CardThemeData(
         color: AppColors.white,
+        surfaceTintColor: Colors.transparent,
         elevation: 2,
-        shadowColor: AppColors.primaryGreen.withOpacity(0.1),
+        shadowColor: AppColors.primaryGreen.withValues(alpha: 0.1),
         shape: RoundedRectangleBorder(
           borderRadius: BorderRadius.circular(12),
-          side: BorderSide(color: AppColors.primaryGold.withOpacity(0.3)),
+          side: BorderSide(color: AppColors.primaryGold.withValues(alpha: 0.3)),
         ),
       ),
       drawerTheme: const DrawerThemeData(
         backgroundColor: AppColors.darkGreen,
+        surfaceTintColor: Colors.transparent,
         elevation: 4,
       ),
       dividerTheme: DividerThemeData(
-        color: AppColors.primaryGold.withOpacity(0.3),
+        color: AppColors.primaryGold.withValues(alpha: 0.3),
         thickness: 1,
       ),
       chipTheme: ChipThemeData(
         backgroundColor: AppColors.lightBeige,
         labelStyle: GoogleFonts.poppins(fontSize: 12),
-        side: BorderSide(color: AppColors.primaryGold.withOpacity(0.4)),
+        side: BorderSide(color: AppColors.primaryGold.withValues(alpha: 0.4)),
       ),
       bottomNavigationBarTheme: const BottomNavigationBarThemeData(
         backgroundColor: AppColors.darkGreen,
@@ -163,6 +171,39 @@ class AppTheme {
         unselectedItemColor: Colors.white54,
         type: BottomNavigationBarType.fixed,
         elevation: 8,
+      ),
+      dialogTheme: DialogThemeData(
+        backgroundColor: AppColors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 6,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        titleTextStyle: GoogleFonts.poppins(fontSize: 17, fontWeight: FontWeight.w700, color: AppColors.primaryGreen),
+        contentTextStyle: GoogleFonts.poppins(fontSize: 14, color: AppColors.textDark),
+      ),
+      bottomSheetTheme: const BottomSheetThemeData(
+        backgroundColor: AppColors.white,
+        surfaceTintColor: Colors.transparent,
+        elevation: 8,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.vertical(top: Radius.circular(20))),
+      ),
+      snackBarTheme: SnackBarThemeData(
+        backgroundColor: AppColors.darkGreen,
+        contentTextStyle: GoogleFonts.poppins(color: AppColors.white, fontSize: 13),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+      ),
+      floatingActionButtonTheme: const FloatingActionButtonThemeData(
+        backgroundColor: AppColors.primaryGreen,
+        foregroundColor: AppColors.white,
+        elevation: 3,
+      ),
+      tabBarTheme: TabBarThemeData(
+        labelColor: AppColors.white,
+        unselectedLabelColor: Colors.white70,
+        indicatorColor: AppColors.primaryGold,
+        indicatorSize: TabBarIndicatorSize.label,
+        labelStyle: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w600),
+        unselectedLabelStyle: GoogleFonts.poppins(fontSize: 13, fontWeight: FontWeight.w500),
       ),
     );
   }

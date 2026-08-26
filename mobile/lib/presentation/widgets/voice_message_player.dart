@@ -76,7 +76,7 @@ class _VoiceMessagePlayerState extends State<VoiceMessagePlayer> {
                 value: total.inMilliseconds > 0 ? _position.inMilliseconds.clamp(0, total.inMilliseconds).toDouble() : 0,
                 max: total.inMilliseconds > 0 ? total.inMilliseconds.toDouble() : 1,
                 activeColor: color,
-                inactiveColor: color.withOpacity(0.3),
+                inactiveColor: color.withValues(alpha: 0.3),
                 onChanged: (v) => _player.seek(Duration(milliseconds: v.toInt())),
               ),
             ),

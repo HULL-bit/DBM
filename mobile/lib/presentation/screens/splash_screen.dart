@@ -98,8 +98,8 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
               begin: Alignment.topCenter,
               end: Alignment.bottomCenter,
               colors: [
-                Colors.black.withOpacity(0.2),
-                AppColors.darkGreen.withOpacity(0.7),
+                Colors.black.withValues(alpha: 0.2),
+                AppColors.darkGreen.withValues(alpha: 0.7),
               ],
             ),
           ),
@@ -121,11 +121,11 @@ class _SplashScreenState extends State<SplashScreen> with SingleTickerProviderSt
                         child: Container(
                           padding: const EdgeInsets.all(32),
                           decoration: BoxDecoration(
-                            color: AppColors.white.withOpacity(0.08),
+                            color: AppColors.white.withValues(alpha: 0.08),
                             shape: BoxShape.circle,
-                            border: Border.all(color: AppColors.primaryGold.withOpacity(0.3), width: 1.5),
+                            border: Border.all(color: AppColors.primaryGold.withValues(alpha: 0.3), width: 1.5),
                             boxShadow: [
-                              BoxShadow(color: Colors.black.withOpacity(0.3), blurRadius: 20, spreadRadius: 5),
+                              BoxShadow(color: Colors.black.withValues(alpha: 0.3), blurRadius: 20, spreadRadius: 5),
                             ],
                           ),
                           child: LogoDaara(height: logoHeight, dark: true, showText: true, animate: true),
