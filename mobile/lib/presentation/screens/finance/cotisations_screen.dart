@@ -21,6 +21,16 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
   bool _loading = true;
   int _annee = DateTime.now().year;
 
+  // Filtres (miroir des filtres web : type, mois, membre)
+  String _typeFilter = '';
+  int? _moisFilter;
+  int? _membreFilter;
+  List<Map<String, dynamic>> _usersFiltre = [];
+
+  // Sélection multiple + validation groupée (comme le web)
+  bool _selectionMode = false;
+  final Set<int> _selection = {};
+
   static const _mois = [
     'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
     'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
@@ -132,6 +142,7 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
   void initState() {
     super.initState();
     _load();
+    _fetchUsers().then((u) { if (mounted) setState(() => _usersFiltre = u); });
   }
 
   Future<void> _load() async {
@@ -149,6 +160,51 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
       }
     } catch (_) {
       if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  List<dynamic> get _filtered => _cotisations.where((c) {
+        final typeOk = _typeFilter.isEmpty || c['type_cotisation'] == _typeFilter;
+        final moisOk = _moisFilter == null || (int.tryParse(c['mois']?.toString() ?? '') ?? -1) == _moisFilter;
+        final membreOk = _membreFilter == null || (c['membre'] is int ? c['membre'] : int.tryParse(c['membre']?.toString() ?? '')) == _membreFilter;
+        return typeOk && moisOk && membreOk;
+      }).toList();
+
+  bool _estConfirmable(dynamic c) => c['statut'] != 'payee' && c['statut'] != 'annulee';
+
+  List<dynamic> get _confirmables => _filtered.where(_estConfirmable).toList();
+
+  void _resetFiltres() {
+    setState(() { _typeFilter = ''; _moisFilter = null; _membreFilter = null; });
+  }
+
+  void _toggleSelection(int id) {
+    setState(() {
+      if (_selection.contains(id)) {
+        _selection.remove(id);
+      } else {
+        _selection.add(id);
+      }
+    });
+  }
+
+  Future<void> _confirmerSelection() async {
+    if (_selection.isEmpty) return;
+    final ids = _selection.toList();
+    try {
+      await Future.wait(ids.map((id) => _api.patch('${ApiEndpoints.cotisations}$id/', {'statut': 'payee'})));
+      setState(() { _selection.clear(); _selectionMode = false; });
+      _load();
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text('${ids.length} paiement(s) validé(s).'),
+          backgroundColor: AppColors.success,
+        ));
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: AppColors.error));
+      }
     }
   }
 
@@ -176,10 +232,40 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
     final user = context.read<AuthProvider>().user;
     final fmt = NumberFormat('#,##0', 'fr_FR');
 
+    final isJewrinFinance = user?.isJewrinFinance == true;
+
     return Scaffold(
       appBar: AppBar(
         title: const Text('Cotisations'),
         actions: [
+          if (isJewrinFinance && _selectionMode)
+            IconButton(
+              tooltip: _selection.length == _confirmables.length ? 'Tout désélectionner' : 'Tout sélectionner',
+              icon: Icon(
+                _selection.length == _confirmables.length && _confirmables.isNotEmpty
+                    ? Icons.deselect
+                    : Icons.select_all,
+                color: AppColors.white,
+              ),
+              onPressed: () => setState(() {
+                if (_selection.length == _confirmables.length) {
+                  _selection.clear();
+                } else {
+                  _selection
+                    ..clear()
+                    ..addAll(_confirmables.map((c) => c['id'] as int));
+                }
+              }),
+            ),
+          if (isJewrinFinance)
+            IconButton(
+              tooltip: _selectionMode ? 'Annuler la sélection' : 'Sélectionner et valider',
+              icon: Icon(_selectionMode ? Icons.close : Icons.playlist_add_check, color: AppColors.white),
+              onPressed: () => setState(() {
+                _selectionMode = !_selectionMode;
+                _selection.clear();
+              }),
+            ),
           DropdownButtonHideUnderline(
             child: DropdownButton<int>(
               value: _annee,
@@ -202,21 +288,42 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
         ],
       ),
       drawer: const AppDrawer(),
-      floatingActionButton: (user?.isJewrinFinance == true)
+      floatingActionButton: (isJewrinFinance && !_selectionMode)
           ? FloatingActionButton(
               backgroundColor: AppColors.primaryGreen,
               onPressed: () => _showCotisationForm(),
               child: const Icon(Icons.add, color: AppColors.white),
             )
           : null,
+      bottomNavigationBar: (_selectionMode && _selection.isNotEmpty)
+          ? SafeArea(
+              child: Container(
+                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+                color: AppColors.white,
+                child: Row(children: [
+                  Text('${_selection.length} sélectionné(s)', style: const TextStyle(fontWeight: FontWeight.w600)),
+                  const Spacer(),
+                  ElevatedButton.icon(
+                    onPressed: _confirmerSelection,
+                    icon: const Icon(Icons.check, size: 16),
+                    label: const Text('Confirmer'),
+                    style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen, foregroundColor: Colors.white),
+                  ),
+                ]),
+              ),
+            )
+          : null,
       body: _loading
           ? const Center(child: CircularProgressIndicator(color: AppColors.primaryGreen))
-          : RefreshIndicator(
+          : Column(children: [
+              _buildFiltres(),
+              Expanded(
+                child: RefreshIndicator(
         onRefresh: _load,
         color: AppColors.primaryGreen,
         child: ListView.builder(
                     padding: EdgeInsets.zero,
-                    itemCount: _cotisations.isEmpty ? 2 : _cotisations.length + 1,
+                    itemCount: _filtered.isEmpty ? 2 : _filtered.length + 1,
                     itemBuilder: (_, i) {
                       // Item 0: stats cards row
                       if (i == 0) {
@@ -269,15 +376,18 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                         );
                       }
                       // Item 1 when empty
-                      if (_cotisations.isEmpty) {
-                        return const Padding(
-                          padding: EdgeInsets.all(40),
-                          child: Center(child: Text('Aucune cotisation', style: TextStyle(color: AppColors.textGrey))),
+                      if (_filtered.isEmpty) {
+                        return Padding(
+                          padding: const EdgeInsets.all(40),
+                          child: Center(child: Text(
+                            _cotisations.isEmpty ? 'Aucune cotisation' : 'Aucune cotisation ne correspond aux filtres',
+                            style: const TextStyle(color: AppColors.textGrey),
+                          )),
                         );
                       }
                       // Cotisation items
                       final i2 = i - 1;
-                      final c = _cotisations[i2];
+                      final c = _filtered[i2];
                       final isPaye = c['statut'] == 'payee';
                       final moisNum = int.tryParse(c['mois']?.toString() ?? '0') ?? 0;
                       final moisLabel = moisNum >= 1 && moisNum <= 12
@@ -301,21 +411,28 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                           children: [
                             Row(
                               children: [
-                                Container(
-                                  width: 40,
-                                  height: 40,
-                                  decoration: BoxDecoration(
-                                    color: isPaye
-                                        ? AppColors.success.withValues(alpha: 0.12)
-                                        : AppColors.warning.withValues(alpha: 0.12),
-                                    borderRadius: BorderRadius.circular(10),
+                                if (_selectionMode && _estConfirmable(c))
+                                  Checkbox(
+                                    value: _selection.contains(c['id'] as int),
+                                    activeColor: AppColors.primaryGreen,
+                                    onChanged: (_) => _toggleSelection(c['id'] as int),
+                                  )
+                                else
+                                  Container(
+                                    width: 40,
+                                    height: 40,
+                                    decoration: BoxDecoration(
+                                      color: isPaye
+                                          ? AppColors.success.withValues(alpha: 0.12)
+                                          : AppColors.warning.withValues(alpha: 0.12),
+                                      borderRadius: BorderRadius.circular(10),
+                                    ),
+                                    child: Icon(
+                                      isPaye ? Icons.check_circle : Icons.pending,
+                                      color: isPaye ? AppColors.success : AppColors.warning,
+                                      size: 20,
+                                    ),
                                   ),
-                                  child: Icon(
-                                    isPaye ? Icons.check_circle : Icons.pending,
-                                    color: isPaye ? AppColors.success : AppColors.warning,
-                                    size: 20,
-                                  ),
-                                ),
                                 const SizedBox(width: 12),
                                 Expanded(
                                   child: Column(
@@ -486,8 +603,93 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                             },
                           ),
         ),
+              ),
+            ]),
     );
   }
+
+  Widget _buildFiltres() {
+    final hasFilter = _typeFilter.isNotEmpty || _moisFilter != null || _membreFilter != null;
+    final user = context.read<AuthProvider>().user;
+    return Container(
+      color: AppColors.primaryGreen,
+      padding: const EdgeInsets.fromLTRB(12, 4, 12, 10),
+      child: Column(children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          child: Row(children: [
+            ChoiceChip(
+              label: const Text('Toutes'),
+              selected: _typeFilter.isEmpty,
+              onSelected: (_) => setState(() => _typeFilter = ''),
+            ),
+            const SizedBox(width: 6),
+            ChoiceChip(
+              label: const Text('Mensualités'),
+              selected: _typeFilter == 'mensualite',
+              onSelected: (_) => setState(() => _typeFilter = 'mensualite'),
+            ),
+            const SizedBox(width: 6),
+            ChoiceChip(
+              label: const Text('Assignations'),
+              selected: _typeFilter == 'assignation',
+              onSelected: (_) => setState(() => _typeFilter = 'assignation'),
+            ),
+          ]),
+        ),
+        const SizedBox(height: 8),
+        Row(children: [
+          Expanded(
+            child: DropdownButtonFormField<int>(
+              initialValue: _moisFilter,
+              isExpanded: true,
+              decoration: _filtreDeco('Mois'),
+              dropdownColor: AppColors.white,
+              items: [
+                const DropdownMenuItem(value: null, child: Text('Tous')),
+                ...List.generate(12, (i) => DropdownMenuItem(value: i + 1, child: Text(_mois[i]))),
+              ],
+              onChanged: (v) => setState(() => _moisFilter = v),
+            ),
+          ),
+          if (user?.isJewrinFinance == true) ...[
+            const SizedBox(width: 8),
+            Expanded(
+              child: DropdownButtonFormField<int>(
+                initialValue: _membreFilter,
+                isExpanded: true,
+                decoration: _filtreDeco('Membre'),
+                dropdownColor: AppColors.white,
+                items: [
+                  const DropdownMenuItem(value: null, child: Text('Tous')),
+                  ..._usersFiltre.map((u) => DropdownMenuItem(value: u['id'] as int, child: Text(u['nom'] as String, overflow: TextOverflow.ellipsis))),
+                ],
+                onChanged: (v) => setState(() => _membreFilter = v),
+              ),
+            ),
+          ],
+          if (hasFilter) ...[
+            const SizedBox(width: 4),
+            IconButton(
+              tooltip: 'Réinitialiser',
+              icon: const Icon(Icons.filter_alt_off, color: AppColors.white, size: 20),
+              onPressed: _resetFiltres,
+            ),
+          ],
+        ]),
+      ]),
+    );
+  }
+
+  InputDecoration _filtreDeco(String label) => InputDecoration(
+        labelText: label,
+        labelStyle: const TextStyle(color: AppColors.textGrey, fontSize: 12),
+        filled: true,
+        fillColor: AppColors.white,
+        isDense: true,
+        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        border: OutlineInputBorder(borderRadius: BorderRadius.circular(8), borderSide: BorderSide.none),
+      );
 }
 
 // ══════════════════════════════════════════════════════════════
