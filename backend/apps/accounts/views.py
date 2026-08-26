@@ -10,9 +10,10 @@ from django.utils import timezone
 
 from .serializers import (
     UserSerializer, UserPublicSerializer, UserCreateSerializer, UserMeSerializer, BadgeSerializer, AttributionBadgeSerializer,
+    BadgeMissionSerializer,
     MatricePermissionRoleSerializer, PermissionMembreOverrideSerializer, JournalAuditSerializer,
 )
-from .models import Badge, AttributionBadge, CodeReinitialisation, MatricePermissionRole, PermissionMembreOverride, JournalAudit, RUBRIQUES
+from .models import Badge, AttributionBadge, BadgeMission, CodeReinitialisation, MatricePermissionRole, PermissionMembreOverride, JournalAudit, RUBRIQUES
 from .permissions import IsAdminRoleOrStaff, IsAdminOrComptesVoir, IsAdminOrComptesGerer, has_rubrique_access, log_audit
 
 User = get_user_model()
@@ -350,6 +351,29 @@ class BadgeViewSet(viewsets.ModelViewSet):
         if self.request.method not in ['GET', 'HEAD', 'OPTIONS']:
             return [IsAdminOrComptesGerer()]
         return [IsAuthenticated()]
+
+
+class BadgeMissionViewSet(viewsets.ModelViewSet):
+    """Badges d'événement/mission (distincts des badges de récompense) : un membre voit ses
+    propres badges, un utilisateur avec un droit de gestion sur 'comptes' (admin y compris)
+    voit et gère ceux de tout le monde."""
+    serializer_class = BadgeMissionSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['membre']
+
+    def get_queryset(self):
+        qs = BadgeMission.objects.select_related('membre', 'cree_par').order_by('-date_evenement')
+        if has_rubrique_access(self.request.user, 'comptes', 'voir'):
+            return qs
+        return qs.filter(membre=self.request.user)
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrComptesGerer()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(cree_par=self.request.user)
 
 
 @api_view(['GET', 'POST'])

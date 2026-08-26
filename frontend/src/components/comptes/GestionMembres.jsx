@@ -48,7 +48,7 @@ const initialForm = {
   username: '', email: '', password: '', first_name: '', last_name: '',
   role: 'membre', telephone: '', adresse: '', sexe: '', profession: '',
   categorie: 'professionnel', cellule: '', groupe_sanguin: '',
-  niveau_alquran: '', niveau_majalis: '', numero_carte: '', est_actif: true,
+  niveau_alquran: '', niveau_majalis: '', numero_carte: '', date_naissance: '', est_actif: true,
 }
 
 const normCat = (cat) => {
@@ -146,6 +146,7 @@ export default function GestionMembres() {
       categorie: normCat(u.categorie), cellule: u.cellule || '',
       groupe_sanguin: u.groupe_sanguin || '', niveau_alquran: u.niveau_alquran || '',
       niveau_majalis: u.niveau_majalis || '', numero_carte: u.numero_carte || '',
+      date_naissance: u.date_naissance ? u.date_naissance.slice(0, 10) : '',
       est_actif: u.est_actif ?? true,
     })
     setFieldErrors({}); setOpenForm(true)
@@ -173,6 +174,8 @@ export default function GestionMembres() {
       if (editingId) {
         const payload = { ...form, categorie: catValide }
         if (!payload.password) delete payload.password
+        // date_naissance est un champ date : une chaîne vide est rejetée par le backend.
+        if (!payload.date_naissance) delete payload.date_naissance
         const res = await api.patch(`/auth/users/${editingId}/`, payload)
         if (res.data) setList(prev => prev.map(u => u.id === editingId ? { ...u, ...res.data } : u))
         setMessage({ type: 'success', text: 'Membre modifié.' })
@@ -585,6 +588,12 @@ export default function GestionMembres() {
               </Grid>
               <Grid item xs={6}>
                 <TextField label="Numéro de carte" value={form.numero_carte} onChange={setF('numero_carte')} fullWidth />
+              </Grid>
+              <Grid item xs={6}>
+                <TextField
+                  label="Date de naissance" type="date" value={form.date_naissance}
+                  onChange={setF('date_naissance')} fullWidth InputLabelProps={{ shrink: true }}
+                />
               </Grid>
             </Grid>
             <TextField label="Profession" value={form.profession} onChange={setF('profession')} fullWidth />

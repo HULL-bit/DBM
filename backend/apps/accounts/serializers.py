@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from django.contrib.auth import get_user_model
-from .models import ProfilComplementaire, Badge, AttributionBadge, MatricePermissionRole, PermissionMembreOverride, JournalAudit
+from .models import ProfilComplementaire, Badge, AttributionBadge, BadgeMission, MatricePermissionRole, PermissionMembreOverride, JournalAudit
 
 User = get_user_model()
 
@@ -55,7 +55,7 @@ class UserSerializer(serializers.ModelSerializer):
             'telephone', 'adresse', 'sexe', 'profession', 'categorie',
             'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis',
             'role', 'role_display', 'photo', 'password',
-            'date_inscription', 'est_actif', 'numero_wave', 'numero_carte',
+            'date_inscription', 'est_actif', 'numero_wave', 'numero_carte', 'date_naissance',
             'specialite', 'biographie',
             'cotisations_payees', 'chapitres_lus', 'evenements_participes',
         ]
@@ -172,7 +172,7 @@ class UserMeSerializer(serializers.ModelSerializer):
             'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis',
             'role', 'role_display', 'photo',
             'photo_updated_at',
-            'date_inscription', 'est_actif', 'numero_wave', 'numero_carte',
+            'date_inscription', 'est_actif', 'numero_wave', 'numero_carte', 'date_naissance',
             'specialite', 'biographie',
             'cotisations_payees', 'chapitres_lus', 'evenements_participes',
         ]
@@ -252,3 +252,16 @@ class AttributionBadgeSerializer(serializers.ModelSerializer):
     class Meta:
         model = AttributionBadge
         fields = ['id', 'badge', 'date_obtention', 'raison']
+
+
+class BadgeMissionSerializer(serializers.ModelSerializer):
+    membre_nom = serializers.CharField(source='membre.get_full_name', read_only=True)
+    cree_par_nom = serializers.CharField(source='cree_par.get_full_name', read_only=True, default='')
+
+    class Meta:
+        model = BadgeMission
+        fields = [
+            'id', 'membre', 'membre_nom', 'evenement', 'mission', 'date_evenement',
+            'description', 'cree_par', 'cree_par_nom', 'date_creation',
+        ]
+        read_only_fields = ['cree_par', 'date_creation']

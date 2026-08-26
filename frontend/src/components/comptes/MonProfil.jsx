@@ -22,6 +22,7 @@ import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
 import CarteMembre from './CarteMembre'
+import BadgeMissionCard from './BadgeMissionCard'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', beige: '#F4EAD5', vertFonce: '#1e4029' }
 
@@ -38,6 +39,7 @@ export default function MonProfil() {
   const [message, setMessage] = useState({ type: '', text: '' })
   const [showPassword, setShowPassword] = useState({ old: false, new: false, confirm: false })
   const [openCarte, setOpenCarte] = useState(false)
+  const [mesBadgesMission, setMesBadgesMission] = useState([])
 
   const [form, setForm] = useState({
     first_name: '',
@@ -47,6 +49,7 @@ export default function MonProfil() {
     adresse: '',
     specialite: '',
     biographie: '',
+    date_naissance: '',
   })
   const [passwordForm, setPasswordForm] = useState({
     old_password: '',
@@ -66,8 +69,12 @@ export default function MonProfil() {
         adresse: user.adresse || '',
         specialite: user.specialite || '',
         biographie: user.biographie || '',
+        date_naissance: user.date_naissance ? user.date_naissance.slice(0, 10) : '',
       })
       setPhotoPreview(getPhotoUrl(user.photo, user.photo_updated_at))
+      api.get('/auth/badges-mission/', { params: { membre: user.id } })
+        .then(({ data }) => setMesBadgesMission(data.results || data))
+        .catch(() => setMesBadgesMission([]))
     }
   }, [user])
 
@@ -92,15 +99,20 @@ export default function MonProfil() {
     setLoading(true)
     setMessage({ type: '', text: '' })
     try {
+      // date_naissance est un champ date : une chaîne vide est rejetée par le backend
+      // (contrairement aux champs texte), il ne faut donc pas l'envoyer si non renseignée.
+      const { date_naissance, ...reste } = form
+      const payload = date_naissance ? form : reste
+
       let updatedUser
       if (photoFile) {
         const fd = new FormData()
-        Object.entries(form).forEach(([k, v]) => fd.append(k, v ?? ''))
+        Object.entries(payload).forEach(([k, v]) => fd.append(k, v ?? ''))
         fd.append('photo', photoFile)
         const { data } = await api.patch('/auth/me/', fd)
         updatedUser = data
       } else {
-        const { data } = await api.patch('/auth/me/', form)
+        const { data } = await api.patch('/auth/me/', payload)
         updatedUser = data
       }
       setUserFromProfile(updatedUser)
@@ -218,6 +230,12 @@ export default function MonProfil() {
             <Grid item xs={12} sm={6}>
               <TextField fullWidth name="specialite" label="Spécialité" value={form.specialite} onChange={handleChange} />
             </Grid>
+            <Grid item xs={12} sm={6}>
+              <TextField
+                fullWidth name="date_naissance" label="Date de naissance" type="date"
+                value={form.date_naissance} onChange={handleChange} InputLabelProps={{ shrink: true }}
+              />
+            </Grid>
             <Grid item xs={12}>
               <TextField fullWidth name="adresse" label="Adresse" value={form.adresse} onChange={handleChange} multiline rows={2} />
             </Grid>
@@ -317,6 +335,21 @@ export default function MonProfil() {
           </Grid>
         </CardContent>
       </Card>
+
+      {mesBadgesMission.length > 0 && (
+        <Card sx={{ mb: 3, borderLeft: `3px solid ${COLORS.or}`, borderRadius: 2 }}>
+          <CardContent>
+            <Typography variant="h6" sx={{ color: COLORS.vertFonce, mb: 2 }}>Mes badges de mission</Typography>
+            <Grid container spacing={2}>
+              {mesBadgesMission.map((b) => (
+                <Grid item xs={12} sm={6} md={4} key={b.id}>
+                  <BadgeMissionCard membre={user} badge={b} />
+                </Grid>
+              ))}
+            </Grid>
+          </CardContent>
+        </Card>
+      )}
 
       <Dialog open={openCarte} onClose={() => setOpenCarte(false)} maxWidth="xs" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>

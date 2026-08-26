@@ -61,6 +61,7 @@ class CustomUser(AbstractUser):
     est_actif = models.BooleanField(default=True)
     numero_wave = models.CharField(max_length=50, blank=True)
     numero_carte = models.CharField(max_length=50, blank=True)
+    date_naissance = models.DateField(null=True, blank=True)
 
     # Informations personnelles
     sexe = models.CharField(max_length=1, choices=SEXE_CHOICES, blank=True)
@@ -293,6 +294,28 @@ class CodeReinitialisation(models.Model):
     def est_valide(self):
         from django.utils import timezone
         return not self.utilise and self.tentatives < 5 and timezone.now() < self.date_expiration
+
+
+class BadgeMission(models.Model):
+    """Badge d'événement/mission (distinct des badges de récompense ci-dessus) : attribué à un
+    membre pour une mission précise lors d'un événement donné (ex. « Sécurité — Magal 2026 »),
+    avec date et rôle. La photo affichée sur le badge est toujours la photo de profil actuelle
+    du membre — pas de photo séparée à gérer."""
+    membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='badges_missions')
+    evenement = models.CharField(max_length=200, help_text="Ex : Magal 2026, Gamou, Ziarra...")
+    mission = models.CharField(max_length=200, help_text="Rôle dans la mission, ex : Sécurité, Accueil, Logistique")
+    date_evenement = models.DateField()
+    description = models.TextField(blank=True)
+    cree_par = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, related_name='badges_missions_crees')
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        verbose_name = 'Badge de mission'
+        verbose_name_plural = 'Badges de mission'
+        ordering = ['-date_evenement']
+
+    def __str__(self):
+        return f"{self.membre.get_full_name()} — {self.mission} ({self.evenement})"
 
 
 class AttributionBadge(models.Model):

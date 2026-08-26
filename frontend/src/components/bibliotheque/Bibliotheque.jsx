@@ -103,7 +103,12 @@ export default function Bibliotheque() {
   const resultatsRecherche = rechercheActive
     ? livres.filter((l) => {
         const q = recherche.trim().toLowerCase()
-        return (l.nom || '').toLowerCase().includes(q) || (l.description || '').toLowerCase().includes(q)
+        const nomFichier = decodeURIComponent((l.pdf || '').split('/').pop() || '').toLowerCase()
+        return (
+          (l.nom || '').toLowerCase().includes(q) ||
+          (l.description || '').toLowerCase().includes(q) ||
+          nomFichier.includes(q)
+        )
       })
     : []
   const currentList = rechercheActive ? resultatsRecherche : (tab === 0 ? alquran : qassida)
