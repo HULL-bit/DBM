@@ -3,6 +3,7 @@ import '../../presentation/screens/auth/login_screen.dart';
 import '../../presentation/screens/profile_screen.dart';
 import '../../presentation/screens/more_screens.dart';
 import '../../presentation/screens/finance/cotisations_screen.dart' as finance;
+import '../../presentation/screens/finance/depenses_screen.dart';
 import '../../presentation/screens/membres_screen.dart';
 import '../../presentation/screens/news_screen.dart';
 import '../../presentation/screens/evenements_screen.dart';
@@ -85,6 +86,10 @@ class AppRouter {
       GoRoute(
         path: '/cotisations',
         builder: (context, state) => const finance.CotisationsScreen(),
+      ),
+      GoRoute(
+        path: '/depenses',
+        builder: (context, state) => const DepensesScreen(),
       ),
       GoRoute(
         path: '/news',

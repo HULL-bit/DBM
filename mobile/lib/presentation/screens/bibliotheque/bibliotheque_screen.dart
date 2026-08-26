@@ -14,7 +14,7 @@ class BibliothequeScreen extends StatefulWidget {
 
 class _BibliothequeScreenState extends State<BibliothequeScreen> {
   final _api = ApiService();
-  List<dynamic> _livres = [];
+  List<dynamic> _tousLesLivres = [];
   bool _loading = true;
   String _search = '';
   String _categorie = '';
@@ -25,18 +25,30 @@ class _BibliothequeScreenState extends State<BibliothequeScreen> {
     _load();
   }
 
+  /// Recherche côté client sur le nom, la description et le nom de fichier
+  /// du PDF (ex: "sourate", "jukki 12", nom du khassida) — même logique que
+  /// la recherche web, qui matche aussi sur des livres sans description.
+  List<dynamic> get _livres {
+    if (_search.isEmpty) return _tousLesLivres;
+    final q = _search.toLowerCase();
+    return _tousLesLivres.where((l) {
+      final nom = (l['nom'] ?? '').toString().toLowerCase();
+      final description = (l['description'] ?? '').toString().toLowerCase();
+      final pdfUrl = (l['pdf'] ?? l['fichier'] ?? '').toString();
+      final nomFichier = Uri.decodeComponent(pdfUrl.split('/').last).toLowerCase();
+      return nom.contains(q) || description.contains(q) || nomFichier.contains(q);
+    }).toList();
+  }
+
   Future<void> _load() async {
     try {
-      final params = <String>[];
-      if (_search.isNotEmpty) params.add('search=$_search');
-      if (_categorie.isNotEmpty) params.add('categorie=$_categorie');
-      final endpoint = params.isEmpty
-          ? ApiEndpoints.livres
-          : '${ApiEndpoints.livres}?${params.join('&')}';
+      final endpoint = _categorie.isEmpty
+          ? '${ApiEndpoints.livres}?page_size=500'
+          : '${ApiEndpoints.livres}?page_size=500&categorie=$_categorie';
       final data = await _api.get(endpoint);
       if (mounted) {
         setState(() {
-          _livres = data['results'] ?? [];
+          _tousLesLivres = data['results'] ?? [];
           _loading = false;
         });
       }
@@ -105,13 +117,7 @@ class _BibliothequeScreenState extends State<BibliothequeScreen> {
                 ),
                 contentPadding: const EdgeInsets.symmetric(vertical: 10),
               ),
-              onChanged: (v) {
-                _search = v;
-                if (v.length >= 3 || v.isEmpty) {
-                  setState(() => _loading = true);
-                  _load();
-                }
-              },
+              onChanged: (v) => setState(() => _search = v),
             ),
           ),
 

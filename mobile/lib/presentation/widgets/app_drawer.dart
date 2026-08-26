@@ -129,6 +129,12 @@ class AppDrawer extends StatelessWidget {
                     label: 'Transactions',
                     onTap: () => _nav(context, '/transactions'),
                   ),
+                  if (user.isJewrinFinance)
+                    _DrawerItem(
+                      icon: Icons.receipt_long_outlined,
+                      label: 'Dépenses & Bilan',
+                      onTap: () => _nav(context, '/depenses'),
+                    ),
 
                   _SectionLabel('CULTUREL'),
                   _DrawerItem(

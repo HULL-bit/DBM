@@ -27,6 +27,9 @@ class ApiEndpoints {
   static const String leveesFonds = '/finance/levees-fonds/';
   static const String transactions = '/finance/transactions/';
   static const String dons = '/finance/dons/';
+  static const String depenses = '/finance/depenses/';
+  static const String bilanFinancier = '/finance/bilan/';
+  static const String bilanFinancierExport = '/finance/bilan/export/';
 
   // Culturelle
   static const String kamil = '/culturelle/kamil/';

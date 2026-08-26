@@ -29,18 +29,49 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
   Color _statutColor(String? statut) {
     switch (statut) {
       case 'payee': return AppColors.success;
+      case 'declare': return AppColors.warning;
       case 'retard': return AppColors.error;
       case 'annulee': return AppColors.textGrey;
-      default: return AppColors.warning;
+      default: return AppColors.textGrey;
     }
   }
 
   String _statutLabel(String? statut) {
     switch (statut) {
       case 'payee': return 'Payée';
+      case 'declare': return 'Déclarée';
       case 'retard': return 'En retard';
       case 'annulee': return 'Annulée';
       default: return 'En attente';
+    }
+  }
+
+  Future<void> _payerCotisation(dynamic c) async {
+    final ok = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Déclarer mon paiement'),
+        content: Text(
+          'Cotisation ${c['mois']}/${c['annee']} — Montant : ${c['montant']} FCFA.\n\n'
+          'En confirmant, votre cotisation passera en attente de confirmation. '
+          'Le chargé de finance vérifiera votre paiement et le validera prochainement.',
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: AppColors.primaryGreen, foregroundColor: Colors.white),
+            child: const Text('Déclarer mon paiement'),
+          ),
+        ],
+      ),
+    );
+    if (ok != true) return;
+    try {
+      await _api.post('${ApiEndpoints.cotisations}${c['id']}/payer/', {'mode_paiement': 'liquide'});
+      _load();
+    } catch (e) {
+      if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Erreur: $e'), backgroundColor: AppColors.error));
     }
   }
 
@@ -326,6 +357,38 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                                 ),
                               ],
                             ),
+                            // Member's own "Payer" flow
+                            if (user != null && c['membre'] == user.id && (c['statut'] == 'en_attente' || c['statut'] == 'declare'))
+                              Padding(
+                                padding: const EdgeInsets.only(top: 8),
+                                child: Align(
+                                  alignment: Alignment.centerRight,
+                                  child: c['statut'] == 'declare'
+                                      ? Container(
+                                          padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                                          decoration: BoxDecoration(
+                                            color: AppColors.warning.withValues(alpha: 0.12),
+                                            borderRadius: BorderRadius.circular(6),
+                                          ),
+                                          child: const Text(
+                                            'En attente de confirmation',
+                                            style: TextStyle(fontSize: 11, color: AppColors.warning, fontWeight: FontWeight.w600),
+                                          ),
+                                        )
+                                      : ElevatedButton.icon(
+                                          onPressed: () => _payerCotisation(c),
+                                          icon: const Icon(Icons.payment, size: 14),
+                                          label: const Text('Payer', style: TextStyle(fontSize: 12)),
+                                          style: ElevatedButton.styleFrom(
+                                            backgroundColor: AppColors.primaryGreen,
+                                            foregroundColor: Colors.white,
+                                            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                                            minimumSize: Size.zero,
+                                            tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                                          ),
+                                        ),
+                                ),
+                              ),
                             // Admin actions
                             if (user?.isJewrinFinance == true)
                               Padding(
@@ -826,6 +889,7 @@ class _CotisationFormPageState extends State<_CotisationFormPage> {
                     decoration: _deco('Statut'),
                     items: const [
                       DropdownMenuItem(value: 'en_attente', child: Text('En attente')),
+                      DropdownMenuItem(value: 'declare', child: Text('Déclarée')),
                       DropdownMenuItem(value: 'payee', child: Text('Payée')),
                       DropdownMenuItem(value: 'retard', child: Text('En retard')),
                       DropdownMenuItem(value: 'annulee', child: Text('Annulée')),

@@ -113,6 +113,7 @@ class JewrinDashboard extends StatelessWidget {
       if (role == 'jewrin' || role == 'jewrine_finance') ...[
         ('Finance', Icons.payments_outlined, '/cotisations', AppColors.primaryGold),
         ('Levées de fonds', Icons.volunteer_activism_outlined, '/levees-fonds', AppColors.darkGold),
+        ('Dépenses & Bilan', Icons.receipt_long_outlined, '/depenses', AppColors.darkGold),
       ],
       if (role == 'jewrin' || role == 'jewrine_sociale') ...[
         ('Projets sociaux', Icons.handshake_outlined, '/projets-sociaux', AppColors.success),

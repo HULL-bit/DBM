@@ -144,6 +144,22 @@ class ApiService {
     return _parseResponse(response);
   }
 
+  /// GET brut pour les fichiers binaires (export Excel/PDF) : renvoie la
+  /// réponse HTTP complète (bytes) au lieu de tenter un décodage JSON.
+  Future<http.Response> getBytes(String endpoint) async {
+    final headers = await _getHeaders();
+    final response = await _handleResponse(
+      () => http.get(
+        Uri.parse('${ApiEndpoints.baseUrl}$endpoint'),
+        headers: headers,
+      ),
+    );
+    if (response.statusCode < 200 || response.statusCode >= 300) {
+      throw ApiException(statusCode: response.statusCode, message: 'Erreur serveur (${response.statusCode})');
+    }
+    return response;
+  }
+
   Future<Map<String, dynamic>> patch(
     String endpoint,
     Map<String, dynamic> body,
