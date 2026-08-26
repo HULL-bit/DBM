@@ -57,7 +57,7 @@ export default function FicheMembre() {
   const [badgeMsg, setBadgeMsg] = useState('')
 
   // --- Carte de membre : infos éditables par l'admin ---
-  const [carteForm, setCarteForm] = useState({ numero_carte: '', date_naissance: '' })
+  const [carteForm, setCarteForm] = useState({ numero_carte: '', date_naissance: '', date_delivrance_carte: '' })
   const [savingCarte, setSavingCarte] = useState(false)
 
   // --- Badges de mission (événement/mission, distincts des badges de récompense) ---
@@ -76,7 +76,11 @@ export default function FicheMembre() {
     Promise.all([
       api.get(`/auth/users/${id}/`).then(({ data }) => {
         setMembre(data)
-        setCarteForm({ numero_carte: data.numero_carte || '', date_naissance: data.date_naissance ? data.date_naissance.slice(0, 10) : '' })
+        setCarteForm({
+          numero_carte: data.numero_carte || '',
+          date_naissance: data.date_naissance ? data.date_naissance.slice(0, 10) : '',
+          date_delivrance_carte: data.date_delivrance_carte ? data.date_delivrance_carte.slice(0, 10) : '',
+        })
       }).catch(() => setMembre(null)),
       api.get('/finance/cotisations/', { params: { membre: id } }).then(({ data }) => setCotisations(data.results || data)).catch(() => setCotisations([])),
       api.get('/finance/transactions/', { params: { membre: id } }).then(({ data }) => setTransactions(data.results || data)).catch(() => setTransactions([])),
@@ -94,6 +98,7 @@ export default function FicheMembre() {
     try {
       const payload = { numero_carte: carteForm.numero_carte }
       if (carteForm.date_naissance) payload.date_naissance = carteForm.date_naissance
+      if (carteForm.date_delivrance_carte) payload.date_delivrance_carte = carteForm.date_delivrance_carte
       const { data } = await api.patch(`/auth/users/${id}/`, payload)
       setMembre(data)
       setMessage({ type: 'success', text: 'Informations de la carte mises à jour.' })
@@ -537,6 +542,14 @@ export default function FicheMembre() {
                   fullWidth label="Date de naissance" type="date"
                   value={carteForm.date_naissance}
                   onChange={(e) => setCarteForm((f) => ({ ...f, date_naissance: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth label="Date de délivrance de la carte" type="date"
+                  value={carteForm.date_delivrance_carte}
+                  onChange={(e) => setCarteForm((f) => ({ ...f, date_delivrance_carte: e.target.value }))}
                   InputLabelProps={{ shrink: true }}
                 />
               </Grid>

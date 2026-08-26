@@ -62,6 +62,9 @@ class CustomUser(AbstractUser):
     numero_wave = models.CharField(max_length=50, blank=True)
     numero_carte = models.CharField(max_length=50, blank=True)
     date_naissance = models.DateField(null=True, blank=True)
+    date_delivrance_carte = models.DateField(
+        null=True, blank=True, help_text="Date de délivrance de la carte de membre (distincte de l'inscription)"
+    )
 
     # Informations personnelles
     sexe = models.CharField(max_length=1, choices=SEXE_CHOICES, blank=True)

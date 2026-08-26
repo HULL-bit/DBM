@@ -3,6 +3,7 @@ import { Box, Typography, Button, CircularProgress } from '@mui/material'
 import { Download } from '@mui/icons-material'
 import logo from '/logo.png'
 import { getMediaUrl } from '../../services/media'
+import { capturerAvecPhotos } from '../../utils/exportCarte'
 
 const C = { vert: '#2D5F3F', vertFonce: '#1e4029', or: '#C9A961', noir: '#1A1A1A' }
 const CARD_WIDTH = 360
@@ -16,19 +17,24 @@ function initials(nom) {
 /**
  * Carte de membre au format badge (utilisable pour Mon Profil comme pour la fiche
  * admin d'un membre) — visuelle, recto/verso, exportable en PDF (une page par face).
+ * Toutes les informations propres à la carte (n° de carte, date de naissance, date de
+ * délivrance) ne sont modifiables que par l'admin (fiche membre) — jamais par le membre
+ * lui-même.
  */
 export default function CarteMembre({ membre }) {
   const rectoRef = useRef(null)
   const versoRef = useRef(null)
   const [exporting, setExporting] = useState(false)
 
-  const nomComplet = `${membre.first_name || ''} ${membre.last_name || ''}`.trim() || membre.username
   const identifiant = membre.numero_carte || `#${String(membre.id).padStart(5, '0')}`
   const dateInscription = membre.date_inscription
     ? new Date(membre.date_inscription).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long' })
     : ''
   const dateNaissance = membre.date_naissance
     ? new Date(membre.date_naissance).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
+    : ''
+  const dateDelivrance = membre.date_delivrance_carte
+    ? new Date(membre.date_delivrance_carte).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
     : ''
   // La carte suit l'année d'adhésion en cours : valable jusqu'au 31 décembre de l'année en cours.
   const anneeExpiration = new Date().getFullYear()
@@ -37,12 +43,11 @@ export default function CarteMembre({ membre }) {
     if (!rectoRef.current || !versoRef.current) return
     setExporting(true)
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
-        import('html2canvas'),
+      const [{ default: jsPDF }, rectoCanvas, versoCanvas] = await Promise.all([
         import('jspdf'),
+        capturerAvecPhotos(rectoRef.current),
+        capturerAvecPhotos(versoRef.current),
       ])
-      const capture = (el) => html2canvas(el, { backgroundColor: '#ffffff', scale: 3, useCORS: true, logging: false })
-      const [rectoCanvas, versoCanvas] = await Promise.all([capture(rectoRef.current), capture(versoRef.current)])
 
       // Format carte bancaire (CR80) en mm, une face par page, pour une impression recto-verso.
       const pdf = new jsPDF({ orientation: 'landscape', unit: 'mm', format: [85.6, 54] })
@@ -100,23 +105,31 @@ export default function CarteMembre({ membre }) {
                     fontSize: '1.5rem', fontWeight: 700,
                   }}
                 >
-                  {initials(nomComplet)}
+                  {initials(`${membre.first_name || ''} ${membre.last_name || ''}`)}
                 </Box>
               )}
               <Box sx={{ minWidth: 0, flex: 1 }}>
-                <Typography sx={{ fontWeight: 700, color: C.vertFonce, fontSize: '1.05rem', lineHeight: 1.2 }} noWrap>
-                  {nomComplet}
+                <Typography sx={{ fontWeight: 700, color: C.vertFonce, fontSize: '0.95rem', lineHeight: 1.25 }} noWrap>
+                  Nom : {membre.last_name || '—'}
                 </Typography>
-                <Typography sx={{ color: C.vert, fontWeight: 600, fontSize: '0.8rem', mt: 0.25 }}>
+                <Typography sx={{ fontWeight: 700, color: C.vertFonce, fontSize: '0.95rem', lineHeight: 1.25 }} noWrap>
+                  Prénom : {membre.first_name || '—'}
+                </Typography>
+                <Typography sx={{ color: C.vert, fontWeight: 600, fontSize: '0.78rem', mt: 0.25 }}>
                   {membre.role_display || membre.role}
                 </Typography>
-                <Typography sx={{ color: 'text.secondary', fontSize: '0.72rem', mt: 0.5 }}>
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.7rem', mt: 0.25 }}>
                   N° {identifiant}
                 </Typography>
               </Box>
             </Box>
 
             <Box sx={{ px: 2, pb: 1.5, display: 'flex', flexDirection: 'column', gap: 0.4, borderTop: `1px dashed ${C.or}55`, pt: 1.25, mx: 2 }}>
+              {membre.adresse && (
+                <Typography sx={{ color: C.noir, fontSize: '0.68rem' }} noWrap>
+                  <strong>Adresse :</strong> {membre.adresse}
+                </Typography>
+              )}
               {dateNaissance && (
                 <Typography sx={{ color: C.noir, fontSize: '0.68rem' }}>
                   <strong>Né(e) le :</strong> {dateNaissance}
@@ -124,7 +137,12 @@ export default function CarteMembre({ membre }) {
               )}
               {dateInscription && (
                 <Typography sx={{ color: C.noir, fontSize: '0.68rem' }}>
-                  <strong>Membre depuis :</strong> {dateInscription}
+                  <strong>Date d'adhésion :</strong> {dateInscription}
+                </Typography>
+              )}
+              {dateDelivrance && (
+                <Typography sx={{ color: C.noir, fontSize: '0.68rem' }}>
+                  <strong>Délivrée le :</strong> {dateDelivrance}
                 </Typography>
               )}
               <Typography sx={{ color: C.noir, fontSize: '0.68rem' }}>
@@ -150,6 +168,11 @@ export default function CarteMembre({ membre }) {
           >
             <Box sx={{ height: 8, background: `linear-gradient(90deg, ${C.vert}, ${C.or})` }} />
             <Box sx={{ p: 2.25, display: 'flex', flexDirection: 'column', gap: 1, flex: 1 }}>
+              {membre.profession && (
+                <Typography sx={{ color: C.noir, fontSize: '0.72rem' }}>
+                  <strong>Profession :</strong> {membre.profession}
+                </Typography>
+              )}
               {membre.groupe_sanguin && (
                 <Typography sx={{ color: C.noir, fontSize: '0.72rem' }}>
                   <strong>Groupe sanguin :</strong> {membre.groupe_sanguin}

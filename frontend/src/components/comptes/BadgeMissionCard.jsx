@@ -3,6 +3,7 @@ import { Box, Typography, Button, CircularProgress } from '@mui/material'
 import { Download } from '@mui/icons-material'
 import logo from '/logo.png'
 import { getMediaUrl } from '../../services/media'
+import { capturerAvecPhotos } from '../../utils/exportCarte'
 
 const C = { vert: '#2D5F3F', vertFonce: '#1e4029', or: '#C9A961', noir: '#1A1A1A' }
 
@@ -30,8 +31,7 @@ export default function BadgeMissionCard({ membre, badge }) {
     if (!cardRef.current) return
     setExporting(true)
     try {
-      const { default: html2canvas } = await import('html2canvas')
-      const canvas = await html2canvas(cardRef.current, { backgroundColor: '#ffffff', scale: 3, useCORS: true, logging: false })
+      const canvas = await capturerAvecPhotos(cardRef.current)
       const link = document.createElement('a')
       link.download = `badge_${(badge.mission || 'mission').replace(/\s+/g, '_')}_${membre.username || membre.id}.png`
       link.href = canvas.toDataURL('image/png')

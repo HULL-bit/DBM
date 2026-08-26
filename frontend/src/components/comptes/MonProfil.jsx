@@ -233,7 +233,9 @@ export default function MonProfil() {
             <Grid item xs={12} sm={6}>
               <TextField
                 fullWidth name="date_naissance" label="Date de naissance" type="date"
-                value={form.date_naissance} onChange={handleChange} InputLabelProps={{ shrink: true }}
+                value={form.date_naissance} InputLabelProps={{ shrink: true }}
+                disabled
+                helperText="Modifiable uniquement par l'administrateur"
               />
             </Grid>
             <Grid item xs={12}>
