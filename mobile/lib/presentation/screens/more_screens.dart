@@ -1189,7 +1189,7 @@ Future<dynamic> _selectMember(BuildContext context) async {
         width: double.maxFinite,
         constraints: const BoxConstraints(maxHeight: 400),
         child: FutureBuilder(
-          future: api.get(ApiEndpoints.users),
+          future: api.get('${ApiEndpoints.users}?page_size=500'),
           builder: (c, snapshot) {
             if (!snapshot.hasData) return const Center(child: CircularProgressIndicator());
             final data = snapshot.data as Map<String, dynamic>?;
@@ -1199,8 +1199,9 @@ Future<dynamic> _selectMember(BuildContext context) async {
               itemCount: members.length,
               itemBuilder: (cc, i) {
                 final m = members[i];
+                final nomComplet = '${m['first_name'] ?? ''} ${m['last_name'] ?? ''}'.trim();
                 return ListTile(
-                  title: Text(m['nom'] ?? m['username']),
+                  title: Text(nomComplet.isNotEmpty ? nomComplet : (m['username'] ?? '')),
                   onTap: () => Navigator.pop(ctx, m),
                 );
               },

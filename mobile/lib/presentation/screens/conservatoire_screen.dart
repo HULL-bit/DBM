@@ -1176,19 +1176,14 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
             future: () async {
               // Fetch seance with presences
               final seanceData = await _api.get('${ApiEndpoints.seancesConservatoire}${seance['id']}/');
-              // Fetch all users to get members
-              final usersData = await _api.get(ApiEndpoints.users);
-              final allUsers = usersData['results'] ?? [];
-              
-              // Get kourel members IDs
+              // membres_noms est déjà la liste exploitable du kourel : [{id, nom, photo}, ...].
+              // Passer par /auth/users/ pour filtrer soi-même tronquait la liste dès que
+              // le nombre de membres dépassait la pagination par défaut (20).
               final kourelData = await _api.get('${ApiEndpoints.kourels}${seanceData['kourel']}/');
-              final kourelMemberIds = kourelData['membres'] as List? ?? [];
-              
-              // Filter users who are members of this kourel
-              final kourelMembers = allUsers.where((u) => 
-                kourelMemberIds.contains(u['id'])
-              ).toList();
-              
+              final kourelMembers = ((kourelData['membres_noms'] as List?) ?? [])
+                  .map((e) => e as Map<String, dynamic>)
+                  .toList();
+
               return {
                 'seance': seanceData,
                 'members': kourelMembers,
@@ -1251,9 +1246,7 @@ class _ConservatoireScreenState extends State<ConservatoireScreen> with SingleTi
                             ),
                           ),
                           title: Text(
-                            member['first_name'] != null || member['last_name'] != null
-                                ? '${member['first_name'] ?? ''} ${member['last_name'] ?? ''}'.trim()
-                                : (member['username'] ?? member['email'] ?? ''),
+                            (member['nom'] ?? '').toString(),
                             style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w500),
                           ),
                           subtitle: Text(
