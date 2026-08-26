@@ -461,7 +461,10 @@ def bilan_financier_export(request):
 
     annee = request.query_params.get('annee')
     annee = int(annee) if annee else None
-    fmt = request.query_params.get('format', 'excel').lower()
+    # 'export_format' et non 'format' : ce dernier est réservé par DRF pour choisir un
+    # renderer (json/api) — une valeur inconnue comme 'pdf'/'excel' fait échouer la
+    # négociation de contenu avec un Http404, avant même la vérification des permissions.
+    fmt = request.query_params.get('export_format', 'excel').lower()
 
     if fmt == 'pdf':
         buf = export_bilan_pdf(annee)

@@ -90,7 +90,7 @@ export default function JournalSecurite() {
     setExporting(true)
     try {
       const { data } = await api.get('/auth/audit/export/', {
-        params: { ...currentParams(), format },
+        params: { ...currentParams(), export_format: format },
         responseType: 'blob',
       })
       const url = window.URL.createObjectURL(new Blob([data]))

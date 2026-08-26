@@ -225,6 +225,11 @@ REST_FRAMEWORK = {
     'DEFAULT_FILTER_BACKENDS': ['django_filters.rest_framework.DjangoFilterBackend'],
     'DEFAULT_PAGINATION_CLASS': 'rest_framework.pagination.PageNumberPagination',
     'PAGE_SIZE': 20,
+    # Sans ceci, DRF réserve le paramètre de requête '?format=' pour choisir un
+    # renderer (json/api) : une valeur métier comme 'pdf'/'excel' (nos exports)
+    # fait échouer la négociation de contenu avec un Http404 — avant même la
+    # vérification des permissions. On désactive ce mécanisme globalement.
+    'URL_FORMAT_OVERRIDE': None,
 }
 
 # JWT

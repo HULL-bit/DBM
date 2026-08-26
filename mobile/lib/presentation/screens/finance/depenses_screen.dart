@@ -96,7 +96,7 @@ class _DepensesScreenState extends State<DepensesScreen> with SingleTickerProvid
     setState(() => _exporting = true);
     try {
       final qs = _annee != null ? '&annee=$_annee' : '';
-      final response = await _api.getBytes('${ApiEndpoints.bilanFinancierExport}?format=$format$qs');
+      final response = await _api.getBytes('${ApiEndpoints.bilanFinancierExport}?export_format=$format$qs');
       final dir = await getTemporaryDirectory();
       final ext = format == 'pdf' ? 'pdf' : 'xlsx';
       final file = File('${dir.path}/bilan_financier.$ext');

@@ -591,7 +591,10 @@ def journal_audit_export(request):
     from .audit_export import export_audit_excel, export_audit_pdf
 
     qs = _filtrer_journal_audit(request).order_by('-date')
-    fmt = request.query_params.get('format', 'excel').lower()
+    # 'export_format' et non 'format' : réservé par DRF pour choisir un renderer
+    # (json/api) — une valeur inconnue comme 'pdf' fait échouer la négociation de
+    # contenu avec un Http404, avant même la vérification des permissions.
+    fmt = request.query_params.get('export_format', 'excel').lower()
 
     if fmt == 'pdf':
         buf = export_audit_pdf(qs)

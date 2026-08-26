@@ -68,7 +68,7 @@ export default function GestionDepenses() {
   const handleExportBilan = async (format) => {
     setExporting(true)
     try {
-      const { data } = await api.get('/finance/bilan/export/', { params: { format, annee: annee || undefined }, responseType: 'blob' })
+      const { data } = await api.get('/finance/bilan/export/', { params: { export_format: format, annee: annee || undefined }, responseType: 'blob' })
       const ext = format === 'pdf' ? 'pdf' : 'xlsx'
       const url = window.URL.createObjectURL(new Blob([data]))
       const link = document.createElement('a')
