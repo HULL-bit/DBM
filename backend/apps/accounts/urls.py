@@ -18,6 +18,7 @@ urlpatterns = [
     path('badges/', views.BadgeViewSet.as_view({'get': 'list', 'post': 'create'})),
     path('badges/<int:pk>/', views.BadgeViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'})),
     path('users/<int:user_id>/badges/', views.badges_membre),
+    path('users/<int:user_id>/photo/', views.photo_membre),
     path('badges-attribution/<int:attribution_id>/', views.retirer_badge),
     path('badges-mission/', views.BadgeMissionViewSet.as_view({'get': 'list', 'post': 'create'})),
     path('badges-mission/<int:pk>/', views.BadgeMissionViewSet.as_view({'get': 'retrieve', 'put': 'update', 'patch': 'partial_update', 'delete': 'destroy'})),

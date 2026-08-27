@@ -7,6 +7,8 @@ from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from django.contrib.auth import get_user_model
 from django.utils import timezone
+from django.http import HttpResponse, Http404
+import mimetypes
 
 from .serializers import (
     UserSerializer, UserPublicSerializer, UserCreateSerializer, UserMeSerializer, BadgeSerializer, AttributionBadgeSerializer,
@@ -374,6 +376,32 @@ class BadgeMissionViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(cree_par=self.request.user)
+
+
+@api_view(['GET'])
+@permission_classes([IsAuthenticated])
+def photo_membre(request, user_id):
+    """Sert la photo de profil d'un membre via l'API (et non /media/ directement).
+
+    Utilisé pour l'export de la carte de membre / badge de mission en image ou PDF : lire
+    les pixels d'une image cross-origin via canvas (html2canvas) exige des en-têtes CORS
+    que /media/ ne garantit pas dans tous les environnements (stockage S3, hébergement sans
+    CORS dédié...). Les appels à /api/ passent déjà de façon fiable par CORS_ALLOWED_ORIGINS
+    pour tout le reste de l'application : on réutilise ce chemin plutôt que de dépendre de
+    la configuration CORS du stockage média, qu'on ne contrôle pas toujours.
+    La photo est déjà une donnée visible de tout utilisateur authentifié (via
+    UserPublicSerializer) : aucune restriction d'accès supplémentaire ici.
+    """
+    membre = User.objects.filter(id=user_id).first()
+    if not membre or not membre.photo or not membre.photo.name:
+        raise Http404("Photo non disponible.")
+    try:
+        with membre.photo.storage.open(membre.photo.name, 'rb') as f:
+            content = f.read()
+    except Exception:
+        raise Http404("Photo non accessible.")
+    content_type = mimetypes.guess_type(membre.photo.name)[0] or 'image/jpeg'
+    return HttpResponse(content, content_type=content_type)
 
 
 @api_view(['GET', 'POST'])

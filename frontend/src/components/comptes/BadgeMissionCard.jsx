@@ -2,8 +2,8 @@ import { useRef, useState } from 'react'
 import { Box, Typography, Button, CircularProgress } from '@mui/material'
 import { Download } from '@mui/icons-material'
 import logo from '/logo.png'
-import { getMediaUrl } from '../../services/media'
 import { capturerAvecPhotos } from '../../utils/exportCarte'
+import usePhotoMembre from '../../hooks/usePhotoMembre'
 
 const C = { vert: '#2D5F3F', vertFonce: '#1e4029', or: '#C9A961', noir: '#1A1A1A' }
 
@@ -21,6 +21,7 @@ function initials(nom) {
 export default function BadgeMissionCard({ membre, badge }) {
   const cardRef = useRef(null)
   const [exporting, setExporting] = useState(false)
+  const photoBlobUrl = usePhotoMembre(membre.id, !!membre.photo)
 
   const nomComplet = `${membre.first_name || membre.membre_nom || ''} ${membre.last_name || ''}`.trim() || membre.membre_nom || membre.username
   const dateEvenement = badge.date_evenement
@@ -65,10 +66,10 @@ export default function BadgeMissionCard({ membre, badge }) {
         </Box>
 
         <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
-          {membre.photo ? (
+          {photoBlobUrl ? (
             <Box
               component="img"
-              src={getMediaUrl(membre.photo, membre.photo_updated_at ? `v=${membre.photo_updated_at}` : '')}
+              src={photoBlobUrl}
               sx={{ width: 90, height: 90, borderRadius: '50%', objectFit: 'cover', border: `3px solid ${C.vert}`, mb: 1 }}
             />
           ) : (

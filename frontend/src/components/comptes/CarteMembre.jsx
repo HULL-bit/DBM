@@ -3,8 +3,8 @@ import { Box, Typography, Button, CircularProgress } from '@mui/material'
 import { Download } from '@mui/icons-material'
 import QRCode from 'qrcode'
 import logo from '/logo.png'
-import { getMediaUrl } from '../../services/media'
 import { capturerAvecPhotos } from '../../utils/exportCarte'
+import usePhotoMembre from '../../hooks/usePhotoMembre'
 
 const C = { vert: '#2D5F3F', vertFonce: '#1e4029', or: '#C9A961', noir: '#1A1A1A' }
 const CARD_WIDTH = 360
@@ -55,6 +55,7 @@ export default function CarteMembre({ membre }) {
   const versoRef = useRef(null)
   const [exporting, setExporting] = useState(false)
   const [qrDataUrl, setQrDataUrl] = useState(null)
+  const photoBlobUrl = usePhotoMembre(membre.id, !!membre.photo)
 
   const identifiant = membre.numero_carte || `#${String(membre.id).padStart(5, '0')}`
   const dateInscription = membre.date_inscription
@@ -129,10 +130,10 @@ export default function CarteMembre({ membre }) {
             </Box>
 
             <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
-              {membre.photo ? (
+              {photoBlobUrl ? (
                 <Box
                   component="img"
-                  src={getMediaUrl(membre.photo, membre.photo_updated_at ? `v=${membre.photo_updated_at}` : '')}
+                  src={photoBlobUrl}
                   sx={{ width: 84, height: 84, borderRadius: 2, flexShrink: 0, objectFit: 'cover', border: `2px solid ${C.or}` }}
                 />
               ) : (
