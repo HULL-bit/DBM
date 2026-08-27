@@ -59,3 +59,9 @@ ios/Flutter/Generated.xcconfig
 ios/Flutter/flutter_export_environment.sh
 ios/Runner/GeneratedPluginRegistrant.h
 ios/Runner/GeneratedPluginRegistrant.m
+
+# Signature de release Android — ne jamais committer
+android/key.properties
+android/app/upload-keystore.jks
+*.jks
+*.keystore
