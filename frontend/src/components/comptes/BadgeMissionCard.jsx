@@ -54,18 +54,29 @@ export default function BadgeMissionCard({ membre, badge }) {
           border: `1px solid ${C.or}66`,
           boxShadow: '0 8px 28px rgba(45,95,63,0.18)',
           fontFamily: '"Poppins", sans-serif',
-          bgcolor: '#fff',
+          bgcolor: '#FBF6EC',
           textAlign: 'center',
+          position: 'relative',
         }}
       >
+        <Box
+          component="img"
+          src={logo}
+          alt=""
+          sx={{
+            position: 'absolute', right: -30, bottom: -20, width: 150, height: 150,
+            opacity: 0.07, transform: 'rotate(-8deg)', pointerEvents: 'none',
+          }}
+        />
         <Box sx={{
           background: `linear-gradient(135deg, ${C.or} 0%, #b89447 100%)`,
           color: '#fff', px: 2, py: 1, textTransform: 'uppercase', letterSpacing: '0.05em',
+          position: 'relative',
         }}>
           <Typography sx={{ fontSize: '0.7rem', fontWeight: 700 }}>Badge de mission</Typography>
         </Box>
 
-        <Box sx={{ p: 2.5, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5 }}>
+        <Box sx={{ p: 2, display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, position: 'relative' }}>
           {photoBlobUrl ? (
             <Box
               component="img"
@@ -85,7 +96,7 @@ export default function BadgeMissionCard({ membre, badge }) {
             {nomComplet}
           </Typography>
 
-          <Box sx={{ mt: 1, width: '100%', bgcolor: `${C.vert}0d`, borderRadius: 2, p: 1.25 }}>
+          <Box sx={{ mt: 1, width: '100%', bgcolor: '#fff', border: `1px solid ${C.or}30`, borderRadius: 2, p: 1.25 }}>
             <Typography sx={{ color: C.vert, fontWeight: 700, fontSize: '0.95rem' }}>
               {badge.mission}
             </Typography>

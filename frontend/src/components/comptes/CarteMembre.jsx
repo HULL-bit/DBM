@@ -111,14 +111,24 @@ export default function CarteMembre({ membre }) {
             sx={{
               width: CARD_WIDTH, maxWidth: '100%', borderRadius: 3, overflow: 'hidden',
               border: `1px solid ${C.or}66`, boxShadow: '0 8px 28px rgba(45,95,63,0.18)',
-              fontFamily: '"Poppins", sans-serif', bgcolor: '#fff',
+              fontFamily: '"Poppins", sans-serif', bgcolor: '#FBF6EC', position: 'relative',
             }}
           >
+            <Box
+              component="img"
+              src={logo}
+              alt=""
+              sx={{
+                position: 'absolute', right: -30, bottom: -20, width: 190, height: 190,
+                opacity: 0.07, transform: 'rotate(-8deg)', pointerEvents: 'none',
+              }}
+            />
             <Box sx={{
               background: `linear-gradient(135deg, ${C.vert} 0%, ${C.vertFonce} 100%)`,
               color: '#fff', px: 2, py: 1.25, display: 'flex', alignItems: 'center', gap: 1,
+              position: 'relative',
             }}>
-              <Box component="img" src={logo} alt="Logo" sx={{ height: 32, flexShrink: 0 }} />
+              <Box component="img" src={logo} alt="Logo" sx={{ height: 32, flexShrink: 0, bgcolor: '#fff', borderRadius: '50%', p: 0.3 }} />
               <Box sx={{ minWidth: 0 }}>
                 <Typography sx={{ fontSize: '0.8rem', fontWeight: 700, lineHeight: 1.1 }} noWrap>
                   Daara Barakatul Mahaahidi
@@ -129,7 +139,7 @@ export default function CarteMembre({ membre }) {
               </Box>
             </Box>
 
-            <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center' }}>
+            <Box sx={{ p: 2, display: 'flex', gap: 2, alignItems: 'center', position: 'relative' }}>
               {photoBlobUrl ? (
                 <Box
                   component="img"
@@ -164,7 +174,10 @@ export default function CarteMembre({ membre }) {
               </Box>
             </Box>
 
-            <Box sx={{ px: 2, pb: 1.5, display: 'flex', flexDirection: 'column', gap: 0.4, borderTop: `1px dashed ${C.or}55`, pt: 1.25, mx: 2 }}>
+            <Box sx={{
+              mx: 2, mb: 1.5, p: 1.25, display: 'flex', flexDirection: 'column', gap: 0.4,
+              bgcolor: '#fff', borderRadius: 1.5, border: `1px solid ${C.or}30`, position: 'relative',
+            }}>
               {membre.adresse && (
                 <Typography sx={{ color: C.noir, fontSize: '0.68rem' }} noWrap>
                   <strong>Adresse :</strong> {membre.adresse}
@@ -202,13 +215,25 @@ export default function CarteMembre({ membre }) {
             sx={{
               width: CARD_WIDTH, maxWidth: '100%', height: 227, borderRadius: 3, overflow: 'hidden',
               border: `1px solid ${C.or}66`, boxShadow: '0 8px 28px rgba(45,95,63,0.18)',
-              fontFamily: '"Poppins", sans-serif', bgcolor: '#fff',
+              fontFamily: '"Poppins", sans-serif', bgcolor: '#FBF6EC', position: 'relative',
               display: 'flex', flexDirection: 'column',
             }}
           >
+            <Box
+              component="img"
+              src={logo}
+              alt=""
+              sx={{
+                position: 'absolute', left: -25, top: -15, width: 150, height: 150,
+                opacity: 0.06, transform: 'rotate(10deg)', pointerEvents: 'none',
+              }}
+            />
             <Box sx={{ height: 8, background: `linear-gradient(90deg, ${C.vert}, ${C.or})` }} />
-            <Box sx={{ p: 2, display: 'flex', gap: 1.5, flex: 1 }}>
-              <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+            <Box sx={{ p: 2, display: 'flex', gap: 1.5, flex: 1, position: 'relative' }}>
+              <Box sx={{
+                flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.6,
+                bgcolor: '#fff', borderRadius: 1.5, border: `1px solid ${C.or}30`, p: 1.25,
+              }}>
                 {membre.profession && (
                   <Typography sx={{ color: C.noir, fontSize: '0.68rem' }} noWrap>
                     <strong>Profession :</strong> {membre.profession}
@@ -234,9 +259,12 @@ export default function CarteMembre({ membre }) {
                   <Typography sx={{ fontSize: '0.58rem', color: 'text.secondary', mt: 0.5 }}>Signature du titulaire</Typography>
                 </Box>
               </Box>
-              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+              <Box sx={{
+                display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0,
+                bgcolor: '#fff', borderRadius: 1.5, border: `1px solid ${C.or}30`, p: 1,
+              }}>
                 {qrDataUrl && (
-                  <Box component="img" src={qrDataUrl} alt="QR code" sx={{ width: 88, height: 88, border: `1px solid ${C.or}55`, borderRadius: 1 }} />
+                  <Box component="img" src={qrDataUrl} alt="QR code" sx={{ width: 84, height: 84, borderRadius: 0.5 }} />
                 )}
                 <Typography sx={{ fontSize: '0.55rem', color: 'text.secondary', textAlign: 'center', maxWidth: 90 }}>
                   Scannez pour voir les infos du membre
