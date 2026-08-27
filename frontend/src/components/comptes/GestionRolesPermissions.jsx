@@ -154,6 +154,9 @@ export default function GestionRolesPermissions() {
       <Tabs
         value={tab}
         onChange={(e, v) => setTab(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{
           mb: 3,
           borderBottom: `1px solid ${COLORS.or}30`,

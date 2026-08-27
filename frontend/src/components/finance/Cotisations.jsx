@@ -512,6 +512,9 @@ export default function Cotisations() {
             <Tabs
               value={typeFilter}
               onChange={(e, v) => { setTypeFilter(v); setObjetAssignationFilter('') }}
+              variant="scrollable"
+              scrollButtons="auto"
+              allowScrollButtonsMobile
               sx={{
                 minHeight: 40,
                 borderBottom: `1px solid ${COLORS.or}30`,

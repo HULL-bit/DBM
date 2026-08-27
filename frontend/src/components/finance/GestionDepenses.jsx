@@ -189,6 +189,9 @@ export default function GestionDepenses() {
       <Tabs
         value={tab}
         onChange={(e, v) => setTab(v)}
+        variant="scrollable"
+        scrollButtons="auto"
+        allowScrollButtonsMobile
         sx={{
           mb: 2, borderBottom: `1px solid ${COLORS.or}30`,
           '& .MuiTab-root': { textTransform: 'none', fontWeight: 600 },
