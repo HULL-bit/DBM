@@ -173,7 +173,7 @@ class _MembreDashboardState extends State<MembreDashboard> {
                       mainAxisSpacing: 10,
                       childAspectRatio: 0.95,
                       children: [
-                        _QuickCard('Cotisations', Icons.payments_outlined,
+                        _QuickCard('SAAS YI', Icons.payments_outlined,
                             AppColors.primaryGold, '/cotisations', context),
                         _QuickCard('Kamil', Icons.menu_book_outlined,
                             AppColors.primaryGreen, '/kamil', context),

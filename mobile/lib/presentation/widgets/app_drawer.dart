@@ -121,12 +121,12 @@ class AppDrawer extends StatelessWidget {
                   _SectionLabel('FINANCE'),
                   _DrawerItem(
                     icon: Icons.payments_outlined,
-                    label: 'Cotisations',
+                    label: 'SAAS YI',
                     onTap: () => _nav(context, '/cotisations'),
                   ),
                   _DrawerItem(
                     icon: Icons.history_outlined,
-                    label: 'Transactions',
+                    label: 'Samayy SASS',
                     onTap: () => _nav(context, '/transactions'),
                   ),
                   if (user.isJewrinFinance)

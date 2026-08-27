@@ -35,7 +35,16 @@ class _BibliothequeScreenState extends State<BibliothequeScreen> {
       final nom = (l['nom'] ?? '').toString().toLowerCase();
       final description = (l['description'] ?? '').toString().toLowerCase();
       final pdfUrl = (l['pdf'] ?? l['fichier'] ?? '').toString();
-      final nomFichier = Uri.decodeComponent(pdfUrl.split('/').last).toLowerCase();
+      final rawFileName = pdfUrl.split('/').last;
+      String nomFichier;
+      try {
+        nomFichier = Uri.decodeComponent(rawFileName).toLowerCase();
+      } catch (_) {
+        // Un nom de fichier avec un '%' littéral (pas un vrai encodage URL) fait
+        // planter decodeComponent : on retombe sur le nom brut plutôt que de faire
+        // échouer toute la recherche pour tous les livres.
+        nomFichier = rawFileName.toLowerCase();
+      }
       return nom.contains(q) || description.contains(q) || nomFichier.contains(q);
     }).toList();
   }

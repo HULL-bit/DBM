@@ -73,7 +73,7 @@ const sectionsAdmin = [
   {
     title: 'Finance',
     items: [
-      { label: 'Cotisations', path: '/finance/cotisations', icon: <FinanceIcon />, rubrique: 'finance' },
+      { label: 'SAAS YI', path: '/finance/cotisations', icon: <FinanceIcon />, rubrique: 'finance' },
       { label: 'Dépenses & Bilan', path: '/finance/depenses', icon: <FinanceIcon />, rubrique: 'finance', action: 'gerer' },
     ],
   },
@@ -173,7 +173,7 @@ const sectionsJewrin = [
   {
     title: 'Finance',
     items: [
-      { label: 'Cotisations', path: '/finance/cotisations', icon: <FinanceIcon />, rubrique: 'finance' },
+      { label: 'SAAS YI', path: '/finance/cotisations', icon: <FinanceIcon />, rubrique: 'finance' },
       { label: 'Dépenses & Bilan', path: '/finance/depenses', icon: <FinanceIcon />, rubrique: 'finance', action: 'gerer' },
     ],
   },

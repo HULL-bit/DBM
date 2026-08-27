@@ -374,7 +374,7 @@ export default function FicheMembre() {
               </Table></TableContainer>
             )}
           </SectionCard>
-          <SectionCard title="Transactions">
+          <SectionCard title="Samayy SASS">
             {transactions.length === 0 ? <Typography color="text.secondary">Aucune transaction.</Typography> : (
               <TableContainer><Table size="small">
                 <TableHead><TableRow><TableCell>Type</TableCell><TableCell align="right">Montant</TableCell><TableCell>Statut</TableCell><TableCell>Date</TableCell></TableRow></TableHead>

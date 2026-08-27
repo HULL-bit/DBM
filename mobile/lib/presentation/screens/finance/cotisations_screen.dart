@@ -236,7 +236,7 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('Cotisations'),
+        title: const Text('SAAS YI'),
         actions: [
           if (isJewrinFinance && _selectionMode)
             IconButton(

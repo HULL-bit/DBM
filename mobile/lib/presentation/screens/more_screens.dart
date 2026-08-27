@@ -1077,7 +1077,7 @@ class _TransactionsScreenState extends State<TransactionsScreen> {
   Widget build(BuildContext context) {
     final fmt = NumberFormat('#,##0', 'fr_FR');
     return Scaffold(
-      appBar: AppBar(title: const Text('Transactions')),
+      appBar: AppBar(title: const Text('Samayy SASS')),
       drawer: const AppDrawer(),
       body: RefreshIndicator(
         onRefresh: _load,
