@@ -1,6 +1,7 @@
-import { useRef, useState } from 'react'
+import { useRef, useState, useEffect } from 'react'
 import { Box, Typography, Button, CircularProgress } from '@mui/material'
 import { Download } from '@mui/icons-material'
+import QRCode from 'qrcode'
 import logo from '/logo.png'
 import { getMediaUrl } from '../../services/media'
 import { capturerAvecPhotos } from '../../utils/exportCarte'
@@ -14,17 +15,46 @@ function initials(nom) {
   return parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase() : (parts[0]?.[0] || '?').toUpperCase()
 }
 
+/** Contenu du QR code : format vCard standard, lisible par n'importe quel scanner/téléphone,
+ * reprenant toutes les données du membre (identité, contact, matricule, dates). */
+function construireVCard(membre, identifiant) {
+  const nom = membre.last_name || ''
+  const prenom = membre.first_name || ''
+  const lignes = [
+    'BEGIN:VCARD',
+    'VERSION:3.0',
+    `N:${nom};${prenom};;;`,
+    `FN:${prenom} ${nom}`.trim(),
+    'ORG:Daara Barakatul Mahaahidi',
+    `TITLE:${membre.role_display || membre.role || ''}`,
+  ]
+  if (membre.telephone) lignes.push(`TEL:${membre.telephone}`)
+  if (membre.email) lignes.push(`EMAIL:${membre.email}`)
+  if (membre.adresse) lignes.push(`ADR:;;${membre.adresse};;;;`)
+  const notes = [
+    `Matricule: ${identifiant}`,
+    membre.date_naissance && `Né(e) le: ${membre.date_naissance}`,
+    membre.date_inscription && `Membre depuis: ${new Date(membre.date_inscription).toLocaleDateString('fr-FR')}`,
+    membre.groupe_sanguin && `Groupe sanguin: ${membre.groupe_sanguin}`,
+    membre.profession && `Profession: ${membre.profession}`,
+  ].filter(Boolean).join(' | ')
+  lignes.push(`NOTE:${notes}`)
+  lignes.push('END:VCARD')
+  return lignes.join('\n')
+}
+
 /**
  * Carte de membre au format badge (utilisable pour Mon Profil comme pour la fiche
- * admin d'un membre) — visuelle, recto/verso, exportable en PDF (une page par face).
- * Toutes les informations propres à la carte (n° de carte, date de naissance, date de
- * délivrance) ne sont modifiables que par l'admin (fiche membre) — jamais par le membre
- * lui-même.
+ * admin d'un membre) — visuelle, recto/verso avec QR code, exportable en PDF (une page
+ * par face). Toutes les informations propres à la carte (matricule, date de naissance,
+ * date de délivrance) ne sont modifiables que par l'admin (fiche membre) — jamais par le
+ * membre lui-même.
  */
 export default function CarteMembre({ membre }) {
   const rectoRef = useRef(null)
   const versoRef = useRef(null)
   const [exporting, setExporting] = useState(false)
+  const [qrDataUrl, setQrDataUrl] = useState(null)
 
   const identifiant = membre.numero_carte || `#${String(membre.id).padStart(5, '0')}`
   const dateInscription = membre.date_inscription
@@ -38,6 +68,15 @@ export default function CarteMembre({ membre }) {
     : ''
   // La carte suit l'année d'adhésion en cours : valable jusqu'au 31 décembre de l'année en cours.
   const anneeExpiration = new Date().getFullYear()
+
+  useEffect(() => {
+    let annule = false
+    QRCode.toDataURL(construireVCard(membre, identifiant), { width: 200, margin: 1, color: { dark: C.noir, light: '#ffffff' } })
+      .then((url) => { if (!annule) setQrDataUrl(url) })
+      .catch(() => { if (!annule) setQrDataUrl(null) })
+    return () => { annule = true }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [membre.id, membre.numero_carte, membre.telephone, membre.adresse])
 
   const handleTelecharger = async () => {
     if (!rectoRef.current || !versoRef.current) return
@@ -119,7 +158,7 @@ export default function CarteMembre({ membre }) {
                   {membre.role_display || membre.role}
                 </Typography>
                 <Typography sx={{ color: 'text.secondary', fontSize: '0.7rem', mt: 0.25 }}>
-                  N° {identifiant}
+                  Matricule : {identifiant}
                 </Typography>
               </Box>
             </Box>
@@ -167,38 +206,40 @@ export default function CarteMembre({ membre }) {
             }}
           >
             <Box sx={{ height: 8, background: `linear-gradient(90deg, ${C.vert}, ${C.or})` }} />
-            <Box sx={{ p: 2.25, display: 'flex', flexDirection: 'column', gap: 1, flex: 1 }}>
-              {membre.profession && (
-                <Typography sx={{ color: C.noir, fontSize: '0.72rem' }}>
-                  <strong>Profession :</strong> {membre.profession}
+            <Box sx={{ p: 2, display: 'flex', gap: 1.5, flex: 1 }}>
+              <Box sx={{ flex: 1, minWidth: 0, display: 'flex', flexDirection: 'column', gap: 0.6 }}>
+                {membre.profession && (
+                  <Typography sx={{ color: C.noir, fontSize: '0.68rem' }} noWrap>
+                    <strong>Profession :</strong> {membre.profession}
+                  </Typography>
+                )}
+                {membre.groupe_sanguin && (
+                  <Typography sx={{ color: C.noir, fontSize: '0.68rem' }}>
+                    <strong>Groupe sanguin :</strong> {membre.groupe_sanguin}
+                  </Typography>
+                )}
+                {membre.telephone && (
+                  <Typography sx={{ color: C.noir, fontSize: '0.68rem' }}>
+                    <strong>Contact :</strong> {membre.telephone}
+                  </Typography>
+                )}
+                <Typography sx={{ color: 'text.secondary', fontSize: '0.6rem', mt: 0.5 }}>
+                  Cette carte est strictement personnelle et ne peut être cédée à un tiers.
+                  En cas de perte, merci de la remettre à la Daara Barakatul Mahaahidi.
                 </Typography>
-              )}
-              {membre.groupe_sanguin && (
-                <Typography sx={{ color: C.noir, fontSize: '0.72rem' }}>
-                  <strong>Groupe sanguin :</strong> {membre.groupe_sanguin}
-                </Typography>
-              )}
-              {membre.telephone && (
-                <Typography sx={{ color: C.noir, fontSize: '0.72rem' }}>
-                  <strong>Contact :</strong> {membre.telephone}
-                </Typography>
-              )}
-              <Typography sx={{ color: 'text.secondary', fontSize: '0.65rem', mt: 0.5 }}>
-                Cette carte est strictement personnelle et ne peut être cédée à un tiers.
-                En cas de perte, merci de la remettre à la Daara Barakatul Mahaahidi.
-              </Typography>
-
-              <Box sx={{ flex: 1 }} />
-
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, pt: 1 }}>
-                <Box sx={{ flex: 1, textAlign: 'center' }}>
-                  <Box sx={{ borderBottom: `1px solid ${C.noir}55`, height: 28 }} />
-                  <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', mt: 0.5 }}>Signature du titulaire</Typography>
+                <Box sx={{ flex: 1 }} />
+                <Box sx={{ textAlign: 'center', pt: 0.5 }}>
+                  <Box sx={{ borderBottom: `1px solid ${C.noir}55`, height: 22 }} />
+                  <Typography sx={{ fontSize: '0.58rem', color: 'text.secondary', mt: 0.5 }}>Signature du titulaire</Typography>
                 </Box>
-                <Box sx={{ flex: 1, textAlign: 'center' }}>
-                  <Box sx={{ borderBottom: `1px solid ${C.noir}55`, height: 28 }} />
-                  <Typography sx={{ fontSize: '0.6rem', color: 'text.secondary', mt: 0.5 }}>Cachet de la Daara</Typography>
-                </Box>
+              </Box>
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0 }}>
+                {qrDataUrl && (
+                  <Box component="img" src={qrDataUrl} alt="QR code" sx={{ width: 88, height: 88, border: `1px solid ${C.or}55`, borderRadius: 1 }} />
+                )}
+                <Typography sx={{ fontSize: '0.55rem', color: 'text.secondary', textAlign: 'center', maxWidth: 90 }}>
+                  Scannez pour voir les infos du membre
+                </Typography>
               </Box>
             </Box>
             <Box sx={{ height: 8, background: `linear-gradient(90deg, ${C.or}, ${C.vert})` }} />
