@@ -32,6 +32,8 @@ class EvenementCommentSerializer(serializers.ModelSerializer):
 class EvenementSerializer(serializers.ModelSerializer):
     type_evenement_display = serializers.CharField(source='get_type_evenement_display', read_only=True)
     cree_par_nom = serializers.CharField(source='cree_par.get_full_name', read_only=True)
+    cree_par_photo = serializers.ImageField(source='cree_par.photo', read_only=True)
+    cree_par_photo_updated_at = serializers.DateTimeField(source='cree_par.photo_updated_at', read_only=True)
     medias = GalerieMediaSerializer(many=True, read_only=True)
     nb_likes = serializers.SerializerMethodField()
     nb_comments = serializers.SerializerMethodField()
@@ -42,7 +44,8 @@ class EvenementSerializer(serializers.ModelSerializer):
         fields = [
             'id', 'titre', 'description', 'type_evenement', 'type_evenement_display',
             'date_debut', 'date_fin', 'lieu', 'adresse_complete', 'lien_visio', 'image',
-            'capacite_max', 'cree_par', 'cree_par_nom', 'date_creation', 'groupes_cibles',
+            'capacite_max', 'cree_par', 'cree_par_nom', 'cree_par_photo', 'cree_par_photo_updated_at',
+            'date_creation', 'groupes_cibles',
             'participants', 'est_publie', 'documents',
             'medias', 'nb_likes', 'nb_comments', 'is_liked',
         ]

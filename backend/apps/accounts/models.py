@@ -65,6 +65,9 @@ class CustomUser(AbstractUser):
     date_delivrance_carte = models.DateField(
         null=True, blank=True, help_text="Date de délivrance de la carte de membre (distincte de l'inscription)"
     )
+    date_expiration_carte = models.DateField(
+        null=True, blank=True, help_text="Date de validité de la carte de membre — si vide, valable jusqu'au 31 décembre de l'année en cours"
+    )
 
     # Informations personnelles
     sexe = models.CharField(max_length=1, choices=SEXE_CHOICES, blank=True)

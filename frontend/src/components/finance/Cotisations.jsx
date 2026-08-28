@@ -554,10 +554,16 @@ export default function Cotisations() {
               {STATUTS.map((s) => <MenuItem key={s.value} value={s.value}>{s.label}</MenuItem>)}
             </TextField>
             {isAdmin && (
-              <TextField select size="small" label="Membre" value={membreFilter} onChange={(e) => setMembreFilter(e.target.value)} sx={{ minWidth: 220 }}>
-                <MenuItem value="">Tous</MenuItem>
-                {users.map((u) => <MenuItem key={u.id} value={u.id}>{u.first_name} {u.last_name}</MenuItem>)}
-              </TextField>
+              <Autocomplete
+                size="small"
+                options={users}
+                value={users.find((u) => String(u.id) === String(membreFilter)) || null}
+                onChange={(e, val) => setMembreFilter(val ? val.id : '')}
+                getOptionLabel={(u) => `${u.first_name || ''} ${u.last_name || ''}`.trim() || u.username || ''}
+                isOptionEqualToValue={(a, b) => a.id === b.id}
+                renderInput={(params) => <TextField {...params} label="Rechercher un membre (nom, prénom)" />}
+                sx={{ minWidth: 260 }}
+              />
             )}
             {(moisFilter || anneeFilter || membreFilter || statutFilter) && (
               <Button size="small" onClick={() => { setMoisFilter(''); setAnneeFilter(''); setMembreFilter(''); setStatutFilter('') }} sx={{ color: COLORS.vert }}>

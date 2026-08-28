@@ -57,7 +57,7 @@ export default function FicheMembre() {
   const [badgeMsg, setBadgeMsg] = useState('')
 
   // --- Carte de membre : infos éditables par l'admin ---
-  const [carteForm, setCarteForm] = useState({ numero_carte: '', date_naissance: '', date_delivrance_carte: '' })
+  const [carteForm, setCarteForm] = useState({ numero_carte: '', date_naissance: '', date_delivrance_carte: '', date_expiration_carte: '' })
   const [savingCarte, setSavingCarte] = useState(false)
 
   // --- Badges de mission (événement/mission, distincts des badges de récompense) ---
@@ -80,6 +80,7 @@ export default function FicheMembre() {
           numero_carte: data.numero_carte || '',
           date_naissance: data.date_naissance ? data.date_naissance.slice(0, 10) : '',
           date_delivrance_carte: data.date_delivrance_carte ? data.date_delivrance_carte.slice(0, 10) : '',
+          date_expiration_carte: data.date_expiration_carte ? data.date_expiration_carte.slice(0, 10) : '',
         })
       }).catch(() => setMembre(null)),
       api.get('/finance/cotisations/', { params: { membre: id } }).then(({ data }) => setCotisations(data.results || data)).catch(() => setCotisations([])),
@@ -99,6 +100,7 @@ export default function FicheMembre() {
       const payload = { numero_carte: carteForm.numero_carte }
       if (carteForm.date_naissance) payload.date_naissance = carteForm.date_naissance
       if (carteForm.date_delivrance_carte) payload.date_delivrance_carte = carteForm.date_delivrance_carte
+      if (carteForm.date_expiration_carte) payload.date_expiration_carte = carteForm.date_expiration_carte
       const { data } = await api.patch(`/auth/users/${id}/`, payload)
       setMembre(data)
       setMessage({ type: 'success', text: 'Informations de la carte mises à jour.' })
@@ -554,6 +556,15 @@ export default function FicheMembre() {
                   value={carteForm.date_delivrance_carte}
                   onChange={(e) => setCarteForm((f) => ({ ...f, date_delivrance_carte: e.target.value }))}
                   InputLabelProps={{ shrink: true }}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth label="Date de validité (expiration)" type="date"
+                  value={carteForm.date_expiration_carte}
+                  onChange={(e) => setCarteForm((f) => ({ ...f, date_expiration_carte: e.target.value }))}
+                  InputLabelProps={{ shrink: true }}
+                  helperText="Vide = 31 décembre de l'année en cours"
                 />
               </Grid>
             </Grid>

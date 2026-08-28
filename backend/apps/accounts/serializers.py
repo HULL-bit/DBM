@@ -56,7 +56,7 @@ class UserSerializer(serializers.ModelSerializer):
             'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis',
             'role', 'role_display', 'photo', 'password',
             'date_inscription', 'est_actif', 'numero_wave', 'numero_carte', 'date_naissance',
-            'date_delivrance_carte',
+            'date_delivrance_carte', 'date_expiration_carte',
             'specialite', 'biographie',
             'cotisations_payees', 'chapitres_lus', 'evenements_participes',
         ]
@@ -174,17 +174,17 @@ class UserMeSerializer(serializers.ModelSerializer):
             'role', 'role_display', 'photo',
             'photo_updated_at',
             'date_inscription', 'est_actif', 'numero_wave', 'numero_carte', 'date_naissance',
-            'date_delivrance_carte',
+            'date_delivrance_carte', 'date_expiration_carte',
             'specialite', 'biographie',
             'cotisations_payees', 'chapitres_lus', 'evenements_participes',
         ]
-        # numero_carte / date_naissance / date_delivrance_carte : visibles par le membre (sa
-        # propre carte) mais modifiables uniquement par l'admin (via UserSerializer), pas par
-        # le membre lui-même sur son profil.
+        # numero_carte / date_naissance / date_delivrance_carte / date_expiration_carte :
+        # visibles par le membre (sa propre carte) mais modifiables uniquement par l'admin
+        # (via UserSerializer), pas par le membre lui-même sur son profil.
         read_only_fields = [
             'id', 'username', 'role', 'role_display', 'photo_updated_at', 'date_inscription',
             'est_actif', 'cotisations_payees', 'chapitres_lus', 'evenements_participes',
-            'numero_carte', 'date_naissance', 'date_delivrance_carte',
+            'numero_carte', 'date_naissance', 'date_delivrance_carte', 'date_expiration_carte',
         ]
 
 

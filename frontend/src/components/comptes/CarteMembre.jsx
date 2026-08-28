@@ -67,8 +67,11 @@ export default function CarteMembre({ membre }) {
   const dateDelivrance = membre.date_delivrance_carte
     ? new Date(membre.date_delivrance_carte).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
     : ''
-  // La carte suit l'année d'adhésion en cours : valable jusqu'au 31 décembre de l'année en cours.
-  const anneeExpiration = new Date().getFullYear()
+  // Date de validité réglable par l'admin ; à défaut, la carte suit l'année en cours
+  // (valable jusqu'au 31 décembre).
+  const dateExpiration = membre.date_expiration_carte
+    ? new Date(membre.date_expiration_carte).toLocaleDateString('fr-FR', { year: 'numeric', month: 'long', day: 'numeric' })
+    : `31 décembre ${new Date().getFullYear()}`
 
   useEffect(() => {
     let annule = false
@@ -199,7 +202,7 @@ export default function CarteMembre({ membre }) {
                 </Typography>
               )}
               <Typography sx={{ color: C.noir, fontSize: '0.68rem' }}>
-                <strong>Valide jusqu'au :</strong> 31 décembre {anneeExpiration}
+                <strong>Valide jusqu'au :</strong> {dateExpiration}
               </Typography>
             </Box>
 
@@ -253,11 +256,6 @@ export default function CarteMembre({ membre }) {
                   Cette carte est strictement personnelle et ne peut être cédée à un tiers.
                   En cas de perte, merci de la remettre à la Daara Barakatul Mahaahidi.
                 </Typography>
-                <Box sx={{ flex: 1 }} />
-                <Box sx={{ textAlign: 'center', pt: 0.5 }}>
-                  <Box sx={{ borderBottom: `1px solid ${C.noir}55`, height: 22 }} />
-                  <Typography sx={{ fontSize: '0.58rem', color: 'text.secondary', mt: 0.5 }}>Signature du titulaire</Typography>
-                </Box>
               </Box>
               <Box sx={{
                 display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 0.5, flexShrink: 0,

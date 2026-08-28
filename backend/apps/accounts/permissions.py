@@ -160,9 +160,13 @@ class IsAdminOrJewrinOrganisation(BasePermission):
 
 class IsAdminOrJewrinInformations(BasePermission):
     """Permission pour la rubrique Informations (News, Événements) — aucun rôle jewrine_*
-    dédié n'existe pour cette rubrique, l'accès passe par admin/jewrin ou une exception
-    par membre accordée depuis la page Rôles & Permissions."""
+    dédié n'existe pour cette rubrique. Le chargé de communication (jewrine_communication)
+    y a accès nativement (c'est lui qui publie actualités/événements et notifie les
+    membres) ; les autres passent par admin/jewrin ou une exception par membre accordée
+    depuis la page Rôles & Permissions."""
     def has_permission(self, request, view):
+        if getattr(request.user, 'role', None) == 'jewrine_communication':
+            return True
         return has_admin_access(request.user, 'informations')
 
 

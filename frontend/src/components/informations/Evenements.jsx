@@ -3,13 +3,12 @@ import {
   Box,
   Typography,
   Card,
-  CardContent,
-  CardMedia,
-  CardActions,
   Button,
-  Grid,
+  Avatar,
   Chip,
   IconButton,
+  Menu,
+  MenuItem as MenuOption,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -18,8 +17,9 @@ import {
   MenuItem,
   Alert,
   CircularProgress,
+  Divider,
 } from '@mui/material'
-import { Add, Edit, Delete, Event as EventIcon, Favorite, FavoriteBorder, Comment as CommentIcon } from '@mui/icons-material'
+import { Add, Delete, Edit, Event as EventIcon, Favorite, FavoriteBorder, Comment as CommentIcon, MoreVert } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
 import { useAuth } from '../../context/AuthContext'
@@ -48,9 +48,42 @@ const initialForm = {
   est_publie: false,
 }
 
+function initials(nom) {
+  if (!nom) return '?'
+  const parts = nom.trim().split(' ')
+  return parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase() : (parts[0]?.[0] || '?').toUpperCase()
+}
+
+/** Médias façon Facebook : pleine largeur pour un seul, grille carrée pour plusieurs —
+ * réutilise le même principe que News (pas de cadre, collé aux bords de la carte). */
+function MediaFeed({ image, medias }) {
+  const items = (medias && medias.length > 0) ? medias : (image ? [{ id: 'cover', type_media: 'image', fichier: image }] : [])
+  if (items.length === 0) return null
+  const tile = (m, style) => {
+    const url = getMediaUrl(m.fichier || m.image)
+    return m.type_media === 'video'
+      ? <Box component="video" src={url} controls sx={style} />
+      : <Box component="img" src={url} alt="" loading="lazy" sx={style} />
+  }
+  if (items.length === 1) {
+    return tile(items[0], { width: '100%', maxHeight: 420, objectFit: 'contain', bgcolor: '#000', display: 'block' })
+  }
+  const cols = items.length === 3 ? 3 : 2
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '2px' }}>
+      {items.slice(0, 4).map((m) => (
+        <Box key={m.id} sx={{ position: 'relative', aspectRatio: '1 / 1', overflow: 'hidden' }}>
+          {tile(m, { width: '100%', height: '100%', objectFit: 'cover', display: 'block' })}
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
 export default function Evenements() {
   const { user, peut } = useAuth()
-  const isAdmin = user?.role === 'admin' || peut('informations', 'gerer')
+  const isAdmin = user?.role === 'admin' || user?.role === 'jewrine_communication' || peut('informations', 'gerer')
+  const [menuAnchor, setMenuAnchor] = useState(null) // { el, evt }
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })
@@ -233,48 +266,94 @@ export default function Evenements() {
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
+      ) : list.length === 0 ? (
+        <Typography color="text.secondary">Aucun événement pour le moment.</Typography>
       ) : (
-        <Grid container spacing={2}>
-          {list.length === 0 ? (
-            <Grid item xs={12}><Typography color="text.secondary">Aucun événement pour le moment.</Typography></Grid>
-          ) : (
-            list.map((evt) => (
-              <Grid item xs={12} sm={6} md={4} key={evt.id}>
-                <Card sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
-                  {evt.image && <CardMedia component="img" height="140" image={getMediaUrl(evt.image) || evt.image} alt={evt.titre} />}
-                  <CardContent>
-                    <Chip label={evt.type_evenement_display || evt.type_evenement} size="small" sx={{ mb: 1, bgcolor: `${COLORS.or}30` }} />
-                    <Typography variant="h6">{evt.titre}</Typography>
-                    <Typography variant="body2" color="text.secondary">{evt.lieu}</Typography>
-                    <Typography variant="caption" display="block">{new Date(evt.date_debut).toLocaleDateString('fr-FR')}</Typography>
-                  </CardContent>
-                  <CardActions sx={{ flexWrap: 'wrap', justifyContent: 'space-between' }}>
-                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
-                      <IconButton size="small" onClick={() => handleToggleLike(evt)} sx={{ color: evt.is_liked ? '#c62828' : 'inherit' }}>
-                        {evt.is_liked ? <Favorite fontSize="small" /> : <FavoriteBorder fontSize="small" />}
-                      </IconButton>
-                      <Typography variant="caption" sx={{ mr: 1 }}>{evt.nb_likes ?? 0}</Typography>
-                      <IconButton size="small" onClick={() => handleOpenComments(evt)}><CommentIcon fontSize="small" /></IconButton>
-                      <Typography variant="caption">{evt.nb_comments ?? 0}</Typography>
-                    </Box>
-                    <Box>
-                      <Button size="small" sx={{ color: COLORS.vert }} onClick={() => setDetailEvt(evt)}>
-                        Détails
-                      </Button>
-                      {isAdmin && (
-                        <>
-                          <IconButton size="small" onClick={() => handleOpenEdit(evt)} sx={{ color: COLORS.vert }}><Edit /></IconButton>
-                          <IconButton size="small" onClick={() => setOpenDelete(evt)} color="error"><Delete /></IconButton>
-                        </>
-                      )}
-                    </Box>
-                  </CardActions>
-                </Card>
-              </Grid>
-            ))
-          )}
-        </Grid>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, maxWidth: 640, mx: 'auto' }}>
+          {list.map((evt) => {
+            const photoUrl = evt.cree_par_photo ? getMediaUrl(evt.cree_par_photo, evt.cree_par_photo_updated_at ? `v=${evt.cree_par_photo_updated_at}` : '') : null
+            return (
+              <Card key={evt.id} sx={{ borderRadius: { xs: 0, sm: 2 }, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}>
+                <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                  <Avatar src={photoUrl} sx={{ width: 44, height: 44, bgcolor: COLORS.vert }}>
+                    {initials(evt.cree_par_nom)}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography sx={{ fontWeight: 700, fontSize: '0.9rem', color: COLORS.vertFonce }} noWrap>
+                      {evt.cree_par_nom || '—'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                      {evt.date_creation ? new Date(evt.date_creation).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                    </Typography>
+                  </Box>
+                  <Chip label={evt.type_evenement_display || evt.type_evenement} size="small" sx={{ bgcolor: `${COLORS.or}30`, fontWeight: 600 }} />
+                  {isAdmin && (
+                    <IconButton size="small" onClick={(e) => setMenuAnchor({ el: e.currentTarget, evt })}>
+                      <MoreVert fontSize="small" />
+                    </IconButton>
+                  )}
+                </Box>
+
+                <Typography sx={{ px: 1.5, pb: 0.25, fontWeight: 700, color: COLORS.vert }}>{evt.titre}</Typography>
+                <Typography variant="body2" color="text.secondary" sx={{ px: 1.5, pb: 1 }}>
+                  <EventIcon sx={{ fontSize: 14, verticalAlign: 'text-bottom', mr: 0.5 }} />
+                  {new Date(evt.date_debut).toLocaleDateString('fr-FR', { dateStyle: 'medium' })} · {evt.lieu}
+                </Typography>
+
+                <MediaFeed image={evt.image} medias={evt.medias} />
+
+                {(evt.nb_likes > 0 || evt.nb_comments > 0) && (
+                  <Box sx={{ px: 1.5, py: 0.75, display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" color="text.secondary">{evt.nb_likes > 0 ? `👍 ${evt.nb_likes}` : ''}</Typography>
+                    {evt.nb_comments > 0 && (
+                      <Typography
+                        variant="caption" color="text.secondary"
+                        sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                        onClick={() => handleOpenComments(evt)}
+                      >
+                        {evt.nb_comments} commentaire{evt.nb_comments > 1 ? 's' : ''}
+                      </Typography>
+                    )}
+                  </Box>
+                )}
+
+                <Divider />
+                <Box sx={{ display: 'flex' }}>
+                  <Button
+                    onClick={() => handleToggleLike(evt)}
+                    startIcon={evt.is_liked ? <Favorite fontSize="small" /> : <FavoriteBorder fontSize="small" />}
+                    sx={{ flex: 1, borderRadius: 0, py: 1, color: evt.is_liked ? COLORS.vert : 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    J'aime
+                  </Button>
+                  <Button
+                    onClick={() => handleOpenComments(evt)}
+                    startIcon={<CommentIcon fontSize="small" />}
+                    sx={{ flex: 1, borderRadius: 0, py: 1, color: 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    Commenter
+                  </Button>
+                  <Button
+                    onClick={() => setDetailEvt(evt)}
+                    sx={{ flex: 1, borderRadius: 0, py: 1, color: 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    Détails
+                  </Button>
+                </Box>
+              </Card>
+            )
+          })}
+        </Box>
       )}
+
+      <Menu anchorEl={menuAnchor?.el} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
+        <MenuOption onClick={() => { handleOpenEdit(menuAnchor.evt); setMenuAnchor(null) }}>
+          <Edit fontSize="small" sx={{ mr: 1 }} /> Modifier
+        </MenuOption>
+        <MenuOption onClick={() => { setOpenDelete(menuAnchor.evt); setMenuAnchor(null) }} sx={{ color: '#c62828' }}>
+          <Delete fontSize="small" sx={{ mr: 1 }} /> Supprimer
+        </MenuOption>
+      </Menu>
 
       <Dialog open={!!detailEvt} onClose={() => setDetailEvt(null)} maxWidth="sm" fullWidth>
         <DialogTitle>{detailEvt?.titre}</DialogTitle>
