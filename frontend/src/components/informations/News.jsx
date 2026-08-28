@@ -1,12 +1,13 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Box,
   Typography,
   Card,
-  CardContent,
-  CardActions,
+  Avatar,
   Button,
   IconButton,
+  Menu,
+  MenuItem,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -14,55 +15,57 @@ import {
   TextField,
   Alert,
   CircularProgress,
-  Chip,
+  Divider,
   useMediaQuery,
   useTheme,
-  ImageList,
-  ImageListItem,
-  Divider,
 } from '@mui/material'
-import { Add, Delete, Favorite, FavoriteBorder, Bookmark, BookmarkBorder, Comment as CommentIcon, Feed as FeedIcon } from '@mui/icons-material'
+import { Add, Delete, Favorite, FavoriteBorder, Bookmark, BookmarkBorder, Comment as CommentIcon, Feed as FeedIcon, MoreVert, ArrowBack } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
 import { useAuth } from '../../context/AuthContext'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
-function MediaItem({ media, maxHeight, onDimensions, dimensions }) {
+function initials(nom) {
+  if (!nom) return '?'
+  const parts = nom.trim().split(' ')
+  return parts.length > 1 ? `${parts[0][0]}${parts[parts.length - 1][0]}`.toUpperCase() : (parts[0]?.[0] || '?').toUpperCase()
+}
+
+function MediaTile({ media, single, maxHeight }) {
   const url = getMediaUrl(media.image)
+  const commonSx = single
+    ? { width: '100%', maxHeight, objectFit: 'contain', bgcolor: '#000', display: 'block' }
+    : { width: '100%', height: '100%', objectFit: 'cover', display: 'block' }
   if (media.type_media === 'video') {
-    return (
-      <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #eee', p: 0.75, bgcolor: '#fafafa' }}>
-        <Box
-          component="video"
-          src={url}
-          controls
-          sx={{ width: '100%', maxHeight, objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
-          onLoadedMetadata={(e) => onDimensions?.(e.target.videoWidth, e.target.videoHeight)}
-        />
-        {dimensions && (
-          <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
-            {dimensions.w} × {dimensions.h} px
-          </Typography>
-        )}
-      </Box>
-    )
+    return <Box component="video" src={url} controls sx={commonSx} />
   }
+  return <Box component="img" src={url} alt="" loading="lazy" sx={commonSx} />
+}
+
+/** Grille de médias façon Facebook : un seul média en pleine largeur, plusieurs en grille
+ * carrée à colonnes égales, sans bordure ni cadre — collé aux bords de la carte. */
+function MediaGrid({ images, isMobile }) {
+  if (!images || images.length === 0) return null
+  if (images.length === 1) {
+    return <MediaTile media={images[0]} single maxHeight={isMobile ? '65vh' : '520px'} />
+  }
+  const cols = images.length === 2 ? 2 : images.length === 3 ? 3 : 2
   return (
-    <Box sx={{ borderRadius: 2, overflow: 'hidden', border: '1px solid #eee', p: 0.75, bgcolor: '#fafafa' }}>
-      <Box
-        component="img"
-        src={url}
-        alt=""
-        loading="lazy"
-        sx={{ width: '100%', maxHeight, objectFit: 'contain', borderRadius: 1, display: 'block', mx: 'auto' }}
-        onLoad={(e) => onDimensions?.(e.target.naturalWidth, e.target.naturalHeight)}
-      />
-      {dimensions && (
-        <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: 'block', textAlign: 'center' }}>
-          {dimensions.w} × {dimensions.h} px
-        </Typography>
-      )}
+    <Box sx={{ display: 'grid', gridTemplateColumns: `repeat(${cols}, 1fr)`, gap: '2px' }}>
+      {images.slice(0, 4).map((img, i) => (
+        <Box key={img.id} sx={{ position: 'relative', aspectRatio: '1 / 1', overflow: 'hidden', gridColumn: images.length === 3 && i === 0 ? 'span 1' : undefined }}>
+          <MediaTile media={img} />
+          {i === 3 && images.length > 4 && (
+            <Box sx={{
+              position: 'absolute', inset: 0, bgcolor: 'rgba(0,0,0,0.55)', color: '#fff',
+              display: 'flex', alignItems: 'center', justifyContent: 'center', fontSize: '1.4rem', fontWeight: 700,
+            }}>
+              +{images.length - 4}
+            </Box>
+          )}
+        </Box>
+      ))}
     </Box>
   )
 }
@@ -77,6 +80,8 @@ export default function News() {
   const [list, setList] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })
+  const [filtreAuteur, setFiltreAuteur] = useState(null) // { id, nom }
+  const [menuAnchor, setMenuAnchor] = useState(null) // { el, post }
 
   const [openCreate, setOpenCreate] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -86,18 +91,21 @@ export default function News() {
   const [comments, setComments] = useState([])
   const [loadingComments, setLoadingComments] = useState(false)
   const [newComment, setNewComment] = useState('')
-  const [openDetails, setOpenDetails] = useState(null) // post
-  const [imageInfos, setImageInfos] = useState({})
 
   const loadList = () => {
     setLoading(true)
-    api.get('/informations/news/')
+    api.get('/informations/news/', { params: filtreAuteur ? { auteur: filtreAuteur.id } : {} })
       .then(({ data }) => setList(data.results || data || []))
       .catch(() => setList([]))
       .finally(() => setLoading(false))
   }
 
-  useEffect(() => { loadList() }, [])
+  useEffect(() => { loadList() }, [filtreAuteur])
+
+  const voirPublicationsDe = (post) => {
+    if (!post.auteur) return
+    setFiltreAuteur({ id: post.auteur, nom: post.auteur_nom })
+  }
 
   const handleToggleLike = async (post) => {
     try {
@@ -180,10 +188,10 @@ export default function News() {
   }
 
   return (
-    <Box sx={{ p: { xs: 2, md: 3 } }}>
-      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 2 }}>
+    <Box sx={{ p: { xs: 1.5, md: 3 }, maxWidth: 640, mx: 'auto' }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 2, mb: 2, px: { xs: 0.5, md: 0 } }}>
         <Box>
-          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600 }} gutterBottom>
+          <Typography variant="h4" sx={{ color: COLORS.vert, fontWeight: 600, fontSize: { xs: '1.4rem', md: '2.125rem' } }} gutterBottom>
             <FeedIcon sx={{ mr: 1, verticalAlign: 'middle' }} /> News
           </Typography>
           <Typography variant="body2" sx={{ color: COLORS.vertFonce }}>
@@ -197,6 +205,17 @@ export default function News() {
         )}
       </Box>
 
+      {filtreAuteur && (
+        <Card sx={{ mb: 2, p: 1.5, display: 'flex', alignItems: 'center', gap: 1.5, borderRadius: 2, bgcolor: `${COLORS.vert}0d` }}>
+          <IconButton size="small" onClick={() => setFiltreAuteur(null)} sx={{ color: COLORS.vert }}>
+            <ArrowBack fontSize="small" />
+          </IconButton>
+          <Typography variant="body2" sx={{ color: COLORS.vertFonce, fontWeight: 600 }}>
+            Publications de {filtreAuteur.nom}
+          </Typography>
+        </Card>
+      )}
+
       {message.text && (
         <Alert severity={message.type === 'error' ? 'error' : 'success'} sx={{ mb: 2 }} onClose={() => setMessage({ type: '', text: '' })}>
           {message.text}
@@ -206,72 +225,112 @@ export default function News() {
       {loading ? (
         <Box sx={{ p: 4, textAlign: 'center' }}><CircularProgress /></Box>
       ) : list.length === 0 ? (
-        <Box sx={{ p: 4, textAlign: 'center' }}><Typography color="text.secondary">Aucune actualité.</Typography></Box>
+        <Box sx={{ p: 4, textAlign: 'center' }}>
+          <Typography color="text.secondary">
+            {filtreAuteur ? `${filtreAuteur.nom} n'a publié aucune actualité.` : 'Aucune actualité.'}
+          </Typography>
+        </Box>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          {list.map((post) => (
-            <Card key={post.id} sx={{ borderRadius: 2, overflow: 'hidden', borderLeft: `4px solid ${COLORS.or}` }}>
-              <CardContent sx={{ pb: 1.5 }}>
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, alignItems: 'flex-start' }}>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.vert, mb: 0.5 }}>
-                      {post.titre}
+          {list.map((post) => {
+            const photoUrl = post.auteur_photo ? getMediaUrl(post.auteur_photo, post.auteur_photo_updated_at ? `v=${post.auteur_photo_updated_at}` : '') : null
+            return (
+              <Card key={post.id} sx={{ borderRadius: { xs: 0, sm: 2 }, overflow: 'hidden', boxShadow: '0 1px 3px rgba(0,0,0,0.15)' }}>
+                <Box sx={{ p: 1.5, display: 'flex', alignItems: 'center', gap: 1.25 }}>
+                  <Avatar
+                    src={photoUrl}
+                    onClick={() => voirPublicationsDe(post)}
+                    sx={{ width: 44, height: 44, bgcolor: COLORS.vert, cursor: post.auteur ? 'pointer' : 'default' }}
+                  >
+                    {initials(post.auteur_nom)}
+                  </Avatar>
+                  <Box sx={{ flex: 1, minWidth: 0 }}>
+                    <Typography
+                      onClick={() => voirPublicationsDe(post)}
+                      sx={{ fontWeight: 700, fontSize: '0.9rem', color: COLORS.vertFonce, cursor: post.auteur ? 'pointer' : 'default', '&:hover': post.auteur ? { textDecoration: 'underline' } : undefined }}
+                      noWrap
+                    >
+                      {post.auteur_nom || '—'}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {post.auteur_nom || '—'} • {post.date_creation ? new Date(post.date_creation).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                    <Typography variant="caption" color="text.secondary" noWrap sx={{ display: 'block' }}>
+                      {post.date_creation ? new Date(post.date_creation).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
                     </Typography>
                   </Box>
                   {canManage && (
-                    <IconButton size="small" onClick={() => handleDelete(post)} sx={{ color: '#c62828' }}>
-                      <Delete fontSize="small" />
+                    <IconButton size="small" onClick={(e) => setMenuAnchor({ el: e.currentTarget, post })}>
+                      <MoreVert fontSize="small" />
                     </IconButton>
                   )}
                 </Box>
 
-                <Typography variant="body2" sx={{ mt: 1.5, whiteSpace: 'pre-wrap' }}>
-                  {post.contenu}
-                </Typography>
+                {post.titre && (
+                  <Typography sx={{ px: 1.5, pb: 0.5, fontWeight: 700, color: COLORS.vert }}>
+                    {post.titre}
+                  </Typography>
+                )}
+                {post.contenu && (
+                  <Typography variant="body2" sx={{ px: 1.5, pb: 1.5, whiteSpace: 'pre-wrap' }}>
+                    {post.contenu}
+                  </Typography>
+                )}
 
-                {(post.images || []).length > 0 && (
-                  <Box sx={{ mt: 2, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    {(post.images || []).slice(0, isMobile ? 2 : 3).map((img) => (
-                      <MediaItem
-                        key={img.id}
-                        media={img}
-                        maxHeight={isMobile ? '55vh' : '45vh'}
-                        dimensions={imageInfos[img.id]}
-                        onDimensions={(w, h) => setImageInfos((prev) => ({ ...prev, [img.id]: { w, h } }))}
-                      />
-                    ))}
+                <MediaGrid images={post.images} isMobile={isMobile} />
+
+                {(post.nb_likes > 0 || post.nb_comments > 0) && (
+                  <Box sx={{ px: 1.5, py: 0.75, display: 'flex', justifyContent: 'space-between' }}>
+                    <Typography variant="caption" color="text.secondary">
+                      {post.nb_likes > 0 ? `👍 ${post.nb_likes}` : ''}
+                    </Typography>
+                    {post.nb_comments > 0 && (
+                      <Typography
+                        variant="caption" color="text.secondary"
+                        sx={{ cursor: 'pointer', '&:hover': { textDecoration: 'underline' } }}
+                        onClick={() => handleOpenComments(post)}
+                      >
+                        {post.nb_comments} commentaire{post.nb_comments > 1 ? 's' : ''}
+                      </Typography>
+                    )}
                   </Box>
                 )}
-              </CardContent>
 
-              <Divider />
-              <CardActions sx={{ justifyContent: 'space-between', px: 2 }}>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <IconButton onClick={() => handleToggleLike(post)} sx={{ color: post.is_liked ? '#c62828' : 'inherit' }}>
-                    {post.is_liked ? <Favorite /> : <FavoriteBorder />}
-                  </IconButton>
-                  <Chip size="small" label={`${post.nb_likes ?? 0}`} sx={{ bgcolor: `${COLORS.or}30` }} />
-
-                  <IconButton onClick={() => handleOpenComments(post)}>
-                    <CommentIcon />
-                  </IconButton>
-                  <Chip size="small" label={`${post.nb_comments ?? 0}`} sx={{ bgcolor: `${COLORS.or}30` }} />
+                <Divider />
+                <Box sx={{ display: 'flex' }}>
+                  <Button
+                    onClick={() => handleToggleLike(post)}
+                    startIcon={post.is_liked ? <Favorite fontSize="small" /> : <FavoriteBorder fontSize="small" />}
+                    sx={{ flex: 1, borderRadius: 0, py: 1, color: post.is_liked ? COLORS.vert : 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    J'aime
+                  </Button>
+                  <Button
+                    onClick={() => handleOpenComments(post)}
+                    startIcon={<CommentIcon fontSize="small" />}
+                    sx={{ flex: 1, borderRadius: 0, py: 1, color: 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    Commenter
+                  </Button>
+                  <Button
+                    onClick={() => handleToggleBookmark(post)}
+                    startIcon={post.is_bookmarked ? <Bookmark fontSize="small" /> : <BookmarkBorder fontSize="small" />}
+                    sx={{ flex: 1, borderRadius: 0, py: 1, color: post.is_bookmarked ? COLORS.vert : 'text.secondary', fontWeight: 600, fontSize: '0.8rem' }}
+                  >
+                    Enregistrer
+                  </Button>
                 </Box>
-
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Button size="small" onClick={() => setOpenDetails(post)}>Détails</Button>
-                  <IconButton onClick={() => handleToggleBookmark(post)} sx={{ color: post.is_bookmarked ? COLORS.vert : 'inherit' }}>
-                    {post.is_bookmarked ? <Bookmark /> : <BookmarkBorder />}
-                  </IconButton>
-                </Box>
-              </CardActions>
-            </Card>
-          ))}
+              </Card>
+            )
+          })}
         </Box>
       )}
+
+      <Menu anchorEl={menuAnchor?.el} open={!!menuAnchor} onClose={() => setMenuAnchor(null)}>
+        <MenuItem
+          onClick={() => { handleDelete(menuAnchor.post); setMenuAnchor(null) }}
+          sx={{ color: '#c62828' }}
+        >
+          <Delete fontSize="small" sx={{ mr: 1 }} /> Supprimer
+        </MenuItem>
+      </Menu>
 
       {/* Create dialog */}
       <Dialog open={openCreate} onClose={() => setOpenCreate(false)} maxWidth="sm" fullWidth fullScreen={isMobile}>
@@ -310,11 +369,16 @@ export default function News() {
           ) : (
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5, py: 1 }}>
               {comments.map((c) => (
-                <Box key={c.id} sx={{ p: 1.25, borderRadius: 2, bgcolor: '#fafafa', border: '1px solid #eee' }}>
-                  <Typography variant="caption" color="text.secondary">
-                    {c.membre_nom || `#${c.membre}`} • {c.date_creation ? new Date(c.date_creation).toLocaleString('fr-FR', { dateStyle: 'short', timeStyle: 'short' }) : '—'}
-                  </Typography>
-                  <Typography variant="body2" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>{c.texte}</Typography>
+                <Box key={c.id} sx={{ display: 'flex', gap: 1 }}>
+                  <Avatar sx={{ width: 32, height: 32, bgcolor: COLORS.vert, fontSize: '0.75rem', flexShrink: 0 }}>
+                    {initials(c.membre_nom)}
+                  </Avatar>
+                  <Box sx={{ p: 1.25, borderRadius: 3, bgcolor: '#f0f2f5', flex: 1 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, display: 'block' }}>
+                      {c.membre_nom || `#${c.membre}`}
+                    </Typography>
+                    <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{c.texte}</Typography>
+                  </Box>
                 </Box>
               ))}
             </Box>
@@ -345,44 +409,6 @@ export default function News() {
           <Button onClick={() => setOpenComments(null)}>Fermer</Button>
         </DialogActions>
       </Dialog>
-
-      {/* Details dialog */}
-      <Dialog open={!!openDetails} onClose={() => setOpenDetails(null)} maxWidth="md" fullWidth fullScreen={isMobile}>
-        <DialogTitle>Détails de l’actualité</DialogTitle>
-        <DialogContent>
-          {openDetails && (
-            <Box sx={{ py: 1 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.vert, mb: 0.5 }}>
-                {openDetails.titre || '—'}
-              </Typography>
-              <Typography variant="caption" color="text.secondary">
-                {openDetails.auteur_nom || '—'} • {openDetails.date_creation ? new Date(openDetails.date_creation).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
-              </Typography>
-              <Typography variant="body2" sx={{ mt: 2, whiteSpace: 'pre-wrap' }}>
-                {openDetails.contenu || 'Aucun texte.'}
-              </Typography>
-
-              {(openDetails.images || []).length > 0 && (
-                <Box sx={{ mt: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-                  {(openDetails.images || []).map((img) => (
-                    <MediaItem
-                      key={img.id}
-                      media={img}
-                      maxHeight={isMobile ? '70vh' : '75vh'}
-                      dimensions={imageInfos[img.id]}
-                      onDimensions={(w, h) => setImageInfos((prev) => ({ ...prev, [img.id]: { w, h } }))}
-                    />
-                  ))}
-                </Box>
-              )}
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setOpenDetails(null)}>Fermer</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   )
 }
-

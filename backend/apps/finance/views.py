@@ -5,7 +5,7 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db.models import Sum, Q
 from django.utils import timezone
 from decimal import Decimal
-from apps.accounts.permissions import IsAdminOrJewrinFinance, has_admin_access
+from apps.accounts.permissions import IsAdminOrJewrinFinance, has_admin_access, log_audit
 
 from .models import CotisationMensuelle, LeveeFonds, Transaction, Don, ParametresFinanciers, Depense
 from .serializers import CotisationMensuelleSerializer, LeveeFondsSerializer, TransactionSerializer, DonSerializer, ParametresFinanciersSerializer, DepenseSerializer
@@ -133,6 +133,12 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
                     'error': str(e)
                 })
         
+        if created_cotisations:
+            log_audit(
+                request, 'creation', rubrique='finance',
+                description=f"{len(created_cotisations)} cotisation(s) créée(s) en masse ({cotisation_data.get('mois')}/{cotisation_data.get('annee')})",
+            )
+
         if created_cotisations or skipped_count > 0:
             response_data = {
                 'created_count': len(created_cotisations),
@@ -152,11 +158,24 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
             )
 
     def perform_update(self, serializer):
+        statut_avant = serializer.instance.statut
         instance = serializer.save()
         if instance.statut == 'payee' and not instance.date_paiement:
             from django.utils import timezone
             instance.date_paiement = timezone.now()
             instance.save(update_fields=['date_paiement'])
+        if instance.statut == 'payee' and statut_avant != 'payee':
+            log_audit(
+                self.request, 'validation_paiement', rubrique='finance', objet=instance,
+                description=f"Paiement validé : {instance.membre.get_full_name()} — {instance.montant} FCFA ({instance.mois}/{instance.annee})",
+            )
+
+    def perform_destroy(self, instance):
+        log_audit(
+            self.request, 'suppression', rubrique='finance', objet=instance,
+            description=f"Cotisation supprimée : {instance.membre.get_full_name()} — {instance.montant} FCFA ({instance.mois}/{instance.annee})",
+        )
+        instance.delete()
 
     @action(detail=False, methods=['get'])
     def statistiques(self, request):
@@ -421,7 +440,18 @@ class DepenseViewSet(viewsets.ModelViewSet):
     filterset_fields = ['categorie', 'statut']
 
     def perform_create(self, serializer):
-        serializer.save(cree_par=self.request.user)
+        depense = serializer.save(cree_par=self.request.user)
+        log_audit(
+            self.request, 'creation', rubrique='finance', objet=depense,
+            description=f"Dépense créée : {depense.motif} — {depense.montant} FCFA ({depense.categorie})",
+        )
+
+    def perform_destroy(self, instance):
+        log_audit(
+            self.request, 'suppression', rubrique='finance', objet=instance,
+            description=f"Dépense supprimée : {instance.motif} — {instance.montant} FCFA",
+        )
+        instance.delete()
 
     @action(detail=True, methods=['post'])
     def valider(self, request, pk=None):
@@ -431,6 +461,10 @@ class DepenseViewSet(viewsets.ModelViewSet):
         depense.valide_par = request.user
         depense.date_validation = timezone.now()
         depense.save(update_fields=['statut', 'valide_par', 'date_validation'])
+        log_audit(
+            request, 'validation_paiement', rubrique='finance', objet=depense,
+            description=f"Dépense validée : {depense.motif} — {depense.montant} FCFA",
+        )
         return Response(DepenseSerializer(depense).data)
 
     @action(detail=True, methods=['post'])
@@ -441,6 +475,10 @@ class DepenseViewSet(viewsets.ModelViewSet):
         depense.valide_par = request.user
         depense.date_validation = timezone.now()
         depense.save(update_fields=['statut', 'valide_par', 'date_validation'])
+        log_audit(
+            request, 'modification', rubrique='finance', objet=depense,
+            description=f"Dépense refusée : {depense.motif} — {depense.montant} FCFA",
+        )
         return Response(DepenseSerializer(depense).data)
 
 

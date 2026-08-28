@@ -10,7 +10,7 @@ from .models import (
     ParticipationEvenement, Publication, Annonce, GalerieMedia,
     NewsPost, NewsImage, NewsLike, NewsBookmark, NewsComment,
 )
-from apps.accounts.permissions import IsAdminOrJewrinInformations, has_rubrique_access
+from apps.accounts.permissions import IsAdminOrJewrinInformations, has_rubrique_access, log_audit
 from apps.communication.push import send_push_to_user
 from .serializers import (
     GroupeSerializer, EvenementSerializer, EvenementCommentSerializer, ParticipationEvenementSerializer,
@@ -228,6 +228,7 @@ class NewsPostViewSet(viewsets.ModelViewSet):
     queryset = NewsPost.objects.all()
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    filterset_fields = ['auteur']
 
     def get_queryset(self):
         qs = (
@@ -251,6 +252,10 @@ class NewsPostViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         serializer.save(auteur=self.request.user)
 
+    def perform_destroy(self, instance):
+        log_audit(self.request, 'suppression', rubrique='informations', objet=instance, description=f"Actualité supprimée : {instance.titre or instance.contenu[:50]}")
+        instance.delete()
+
     def create(self, request, *args, **kwargs):
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
@@ -264,6 +269,7 @@ class NewsPostViewSet(viewsets.ModelViewSet):
             ]
             NewsImage.objects.bulk_create(batch)
 
+        log_audit(request, 'creation', rubrique='informations', objet=post, description=f"Actualité publiée : {post.titre or post.contenu[:50]}")
         out = self.get_serializer(post)
         return Response(out.data, status=status.HTTP_201_CREATED)
 

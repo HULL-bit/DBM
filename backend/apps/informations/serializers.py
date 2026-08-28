@@ -109,6 +109,8 @@ class NewsCommentSerializer(serializers.ModelSerializer):
 
 class NewsPostSerializer(serializers.ModelSerializer):
     auteur_nom = serializers.CharField(source='auteur.get_full_name', read_only=True)
+    auteur_photo = serializers.ImageField(source='auteur.photo', read_only=True)
+    auteur_photo_updated_at = serializers.DateTimeField(source='auteur.photo_updated_at', read_only=True)
     images = NewsImageSerializer(many=True, read_only=True)
     nb_likes = serializers.SerializerMethodField()
     nb_comments = serializers.SerializerMethodField()
@@ -119,7 +121,7 @@ class NewsPostSerializer(serializers.ModelSerializer):
         model = NewsPost
         fields = [
             'id',
-            'auteur', 'auteur_nom',
+            'auteur', 'auteur_nom', 'auteur_photo', 'auteur_photo_updated_at',
             'titre', 'contenu', 'est_publie',
             'date_creation', 'date_modification',
             'images',

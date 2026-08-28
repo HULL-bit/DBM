@@ -5,7 +5,7 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from apps.accounts.permissions import IsAdminOrJewrinCommunication, has_admin_access, has_rubrique_access
+from apps.accounts.permissions import IsAdminOrJewrinCommunication, has_admin_access, has_rubrique_access, log_audit
 
 from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal, AbonnementPush
 from .push import send_push_to_user
@@ -476,6 +476,7 @@ class CanalViewSet(viewsets.ModelViewSet):
             membre = CustomUser.objects.filter(id=uid_int, is_active=True).first()
             if membre:
                 MembreCanal.objects.get_or_create(canal=canal, user=membre)
+        log_audit(self.request, 'creation', rubrique='communication', objet=canal, description=f"Canal créé : {canal.nom}")
 
     def destroy(self, request, *args, **kwargs):
         canal = self.get_object()
@@ -483,6 +484,7 @@ class CanalViewSet(viewsets.ModelViewSet):
             return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
         canal.est_actif = False
         canal.save(update_fields=['est_actif'])
+        log_audit(request, 'suppression', rubrique='communication', objet=canal, description=f"Canal supprimé : {canal.nom}")
         return Response(status=status.HTTP_204_NO_CONTENT)
 
     @action(detail=True, methods=['post'], url_path='ajouter-membres')
