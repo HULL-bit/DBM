@@ -53,7 +53,11 @@ api.interceptors.response.use(
           }
           localStorage.removeItem('access')
           localStorage.removeItem('refresh')
-          window.location.href = '/login'
+          // Pas de redirection brutale ici : un token périmé ne doit pas éjecter un visiteur
+          // qui n'était même pas connecté (ex: sur l'Accueil) vers /login. On se contente de
+          // nettoyer la session ; AuthContext repasse user à null et le routeur (App.jsx)
+          // affichera Accueil, ou redirigera en douceur si on était sur une page protégée.
+          window.dispatchEvent(new Event('auth:logout'))
         }
       }
     }

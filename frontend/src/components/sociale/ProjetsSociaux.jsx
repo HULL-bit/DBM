@@ -27,6 +27,8 @@ import {
 import { Add, Edit, Delete } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import usePagination from '../../hooks/usePagination'
+import TablePaginationFr from '../ui/TablePaginationFr'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 const STATUTS = [
@@ -49,6 +51,7 @@ export default function ProjetsSociaux() {
   const { user, peut } = useAuth()
   const isAdmin = user?.role === 'admin' || peut('sociale', 'gerer')
   const [list, setList] = useState([])
+  const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage, paginate } = usePagination(list.length)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [openForm, setOpenForm] = useState(false)
@@ -284,7 +287,7 @@ export default function ProjetsSociaux() {
               {list.length === 0 ? (
                 <TableRow><TableCell colSpan={8} align="center">Aucun projet</TableCell></TableRow>
               ) : (
-                list.map((p) => (
+                paginate(list).map((p) => (
                   <TableRow key={p.id}>
                     <TableCell>{p.titre}</TableCell>
                     <TableCell><Chip size="small" label={p.categorie_display || p.categorie} /></TableCell>
@@ -310,13 +313,22 @@ export default function ProjetsSociaux() {
               )}
             </TableBody>
           </Table>
+          {list.length > 0 && (
+            <TablePaginationFr
+              count={list.length}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          )}
         </TableContainer>
       ) : (
         <Grid container spacing={2}>
           {list.length === 0 ? (
             <Grid item xs={12}><Typography color="text.secondary">Aucun projet pour le moment.</Typography></Grid>
           ) : (
-            list.map((p) => (
+            paginate(list).map((p) => (
               <Grid item xs={12} md={6} key={p.id}>
                 <Card sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
                   <CardContent>
@@ -330,6 +342,15 @@ export default function ProjetsSociaux() {
             ))
           )}
         </Grid>
+      )}
+      {!isAdmin && list.length > 0 && (
+        <TablePaginationFr
+          count={list.length}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       )}
 
       <Dialog open={openForm} onClose={() => { setOpenForm(false); setEditingId(null) }} maxWidth="sm" fullWidth>

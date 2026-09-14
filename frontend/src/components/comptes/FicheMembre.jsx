@@ -11,6 +11,8 @@ import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
 import CarteMembre from './CarteMembre'
 import BadgeMissionCard from './BadgeMissionCard'
+import usePagination from '../../hooks/usePagination'
+import TablePaginationFr from '../ui/TablePaginationFr'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
@@ -40,6 +42,8 @@ export default function FicheMembre() {
   const [membre, setMembre] = useState(null)
   const [cotisations, setCotisations] = useState([])
   const [transactions, setTransactions] = useState([])
+  const cotisationsPagination = usePagination(cotisations.length)
+  const transactionsPagination = usePagination(transactions.length)
   const [jukkis, setJukkis] = useState([])
   const [versements, setVersements] = useState([])
   const [presences, setPresences] = useState([])
@@ -367,7 +371,7 @@ export default function FicheMembre() {
               <TableContainer><Table size="small">
                 <TableHead><TableRow><TableCell>Type</TableCell><TableCell>Période</TableCell><TableCell align="right">Montant</TableCell><TableCell>Statut</TableCell></TableRow></TableHead>
                 <TableBody>
-                  {cotisations.map(c => (
+                  {cotisationsPagination.paginate(cotisations).map(c => (
                     <TableRow key={c.id}>
                       <TableCell>{c.type_cotisation === 'assignation' ? (c.objet_assignation || 'Assignation') : 'Mensualité'}</TableCell>
                       <TableCell>{c.mois}/{c.annee}</TableCell>
@@ -376,7 +380,15 @@ export default function FicheMembre() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table></TableContainer>
+              </Table>
+              <TablePaginationFr
+                count={cotisations.length}
+                page={cotisationsPagination.page}
+                rowsPerPage={cotisationsPagination.rowsPerPage}
+                onPageChange={cotisationsPagination.handleChangePage}
+                onRowsPerPageChange={cotisationsPagination.handleChangeRowsPerPage}
+              />
+              </TableContainer>
             )}
           </SectionCard>
           <SectionCard title="Samayy SASS">
@@ -384,7 +396,7 @@ export default function FicheMembre() {
               <TableContainer><Table size="small">
                 <TableHead><TableRow><TableCell>Type</TableCell><TableCell align="right">Montant</TableCell><TableCell>Statut</TableCell><TableCell>Date</TableCell></TableRow></TableHead>
                 <TableBody>
-                  {transactions.map(t => (
+                  {transactionsPagination.paginate(transactions).map(t => (
                     <TableRow key={t.id}>
                       <TableCell>{t.type_display || t.type_transaction}</TableCell>
                       <TableCell align="right">{Number(t.montant).toLocaleString('fr-FR')} FCFA</TableCell>
@@ -393,7 +405,15 @@ export default function FicheMembre() {
                     </TableRow>
                   ))}
                 </TableBody>
-              </Table></TableContainer>
+              </Table>
+              <TablePaginationFr
+                count={transactions.length}
+                page={transactionsPagination.page}
+                rowsPerPage={transactionsPagination.rowsPerPage}
+                onPageChange={transactionsPagination.handleChangePage}
+                onRowsPerPageChange={transactionsPagination.handleChangeRowsPerPage}
+              />
+              </TableContainer>
             )}
           </SectionCard>
         </>

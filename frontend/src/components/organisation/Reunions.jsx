@@ -24,6 +24,8 @@ import {
 } from '@mui/material'
 import { Add, Edit, Delete, ArrowBack } from '@mui/icons-material'
 import api from '../../services/api'
+import usePagination from '../../hooks/usePagination'
+import TablePaginationFr from '../ui/TablePaginationFr'
 import { useAuth } from '../../context/AuthContext'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
@@ -40,6 +42,7 @@ export default function Reunions({ onBack }) {
   const isAdmin = user?.role === 'admin' || peut('organisation', 'gerer')
   // Activités / réunions
   const [list, setList] = useState([])
+  const listPagination = usePagination(list.length)
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })
   const [openForm, setOpenForm] = useState(false)
@@ -58,6 +61,7 @@ export default function Reunions({ onBack }) {
 
   // Matériels du daara
   const [materiels, setMateriels] = useState([])
+  const materielsPagination = usePagination(materiels.length)
   const [loadingMateriels, setLoadingMateriels] = useState(true)
   const [stats, setStats] = useState({
     total_types: 0,
@@ -499,7 +503,7 @@ export default function Reunions({ onBack }) {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  materiels.map((m) => {
+                  materielsPagination.paginate(materiels).map((m) => {
                     const total = m.quantite_totale || 0
                     const dispo = m.quantite_disponible || 0
                     const pctDispo = total ? Math.round(1000 * dispo / total) / 10 : 0
@@ -528,6 +532,15 @@ export default function Reunions({ onBack }) {
                 )}
               </TableBody>
             </Table>
+            {materiels.length > 0 && (
+              <TablePaginationFr
+                count={materiels.length}
+                page={materielsPagination.page}
+                rowsPerPage={materielsPagination.rowsPerPage}
+                onPageChange={materielsPagination.handleChangePage}
+                onRowsPerPageChange={materielsPagination.handleChangeRowsPerPage}
+              />
+            )}
           </TableContainer>
         )}
       </Box>
@@ -550,7 +563,7 @@ export default function Reunions({ onBack }) {
               {list.length === 0 ? (
                 <TableRow><TableCell colSpan={isAdmin ? 6 : 5} align="center">Aucune activité</TableCell></TableRow>
               ) : (
-                list.map((r) => (
+                listPagination.paginate(list).map((r) => (
                   <TableRow key={r.id}>
                     <TableCell>{r.titre}</TableCell>
                     <TableCell>{new Date(r.date_reunion).toLocaleString('fr-FR')}</TableCell>
@@ -568,6 +581,15 @@ export default function Reunions({ onBack }) {
               )}
             </TableBody>
           </Table>
+          {list.length > 0 && (
+            <TablePaginationFr
+              count={list.length}
+              page={listPagination.page}
+              rowsPerPage={listPagination.rowsPerPage}
+              onPageChange={listPagination.handleChangePage}
+              onRowsPerPageChange={listPagination.handleChangeRowsPerPage}
+            />
+          )}
         </TableContainer>
       )}
 

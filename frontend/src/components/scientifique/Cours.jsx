@@ -27,6 +27,8 @@ import {
 import { Add, Edit, Delete } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import usePagination from '../../hooks/usePagination'
+import TablePaginationFr from '../ui/TablePaginationFr'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 const NIVEAUX = [
@@ -64,6 +66,7 @@ export default function Cours() {
     prerequis: '',
   })
   const [fieldErrors, setFieldErrors] = useState({})
+  const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage, paginate } = usePagination(list.length)
 
   const loadList = () => {
     setLoading(true)
@@ -214,7 +217,7 @@ export default function Cours() {
               {list.length === 0 ? (
                 <TableRow><TableCell colSpan={6} align="center">Aucun cours</TableCell></TableRow>
               ) : (
-                list.map((c) => (
+                paginate(list).map((c) => (
                   <TableRow key={c.id}>
                     <TableCell>{c.code}</TableCell>
                     <TableCell>{c.titre}</TableCell>
@@ -230,13 +233,22 @@ export default function Cours() {
               )}
             </TableBody>
           </Table>
+          {list.length > 0 && (
+            <TablePaginationFr
+              count={list.length}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          )}
         </TableContainer>
       ) : (
         <Grid container spacing={2}>
           {list.length === 0 ? (
             <Grid item xs={12}><Typography color="text.secondary">Aucun cours disponible.</Typography></Grid>
           ) : (
-            list.map((c) => (
+            paginate(list).map((c) => (
               <Grid item xs={12} md={6} key={c.id}>
                 <Card sx={{ borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
                   <CardContent>
@@ -250,6 +262,15 @@ export default function Cours() {
             ))
           )}
         </Grid>
+      )}
+      {!isAdmin && list.length > 0 && (
+        <TablePaginationFr
+          count={list.length}
+          page={page}
+          rowsPerPage={rowsPerPage}
+          onPageChange={handleChangePage}
+          onRowsPerPageChange={handleChangeRowsPerPage}
+        />
       )}
 
       <Dialog open={openForm} onClose={() => { setOpenForm(false); setEditingId(null) }} maxWidth="sm" fullWidth>

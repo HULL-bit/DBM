@@ -12,6 +12,8 @@ import {
 } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
+import usePagination from '../../hooks/usePagination'
+import TablePaginationFr from '../ui/TablePaginationFr'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029', vertClair: '#3d7a52' }
 
@@ -232,6 +234,8 @@ export default function GestionMembres() {
     return matchSearch && matchSexe && matchCat && matchProf && matchCellule && matchGS && matchNQ && matchNM && matchStatut && matchRole
   })
 
+  const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage, paginate } = usePagination(filteredList.length)
+
   const totalActifs = list.filter(u => u.est_actif).length
   const totalInactifs = list.length - totalActifs
   const tauxActifs = list.length ? Math.round((totalActifs / list.length) * 100) : 0
@@ -450,7 +454,7 @@ export default function GestionMembres() {
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredList.map((u, idx) => {
+                paginate(filteredList).map((u, idx) => {
                   const ri = roleInfo(u.role)
                   return (
                     <TableRow
@@ -518,6 +522,15 @@ export default function GestionMembres() {
               )}
             </TableBody>
           </Table>
+          {filteredList.length > 0 && (
+            <TablePaginationFr
+              count={filteredList.length}
+              page={page}
+              rowsPerPage={rowsPerPage}
+              onPageChange={handleChangePage}
+              onRowsPerPageChange={handleChangeRowsPerPage}
+            />
+          )}
         </TableContainer>
       )}
 

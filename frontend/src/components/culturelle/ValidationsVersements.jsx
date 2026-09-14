@@ -24,6 +24,8 @@ import {
 } from '@mui/material'
 import { CheckCircle, Cancel, HourglassEmpty, Payment } from '@mui/icons-material'
 import api from '../../services/api'
+import usePagination from '../../hooks/usePagination'
+import TablePaginationFr from '../ui/TablePaginationFr'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
@@ -82,6 +84,7 @@ export default function ValidationsVersements() {
 
   const enAttente = versements.filter((v) => v.statut === 'en_attente')
   const traites = versements.filter((v) => v.statut !== 'en_attente')
+  const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage, paginate } = usePagination(traites.length)
 
   return (
     <Box>
@@ -188,7 +191,7 @@ export default function ValidationsVersements() {
                       </TableRow>
                     </TableHead>
                     <TableBody>
-                      {traites.map((v) => (
+                      {paginate(traites).map((v) => (
                         <TableRow key={v.id}>
                           <TableCell>{v.membre_nom || '—'}</TableCell>
                           <TableCell>{v.chapitre_titre || `Juzz ${v.chapitre_numero}`}</TableCell>
@@ -207,6 +210,13 @@ export default function ValidationsVersements() {
                       ))}
                     </TableBody>
                   </Table>
+                  <TablePaginationFr
+                    count={traites.length}
+                    page={page}
+                    rowsPerPage={rowsPerPage}
+                    onPageChange={handleChangePage}
+                    onRowsPerPageChange={handleChangeRowsPerPage}
+                  />
                 </TableContainer>
               )}
             </CardContent>

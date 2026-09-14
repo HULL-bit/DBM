@@ -39,6 +39,17 @@ export function AuthProvider({ children }) {
     return () => clearInterval(t)
   }, [user?.id])
 
+  useEffect(() => {
+    // Déclenché par l'intercepteur axios (services/api.js) quand un refresh de token échoue,
+    // pour repasser l'état en "déconnecté" sans recharger toute la page.
+    const onAuthLogout = () => {
+      setUser(null)
+      setPermissions(null)
+    }
+    window.addEventListener('auth:logout', onAuthLogout)
+    return () => window.removeEventListener('auth:logout', onAuthLogout)
+  }, [])
+
   /** peut('communication', 'creer') → true/false selon les permissions effectives (rôle + exception membre) */
   const peut = (rubrique, action = 'voir') => {
     if (!permissions) return false

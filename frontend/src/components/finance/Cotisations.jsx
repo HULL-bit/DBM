@@ -33,6 +33,8 @@ import {
 import { Add, Edit, Delete, Payment, TableChart } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import usePagination from '../../hooks/usePagination'
+import TablePaginationFr from '../ui/TablePaginationFr'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 const WAVE_PAYMENT_URL = 'https://pay.wave.com/m/M_sn_A4og8Zu7m589/c/sn/'
@@ -442,6 +444,8 @@ export default function Cotisations() {
     return typeOk && objetOk && moisOk && anneeOk && membreOk && statutOk
   })
 
+  const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage, paginate } = usePagination(filteredList.length)
+
   // Détails assignations par objet selon les filtres — chaque objet réellement utilisé (y
   // compris un nom personnalisé tapé à la création) apparaît sous son propre libellé ; seules
   // les assignations sans objet précisé tombent dans "AUTRES".
@@ -741,7 +745,7 @@ export default function Cotisations() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {filteredList.map((c) => {
+              {paginate(filteredList).map((c) => {
                 const isAssignation = c.type_cotisation === 'assignation'
                 const isPaid = String(c.statut || '').toLowerCase() === 'payee'
                 const canPay = canPayCotisation(c)
@@ -816,6 +820,13 @@ export default function Cotisations() {
               })}
             </TableBody>
           </Table>
+          <TablePaginationFr
+            count={filteredList.length}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
         </TableContainer>
         </>
       )}

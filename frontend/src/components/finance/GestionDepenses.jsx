@@ -28,6 +28,8 @@ import {
 import { Add, Delete, CheckCircle, Cancel, TableChart, PictureAsPdf, AttachFile } from '@mui/icons-material'
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
+import usePagination from '../../hooks/usePagination'
+import TablePaginationFr from '../ui/TablePaginationFr'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
@@ -89,6 +91,7 @@ export default function GestionDepenses() {
   const [openForm, setOpenForm] = useState(false)
   const [saving, setSaving] = useState(false)
   const [form, setForm] = useState({ motif: '', categorie: 'AUTRES', montant: '', date_depense: '', notes: '', justificatif: null })
+  const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage, paginate } = usePagination(depenses.length)
 
   const loadDepenses = () => {
     setLoadingDepenses(true)
@@ -279,7 +282,7 @@ export default function GestionDepenses() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {depenses.map((d) => (
+                  {paginate(depenses).map((d) => (
                     <TableRow key={d.id} hover>
                       <TableCell>
                         {d.motif}
@@ -307,6 +310,13 @@ export default function GestionDepenses() {
                   ))}
                 </TableBody>
               </Table>
+              <TablePaginationFr
+                count={depenses.length}
+                page={page}
+                rowsPerPage={rowsPerPage}
+                onPageChange={handleChangePage}
+                onRowsPerPageChange={handleChangeRowsPerPage}
+              />
             </TableContainer>
           )}
         </Box>

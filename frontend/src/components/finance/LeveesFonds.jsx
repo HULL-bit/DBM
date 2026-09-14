@@ -28,6 +28,8 @@ import {
 import { Add, Edit, Delete, Payment } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import usePagination from '../../hooks/usePagination'
+import TablePaginationFr from '../ui/TablePaginationFr'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 const WAVE_PAYMENT_URL = 'https://pay.wave.com/m/M_sn_A4og8Zu7m589/c/sn/'
@@ -68,6 +70,7 @@ export default function LeveesFonds() {
   const [pendingTx, setPendingTx] = useState([])
   const [loadingPending, setLoadingPending] = useState(false)
   const [validatingTxId, setValidatingTxId] = useState(null)
+  const pendingPagination = usePagination(pendingTx.length)
 
   const loadList = () => {
     setLoading(true)
@@ -358,7 +361,7 @@ export default function LeveesFonds() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {pendingTx.map((tx) => {
+                  {pendingPagination.paginate(pendingTx).map((tx) => {
                     const levee = list.find((lf) => lf.id === tx.levee_fonds)
                     return (
                       <TableRow key={tx.id}>
@@ -391,6 +394,13 @@ export default function LeveesFonds() {
                   })}
                 </TableBody>
               </Table>
+              <TablePaginationFr
+                count={pendingTx.length}
+                page={pendingPagination.page}
+                rowsPerPage={pendingPagination.rowsPerPage}
+                onPageChange={pendingPagination.handleChangePage}
+                onRowsPerPageChange={pendingPagination.handleChangeRowsPerPage}
+              />
             </TableContainer>
           )}
         </Paper>
