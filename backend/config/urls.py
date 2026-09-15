@@ -114,11 +114,22 @@ urlpatterns = [
     path('api/', include('apps.bibliotheque.urls')),
 ]
 
+def _serve_media(request, path, document_root=None, show_indexes=False):
+    response = serve_static(request, path, document_root=document_root, show_indexes=show_indexes)
+    # Render sert ce backend derrière Cloudflare, qui met en cache par défaut certaines
+    # extensions (pdf, jpg, ...) même sans instruction de l'origine. Sans ce header, un
+    # ancien en-tête X-Frame-Options bloquant (mis en cache avant ce correctif, ou après un
+    # futur changement similaire) pourrait rester servi depuis l'edge Cloudflare au lieu de
+    # repartir de la réponse fraîche de Django.
+    response['Cache-Control'] = 'no-store'
+    return response
+
+
 if settings.DEBUG:
     # Exempté de X-Frame-Options (DENY par défaut) : ces fichiers (photos, PDF, audio) sont
     # déjà publics et doivent pouvoir s'afficher dans une <iframe> de la plateforme (ex :
     # lecture du PDF d'un TERE dans Majaaliss). Le reste du site garde sa protection.
     media_pattern = re.escape(settings.MEDIA_URL.lstrip('/'))
     urlpatterns += [
-        re_path(rf'^{media_pattern}(?P<path>.*)$', xframe_options_exempt(serve_static), {'document_root': settings.MEDIA_ROOT}),
+        re_path(rf'^{media_pattern}(?P<path>.*)$', xframe_options_exempt(_serve_media), {'document_root': settings.MEDIA_ROOT}),
     ]
