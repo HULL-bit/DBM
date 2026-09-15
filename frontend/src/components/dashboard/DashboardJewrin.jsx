@@ -4,7 +4,7 @@ import {
   Box, Grid, Card, CardContent, Typography, Button, Chip, Badge, LinearProgress, Avatar,
 } from '@mui/material'
 import {
-  CheckCircle, MenuBook, Mosque, Add, School, TrendingUp, People,
+  CheckCircle, MenuBook, AutoStories, QuestionAnswer, School, TrendingUp, People,
   Message, ArrowForward, Warning,
 } from '@mui/icons-material'
 import { useAuth } from '../../context/AuthContext'
@@ -183,7 +183,7 @@ export default function DashboardJewrin() {
           <KpiCard label="Programme Kamil" value="Actif" icon={MenuBook} color={C.vert} />
         </Grid>
         <Grid item xs={6} sm={4} md={3}>
-          <KpiCard label="Activités religieuses" value="—" icon={Mosque} color={C.or} />
+          <KpiCard label="Majaaliss" value="Actif" icon={AutoStories} color={C.or} />
         </Grid>
       </Grid>
 
@@ -213,8 +213,8 @@ export default function DashboardJewrin() {
                 <Typography variant="h6" sx={{ color: C.vertFonce, fontFamily: '"Cormorant Garamond", serif', fontWeight: 700 }}>Activités & Communication</Typography>
               </Box>
               <Box display="flex" flexDirection="column" gap={1.2}>
-                <ActionBtn label="Créer une activité religieuse" icon={Add} onClick={() => navigate('/culturelle/activites-religieuses')} />
-                <ActionBtn label="Gérer les activités religieuses" icon={Mosque} onClick={() => navigate('/culturelle/activites-religieuses')} />
+                <ActionBtn label="Majaaliss (TERE / BIND)" icon={AutoStories} onClick={() => navigate('/culturelle/majaaliss')} />
+                <ActionBtn label="LAAJ" icon={QuestionAnswer} onClick={() => navigate('/culturelle/laaj')} />
                 <ActionBtn label="Messagerie" icon={Message} onClick={() => navigate('/communication/messagerie')} badge={unreadMessages} />
                 <ActionBtn label="Statistiques Kamil" icon={TrendingUp} onClick={() => navigate('/culturelle/statistiques')} />
               </Box>

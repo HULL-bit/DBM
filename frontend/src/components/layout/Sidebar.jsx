@@ -21,7 +21,6 @@ import {
   AccountBalance as FinanceIcon,
   MenuBook as KamilIcon,
   CheckCircle as ValidIcon,
-  Mosque as MosqueIcon,
   Message as MessageIcon,
   Notifications as NotifIcon,
   VolunteerActivism as SocialIcon,
@@ -88,7 +87,6 @@ const sectionsAdmin = [
       { label: 'Majaaliss', path: '/culturelle/majaaliss', icon: <MajaalissIcon />, rubrique: 'culturelle' },
       { label: 'LAAJ', path: '/culturelle/laaj', icon: <LaajIcon />, rubrique: 'culturelle' },
       { label: 'Thème culturel', path: '/culturelle/theme-culturelle', icon: <ThemeCulturelleIcon />, rubrique: 'culturelle' },
-      { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon />, rubrique: 'culturelle' },
     ],
   },
   {
@@ -140,7 +138,6 @@ const sectionsMembre = [
       { label: 'Majaaliss', path: '/culturelle/majaaliss', icon: <MajaalissIcon />, rubrique: 'culturelle' },
       { label: 'LAAJ', path: '/culturelle/laaj', icon: <LaajIcon />, rubrique: 'culturelle' },
       { label: 'Thème culturel', path: '/culturelle/theme-culturelle', icon: <ThemeCulturelleIcon />, rubrique: 'culturelle' },
-      { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon />, rubrique: 'culturelle' },
     ],
   },
   {
@@ -175,7 +172,6 @@ const sectionsJewrin = [
       { label: 'Majaaliss', path: '/culturelle/majaaliss', icon: <MajaalissIcon />, rubrique: 'culturelle' },
       { label: 'LAAJ', path: '/culturelle/laaj', icon: <LaajIcon />, rubrique: 'culturelle' },
       { label: 'Thème culturel', path: '/culturelle/theme-culturelle', icon: <ThemeCulturelleIcon />, rubrique: 'culturelle' },
-      { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon />, rubrique: 'culturelle' },
     ],
   },
   { title: 'Informations', items: [
