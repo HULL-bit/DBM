@@ -5,7 +5,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
   Alert, CircularProgress, Chip, Paper, Autocomplete, Divider,
 } from '@mui/material'
-import { Add, CheckCircle, RestartAlt, Mic, Stop, Delete, MenuBook, Visibility, PictureAsPdf } from '@mui/icons-material'
+import { Add, CheckCircle, RestartAlt, Mic, Stop, Delete, MenuBook, Visibility, PictureAsPdf, Download, Close } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { getMediaUrl } from '../../services/media'
@@ -33,6 +33,7 @@ export default function Majaaliss() {
   const [savingBind, setSavingBind] = useState(false)
   const [enregistrement, setEnregistrement] = useState(false)
   const [savingPdf, setSavingPdf] = useState(false)
+  const [pdfViewer, setPdfViewer] = useState(null)
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
 
@@ -327,9 +328,21 @@ export default function Majaaliss() {
             <DialogContent>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
                 {detail.fichier_pdf ? (
-                  <Button startIcon={<PictureAsPdf />} href={getMediaUrl(detail.fichier_pdf)} target="_blank" rel="noopener noreferrer" sx={{ color: C.vert }}>
-                    Ouvrir le livre (PDF)
-                  </Button>
+                  <>
+                    <Button startIcon={<PictureAsPdf />} onClick={() => setPdfViewer(detail)} sx={{ color: C.vert }}>
+                      Lire le livre
+                    </Button>
+                    <Button
+                      startIcon={<Download />}
+                      href={getMediaUrl(detail.fichier_pdf)}
+                      download={`${detail.nom_tere}.pdf`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      sx={{ color: C.vertFonce }}
+                    >
+                      Télécharger
+                    </Button>
+                  </>
                 ) : (
                   <Typography variant="caption" color="text.secondary">Aucun PDF du livre pour ce TERE.</Typography>
                 )}
@@ -428,6 +441,38 @@ export default function Majaaliss() {
                 )
               )}
               <Button onClick={() => setDetail(null)}>Fermer</Button>
+            </DialogActions>
+          </>
+        )}
+      </Dialog>
+
+      {/* Lecture du PDF intégrée à la plateforme */}
+      <Dialog open={!!pdfViewer} onClose={() => setPdfViewer(null)} maxWidth="md" fullWidth>
+        {pdfViewer && (
+          <>
+            <DialogTitle sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', color: C.vert }}>
+              {pdfViewer.nom_tere}
+              <IconButton onClick={() => setPdfViewer(null)}><Close /></IconButton>
+            </DialogTitle>
+            <DialogContent sx={{ p: 0, height: '75vh' }}>
+              <iframe
+                src={getMediaUrl(pdfViewer.fichier_pdf)}
+                title={`Livre — ${pdfViewer.nom_tere}`}
+                style={{ width: '100%', height: '100%', border: 'none' }}
+              />
+            </DialogContent>
+            <DialogActions>
+              <Button
+                startIcon={<Download />}
+                href={getMediaUrl(pdfViewer.fichier_pdf)}
+                download={`${pdfViewer.nom_tere}.pdf`}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ color: C.vert }}
+              >
+                Télécharger
+              </Button>
+              <Button onClick={() => setPdfViewer(null)}>Fermer</Button>
             </DialogActions>
           </>
         )}

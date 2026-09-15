@@ -1,9 +1,11 @@
+import re
 from datetime import date
 from django.contrib import admin
-from django.urls import path, include
+from django.urls import path, re_path, include
 from django.conf import settings
-from django.conf.urls.static import static
 from django.http import JsonResponse, HttpResponse
+from django.views.static import serve as serve_static
+from django.views.decorators.clickjacking import xframe_options_exempt
 
 def root(request):
     """Réponse sur la racine pour éviter 404."""
@@ -113,4 +115,10 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)
+    # Exempté de X-Frame-Options (DENY par défaut) : ces fichiers (photos, PDF, audio) sont
+    # déjà publics et doivent pouvoir s'afficher dans une <iframe> de la plateforme (ex :
+    # lecture du PDF d'un TERE dans Majaaliss). Le reste du site garde sa protection.
+    media_pattern = re.escape(settings.MEDIA_URL.lstrip('/'))
+    urlpatterns += [
+        re_path(rf'^{media_pattern}(?P<path>.*)$', xframe_options_exempt(serve_static), {'document_root': settings.MEDIA_ROOT}),
+    ]
