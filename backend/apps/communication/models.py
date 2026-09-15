@@ -179,6 +179,8 @@ class Notification(models.Model):
         ('evenement', 'Événement'),
         ('finance', 'Finance'),
         ('kamil', 'Kamil'),
+        ('majaaliss', 'Majaaliss'),
+        ('laaj', 'LAAJ'),
         ('systeme', 'Système'),
     ]
 

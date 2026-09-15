@@ -17,6 +17,9 @@ import ProgrammeKamil from './components/culturelle/ProgrammeKamil'
 import MesProgressions from './components/culturelle/MesProgressions'
 import ValidationsKamil from './components/culturelle/ValidationsKamil'
 import ActivitesReligieuses from './components/culturelle/ActivitesReligieuses'
+import Majaaliss from './components/culturelle/Majaaliss'
+import Laaj from './components/culturelle/Laaj'
+import ThemeCulturelle from './components/culturelle/ThemeCulturelle'
 import Messagerie from './components/communication/Messagerie'
 import Canaux from './components/communication/Canaux'
 import Notifications from './components/communication/Notifications'
@@ -90,6 +93,9 @@ function AppRoutes() {
         <Route path="culturelle/mes-progressions" element={<MesProgressions />} />
         <Route path="culturelle/validations" element={<ValidationsKamil />} />
         <Route path="culturelle/activites-religieuses" element={<ActivitesReligieuses />} />
+        <Route path="culturelle/majaaliss" element={<Majaaliss />} />
+        <Route path="culturelle/laaj" element={<Laaj />} />
+        <Route path="culturelle/theme-culturelle" element={<ThemeCulturelle />} />
         <Route path="communication/messagerie" element={<Messagerie />} />
         <Route path="communication/canaux" element={<Canaux />} />
         <Route path="communication/notifications" element={<Notifications />} />

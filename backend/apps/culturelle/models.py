@@ -207,6 +207,93 @@ class ParticipationActivite(models.Model):
         return f"{self.membre.get_full_name()} - {self.activite.titre}"
 
 
+# Suggestions courantes de TERE (livres) pour Majaaliss — liste ouverte : le responsable
+# culturelle peut toujours taper un nom différent lors de l'assignation.
+TERE_COURANTS = ['KUN KAATIMAN', 'TAZA WUDU SIXAAR', 'JAWXARATUN NAFIIS', 'NAXJU']
+
+
+class AssignationTere(models.Model):
+    """Majaaliss : un membre assigné à un TERE (livre) spécifique par le responsable
+    culturelle. Le membre progresse dans ce TERE via des BIND successifs (voir Bind),
+    jusqu'à ce qu'il soit marqué terminé — le responsable culturelle l'assigne alors au
+    TERE suivant."""
+    STATUT_CHOICES = [
+        ('en_cours', 'En cours'),
+        ('termine', 'Terminé'),
+    ]
+
+    membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='assignations_tere')
+    nom_tere = models.CharField(
+        max_length=200,
+        help_text="Nom du TERE (livre) : KUN KAATIMAN, TAZA WUDU SIXAAR, JAWXARATUN NAFIIS, NAXJU, ou un autre."
+    )
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_cours')
+    assigne_par = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='tere_assignes'
+    )
+    date_assignation = models.DateTimeField(auto_now_add=True)
+    date_fin = models.DateTimeField(null=True, blank=True)
+
+    class Meta:
+        verbose_name = 'Assignation TERE (Majaaliss)'
+        verbose_name_plural = 'Assignations TERE (Majaaliss)'
+        ordering = ['membre', '-date_assignation']
+
+    def __str__(self):
+        return f"{self.membre.get_full_name()} — {self.nom_tere} ({self.get_statut_display()})"
+
+
+class Bind(models.Model):
+    """Une unité de progression (BIND 1, BIND 2, ...) sur une assignation de TERE : le
+    responsable culturelle y indique la page du TERE couverte et joint un vocal
+    (transcription/récitation) pour ce passage."""
+    assignation = models.ForeignKey(AssignationTere, on_delete=models.CASCADE, related_name='binds')
+    numero = models.PositiveIntegerField(help_text='BIND 1, BIND 2, ... — attribué automatiquement à la création')
+    page = models.CharField(max_length=50, blank=True, help_text='Page(s) du TERE couverte(s) par ce BIND')
+    audio = models.FileField(upload_to='majaaliss/binds/audio/', help_text='Vocal du jewrine culturelle (transcription)')
+    notes = models.TextField(blank=True)
+    cree_par = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='binds_crees')
+    date_creation = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        unique_together = ['assignation', 'numero']
+        verbose_name = 'BIND'
+        verbose_name_plural = 'BINDs'
+        ordering = ['assignation', 'numero']
+
+    def __str__(self):
+        return f"BIND {self.numero} — {self.assignation}"
+
+
+class Laaj(models.Model):
+    """LAAJ : un membre pose une question religieuse (par écrit ou par vocal), le
+    responsable culturelle y répond (par écrit ou par vocal)."""
+    STATUT_CHOICES = [
+        ('en_attente', 'En attente de réponse'),
+        ('repondu', 'Répondu'),
+    ]
+
+    membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='laaj_questions')
+    question = models.TextField(blank=True)
+    question_audio = models.FileField(upload_to='laaj/questions/audio/', null=True, blank=True)
+    date_question = models.DateTimeField(auto_now_add=True)
+    reponse = models.TextField(blank=True)
+    reponse_audio = models.FileField(upload_to='laaj/reponses/audio/', null=True, blank=True)
+    repondu_par = models.ForeignKey(
+        CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='laaj_reponses'
+    )
+    date_reponse = models.DateTimeField(null=True, blank=True)
+    statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_attente')
+
+    class Meta:
+        verbose_name = 'LAAJ (question religieuse)'
+        verbose_name_plural = 'LAAJ (questions religieuses)'
+        ordering = ['-date_question']
+
+    def __str__(self):
+        return f"{self.membre.get_full_name()} — {self.question[:50]}"
+
+
 class Enseignement(models.Model):
     CATEGORIE_CHOICES = [
         ('coran', 'Coran et Tafsir'),

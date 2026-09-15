@@ -34,6 +34,9 @@ import {
   Security as SecurityIcon,
   History as HistoryIcon,
   Forum as CanalIcon,
+  AutoStories as MajaalissIcon,
+  QuestionAnswer as LaajIcon,
+  Style as ThemeCulturelleIcon,
 } from '@mui/icons-material'
 import { Link as RouterLink } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
@@ -82,6 +85,9 @@ const sectionsAdmin = [
     items: [
       { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon />, rubrique: 'culturelle' },
       { label: 'Vue admin JUKKI', path: '/culturelle/validations', icon: <ValidIcon />, rubrique: 'culturelle', action: 'gerer' },
+      { label: 'Majaaliss', path: '/culturelle/majaaliss', icon: <MajaalissIcon />, rubrique: 'culturelle' },
+      { label: 'LAAJ', path: '/culturelle/laaj', icon: <LaajIcon />, rubrique: 'culturelle' },
+      { label: 'Thème culturel', path: '/culturelle/theme-culturelle', icon: <ThemeCulturelleIcon />, rubrique: 'culturelle' },
       { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon />, rubrique: 'culturelle' },
     ],
   },
@@ -131,6 +137,9 @@ const sectionsMembre = [
     items: [
       { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon />, rubrique: 'culturelle' },
       { label: 'Mes JUKKI', path: '/culturelle/mes-progressions', icon: <KamilIcon />, rubrique: 'culturelle' },
+      { label: 'Majaaliss', path: '/culturelle/majaaliss', icon: <MajaalissIcon />, rubrique: 'culturelle' },
+      { label: 'LAAJ', path: '/culturelle/laaj', icon: <LaajIcon />, rubrique: 'culturelle' },
+      { label: 'Thème culturel', path: '/culturelle/theme-culturelle', icon: <ThemeCulturelleIcon />, rubrique: 'culturelle' },
       { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon />, rubrique: 'culturelle' },
     ],
   },
@@ -163,6 +172,9 @@ const sectionsJewrin = [
     items: [
       { label: 'Programme Kamil', path: '/culturelle/kamil', icon: <KamilIcon />, rubrique: 'culturelle' },
       { label: 'Vue admin JUKKI', path: '/culturelle/validations', icon: <ValidIcon />, rubrique: 'culturelle', action: 'gerer' },
+      { label: 'Majaaliss', path: '/culturelle/majaaliss', icon: <MajaalissIcon />, rubrique: 'culturelle' },
+      { label: 'LAAJ', path: '/culturelle/laaj', icon: <LaajIcon />, rubrique: 'culturelle' },
+      { label: 'Thème culturel', path: '/culturelle/theme-culturelle', icon: <ThemeCulturelleIcon />, rubrique: 'culturelle' },
       { label: 'Activités religieuses', path: '/culturelle/activites-religieuses', icon: <MosqueIcon />, rubrique: 'culturelle' },
     ],
   },

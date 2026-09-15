@@ -1,5 +1,8 @@
 from rest_framework import serializers
-from .models import Kamil, Chapitre, Jukki, ProgressionLecture, ActiviteReligieuse, Enseignement, VersementKamil
+from .models import (
+    Kamil, Chapitre, Jukki, ProgressionLecture, ActiviteReligieuse, Enseignement, VersementKamil,
+    AssignationTere, Bind, Laaj,
+)
 
 
 class JukkiSerializer(serializers.ModelSerializer):
@@ -87,6 +90,49 @@ class ActiviteReligieuseSerializer(serializers.ModelSerializer):
         model = ActiviteReligieuse
         fields = '__all__'
         read_only_fields = ['animateur']
+
+
+class BindSerializer(serializers.ModelSerializer):
+    cree_par_nom = serializers.CharField(source='cree_par.get_full_name', read_only=True)
+
+    class Meta:
+        model = Bind
+        fields = '__all__'
+        read_only_fields = ['numero', 'cree_par', 'date_creation']
+
+
+class AssignationTereSerializer(serializers.ModelSerializer):
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    membre_nom = serializers.CharField(source='membre.get_full_name', read_only=True)
+    assigne_par_nom = serializers.CharField(source='assigne_par.get_full_name', read_only=True)
+    binds = BindSerializer(many=True, read_only=True)
+    nb_binds = serializers.SerializerMethodField()
+
+    class Meta:
+        model = AssignationTere
+        fields = '__all__'
+        read_only_fields = ['membre', 'assigne_par', 'date_assignation', 'date_fin']
+
+    def get_nb_binds(self, obj):
+        return obj.binds.count()
+
+
+class LaajSerializer(serializers.ModelSerializer):
+    statut_display = serializers.CharField(source='get_statut_display', read_only=True)
+    membre_nom = serializers.CharField(source='membre.get_full_name', read_only=True)
+    repondu_par_nom = serializers.CharField(source='repondu_par.get_full_name', read_only=True)
+
+    class Meta:
+        model = Laaj
+        fields = '__all__'
+        read_only_fields = ['membre', 'reponse', 'reponse_audio', 'repondu_par', 'date_reponse', 'statut', 'date_question']
+
+    def validate(self, data):
+        question = (data.get('question') or (self.instance.question if self.instance else '') or '').strip()
+        question_audio = data.get('question_audio') or (self.instance.question_audio if self.instance else None)
+        if not question and not question_audio:
+            raise serializers.ValidationError({'question': 'Écrivez votre question ou joignez un vocal.'})
+        return data
 
 
 class EnseignementSerializer(serializers.ModelSerializer):

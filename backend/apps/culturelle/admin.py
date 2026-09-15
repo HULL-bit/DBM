@@ -1,5 +1,8 @@
 from django.contrib import admin
-from .models import Kamil, Chapitre, ProgressionLecture, ActiviteReligieuse, ParticipationActivite, Enseignement
+from .models import (
+    Kamil, Chapitre, ProgressionLecture, ActiviteReligieuse, ParticipationActivite, Enseignement,
+    AssignationTere, Bind, Laaj,
+)
 
 @admin.register(Kamil)
 class KamilAdmin(admin.ModelAdmin):
@@ -23,3 +26,17 @@ class EnseignementAdmin(admin.ModelAdmin):
     list_display = ['titre', 'categorie', 'auteur', 'date_publication']
 
 admin.site.register(ParticipationActivite)
+
+@admin.register(AssignationTere)
+class AssignationTereAdmin(admin.ModelAdmin):
+    list_display = ['membre', 'nom_tere', 'statut', 'date_assignation', 'assigne_par']
+    list_filter = ['statut', 'nom_tere']
+
+@admin.register(Bind)
+class BindAdmin(admin.ModelAdmin):
+    list_display = ['assignation', 'numero', 'page', 'cree_par', 'date_creation']
+
+@admin.register(Laaj)
+class LaajAdmin(admin.ModelAdmin):
+    list_display = ['membre', 'statut', 'date_question', 'repondu_par']
+    list_filter = ['statut']

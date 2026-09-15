@@ -7,8 +7,15 @@ from django.contrib.auth import get_user_model
 from django.db.models import Sum, Count
 from apps.accounts.permissions import IsAdminOrJewrinCulturelle, has_admin_access
 
-from .models import Kamil, Chapitre, Jukki, ProgressionLecture, ActiviteReligieuse, Enseignement, VersementKamil
-from .serializers import KamilSerializer, ChapitreSerializer, JukkiSerializer, ProgressionLectureSerializer, ActiviteReligieuseSerializer, EnseignementSerializer, VersementKamilSerializer
+from .models import (
+    Kamil, Chapitre, Jukki, ProgressionLecture, ActiviteReligieuse, Enseignement, VersementKamil,
+    AssignationTere, Bind, Laaj,
+)
+from .serializers import (
+    KamilSerializer, ChapitreSerializer, JukkiSerializer, ProgressionLectureSerializer,
+    ActiviteReligieuseSerializer, EnseignementSerializer, VersementKamilSerializer,
+    AssignationTereSerializer, BindSerializer, LaajSerializer,
+)
 
 User = get_user_model()
 
@@ -220,6 +227,168 @@ class ActiviteReligieuseViewSet(viewsets.ModelViewSet):
 
     def perform_create(self, serializer):
         serializer.save(animateur=self.request.user)
+
+
+class AssignationTereViewSet(viewsets.ModelViewSet):
+    """Majaaliss : assignation d'un membre à un TERE (livre)."""
+    queryset = AssignationTere.objects.all().order_by('membre', '-date_assignation')
+    serializer_class = AssignationTereSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['membre', 'statut']
+
+    def get_queryset(self):
+        qs = AssignationTere.objects.all().select_related('membre', 'assigne_par').prefetch_related('binds').order_by('membre', '-date_assignation')
+        if not has_admin_access(self.request.user, 'culturelle'):
+            qs = qs.filter(membre=self.request.user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ['update', 'partial_update', 'destroy', 'terminer', 'assigner_multiple']:
+            return [IsAdminOrJewrinCulturelle()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        # Admin/jewrine_culturelle peut assigner un TERE à un membre précis ; sinon (le membre
+        # lui-même) l'assignation est pour soi — auto-service parmi les TERE proposés.
+        if has_admin_access(self.request.user, 'culturelle') and self.request.data.get('membre'):
+            membre = get_object_or_404(User, id=self.request.data.get('membre'))
+        else:
+            membre = self.request.user
+        assignation = serializer.save(membre=membre, assigne_par=self.request.user)
+        from apps.communication.notifications import creer_notifications
+        creer_notifications(
+            [membre.id], 'majaaliss', 'Nouveau TERE assigné — Majaaliss',
+            f"Vous avez été assigné(e) au TERE « {assignation.nom_tere} ».",
+            lien='/culturelle/majaaliss'
+        )
+
+    @action(detail=True, methods=['post'])
+    def terminer(self, request, pk=None):
+        """Le responsable culturelle marque le TERE comme terminé pour ce membre."""
+        assignation = self.get_object()
+        if assignation.statut == 'termine':
+            return Response({'detail': 'Ce TERE est déjà marqué terminé.'}, status=400)
+        from django.utils import timezone
+        assignation.statut = 'termine'
+        assignation.date_fin = timezone.now()
+        assignation.save(update_fields=['statut', 'date_fin'])
+        return Response(AssignationTereSerializer(assignation).data)
+
+    @action(detail=False, methods=['post'], url_path='assigner-multiple')
+    def assigner_multiple(self, request):
+        """Assigner le même TERE à plusieurs membres en une seule fois."""
+        membres_ids = request.data.get('membres', [])
+        nom_tere = str(request.data.get('nom_tere', '')).strip()
+        if not membres_ids or not isinstance(membres_ids, list):
+            return Response({'detail': 'Veuillez sélectionner au moins un membre.'}, status=400)
+        if not nom_tere:
+            return Response({'detail': 'Nom du TERE requis.'}, status=400)
+
+        created, skipped = [], 0
+        for membre_id in membres_ids:
+            membre = User.objects.filter(pk=membre_id, is_active=True).first()
+            if not membre:
+                continue
+            deja_en_cours = AssignationTere.objects.filter(
+                membre=membre, nom_tere__iexact=nom_tere, statut='en_cours'
+            ).exists()
+            if deja_en_cours:
+                skipped += 1
+                continue
+            created.append(AssignationTere.objects.create(membre=membre, nom_tere=nom_tere, assigne_par=request.user))
+
+        if created:
+            from apps.communication.notifications import creer_notifications
+            creer_notifications(
+                [a.membre_id for a in created], 'majaaliss', 'Nouveau TERE assigné — Majaaliss',
+                f"Vous avez été assigné(e) au TERE « {nom_tere} ».",
+                lien='/culturelle/majaaliss'
+            )
+        return Response({
+            'created_count': len(created),
+            'skipped_count': skipped,
+            'assignations': AssignationTereSerializer(created, many=True).data,
+        }, status=status.HTTP_201_CREATED)
+
+
+class BindViewSet(viewsets.ModelViewSet):
+    """BIND successifs d'une assignation TERE (Majaaliss)."""
+    queryset = Bind.objects.all().order_by('assignation', 'numero')
+    serializer_class = BindSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['assignation']
+
+    def get_queryset(self):
+        qs = Bind.objects.all().select_related('assignation', 'assignation__membre', 'cree_par').order_by('assignation', 'numero')
+        if not has_admin_access(self.request.user, 'culturelle'):
+            qs = qs.filter(assignation__membre=self.request.user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ['create', 'update', 'partial_update', 'destroy']:
+            return [IsAdminOrJewrinCulturelle()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        assignation_id = self.request.data.get('assignation')
+        assignation = get_object_or_404(AssignationTere, id=assignation_id)
+        if assignation.statut == 'termine':
+            from rest_framework.exceptions import ValidationError
+            raise ValidationError({'detail': 'Ce TERE est déjà terminé — assignez un nouveau TERE pour continuer.'})
+        prochain_numero = assignation.binds.count() + 1
+        bind = serializer.save(assignation=assignation, numero=prochain_numero, cree_par=self.request.user)
+        from apps.communication.notifications import creer_notifications
+        creer_notifications(
+            [assignation.membre_id], 'majaaliss', f"Nouveau BIND {bind.numero} — {assignation.nom_tere}",
+            f"Un nouveau BIND vous a été transmis pour le TERE « {assignation.nom_tere} ».",
+            lien='/culturelle/majaaliss'
+        )
+
+
+class LaajViewSet(viewsets.ModelViewSet):
+    """LAAJ : questions religieuses des membres et réponses du responsable culturelle."""
+    queryset = Laaj.objects.all().order_by('-date_question')
+    serializer_class = LaajSerializer
+    permission_classes = [IsAuthenticated]
+    filterset_fields = ['membre', 'statut']
+
+    def get_queryset(self):
+        qs = Laaj.objects.all().select_related('membre', 'repondu_par').order_by('-date_question')
+        if not has_admin_access(self.request.user, 'culturelle'):
+            qs = qs.filter(membre=self.request.user)
+        return qs
+
+    def get_permissions(self):
+        if self.action in ['update', 'partial_update', 'destroy', 'repondre']:
+            return [IsAdminOrJewrinCulturelle()]
+        return [IsAuthenticated()]
+
+    def perform_create(self, serializer):
+        serializer.save(membre=self.request.user)
+
+    @action(detail=True, methods=['post'])
+    def repondre(self, request, pk=None):
+        """Le responsable culturelle répond à la question, par écrit et/ou par vocal."""
+        laaj = self.get_object()
+        reponse = str(request.data.get('reponse', '')).strip()
+        reponse_audio = request.FILES.get('reponse_audio')
+        if not reponse and not reponse_audio:
+            return Response({'detail': 'Écrivez une réponse ou joignez un vocal.'}, status=400)
+        from django.utils import timezone
+        laaj.reponse = reponse
+        if reponse_audio:
+            laaj.reponse_audio = reponse_audio
+        laaj.repondu_par = request.user
+        laaj.date_reponse = timezone.now()
+        laaj.statut = 'repondu'
+        laaj.save()
+        from apps.communication.notifications import creer_notifications
+        creer_notifications(
+            [laaj.membre_id], 'laaj', 'Votre LAAJ a reçu une réponse',
+            'Le responsable culturelle a répondu à votre question.',
+            lien='/culturelle/laaj'
+        )
+        return Response(LaajSerializer(laaj).data)
 
 
 class EnseignementViewSet(viewsets.ModelViewSet):
