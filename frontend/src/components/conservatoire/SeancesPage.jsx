@@ -1,15 +1,18 @@
 import React, { useState, useEffect } from 'react'
 import {
-  Box, Typography, Grid, Card, CardContent, Button, IconButton,
+  Box, Typography, Grid, Button, IconButton,
+  Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
   Alert, CircularProgress, Chip, Divider, Paper, Tabs, Tab,
 } from '@mui/material'
 import {
   ArrowBack, Add, Edit, Delete, Event, HowToReg, GetApp, AccessTime,
-  LocationOn, MusicNote, Group, ExpandMore, ExpandLess,
+  LocationOn, MusicNote, Group, Visibility,
 } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import usePagination from '../../hooks/usePagination'
+import TablePaginationFr from '../ui/TablePaginationFr'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
@@ -18,39 +21,36 @@ const TYPE_CHIP = {
   prestation: { label: 'Prestation', color: '#6A1B9A', bg: '#F3E5F5' },
 }
 
-function SeanceCard({ s, kourels, canManage, onEdit, onDelete, onPresences }) {
-  const [expanded, setExpanded] = useState(false)
-  const type = TYPE_CHIP[s.type_seance] || { label: s.type_seance, color: C.vert, bg: `${C.vert}15` }
+function seanceCounts(s) {
   const presences = s.presences || []
-  const nbPresents = presences.filter(p => p.statut === 'present').length
-  const nbAbsents = presences.filter(p => p.statut !== 'present').length
+  return {
+    presences,
+    nbPresents: presences.filter(p => p.statut === 'present').length,
+    nbAbsents: presences.filter(p => p.statut !== 'present').length,
+  }
+}
+
+function SeanceDetailDialog({ s, canManage, onClose, onEdit, onDelete, onPresences }) {
+  if (!s) return null
+  const type = TYPE_CHIP[s.type_seance] || { label: s.type_seance, color: C.vert, bg: `${C.vert}15` }
+  const { presences, nbPresents, nbAbsents } = seanceCounts(s)
 
   return (
-    <Card sx={{ borderRadius: 2.5, border: `1px solid ${C.or}30`, transition: 'box-shadow 0.2s', '&:hover': { boxShadow: 4 } }}>
-      <Box sx={{ height: 4, bgcolor: type.color }} />
-      <CardContent sx={{ p: 2.5 }}>
-        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', mb: 1.5 }}>
-          <Box sx={{ flex: 1 }}>
-            <Box sx={{ display: 'flex', gap: 1, mb: 0.75, flexWrap: 'wrap', alignItems: 'center' }}>
-              <Chip label={type.label} size="small" sx={{ bgcolor: type.bg, color: type.color, fontWeight: 600, fontSize: '0.7rem' }} />
-              {presences.length > 0 && (
-                <>
-                  <Chip label={`${nbPresents} présents`} size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem' }} />
-                  {nbAbsents > 0 && <Chip label={`${nbAbsents} absents`} size="small" color="error" variant="outlined" sx={{ fontSize: '0.65rem' }} />}
-                </>
-              )}
-            </Box>
-            <Typography variant="subtitle1" sx={{ fontWeight: 700, color: C.vert }}>{s.titre}</Typography>
-          </Box>
-          {canManage && (
-            <Box sx={{ display: 'flex', gap: 0.25, ml: 1 }}>
-              <IconButton size="small" onClick={() => onEdit(s)} sx={{ color: C.vert }}><Edit fontSize="small" /></IconButton>
-              <IconButton size="small" color="error" onClick={() => onDelete(s.id)}><Delete fontSize="small" /></IconButton>
-            </Box>
+    <Dialog open={!!s} onClose={onClose} maxWidth="sm" fullWidth>
+      <DialogTitle sx={{ color: C.vert }}>
+        <Box sx={{ display: 'flex', gap: 1, mb: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+          <Chip label={type.label} size="small" sx={{ bgcolor: type.bg, color: type.color, fontWeight: 600, fontSize: '0.7rem' }} />
+          {presences.length > 0 && (
+            <>
+              <Chip label={`${nbPresents} présents`} size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem' }} />
+              {nbAbsents > 0 && <Chip label={`${nbAbsents} absents`} size="small" color="error" variant="outlined" sx={{ fontSize: '0.65rem' }} />}
+            </>
           )}
         </Box>
-
-        <Grid container spacing={1} sx={{ mb: 1.5 }}>
+        {s.titre}
+      </DialogTitle>
+      <DialogContent>
+        <Grid container spacing={1} sx={{ mb: 1.5, mt: 0.5 }}>
           <Grid item xs={12} sm={6}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <AccessTime sx={{ fontSize: 16, color: C.or }} />
@@ -76,6 +76,10 @@ function SeanceCard({ s, kourels, canManage, onEdit, onDelete, onPresences }) {
           </Grid>
         </Grid>
 
+        {s.description && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>{s.description}</Typography>
+        )}
+
         {(s.khassidas || []).length > 0 && (
           <Box sx={{ mb: 1.5, p: 1.25, bgcolor: `${C.vert}06`, borderRadius: 1.5, borderLeft: `3px solid ${C.or}` }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -90,24 +94,8 @@ function SeanceCard({ s, kourels, canManage, onEdit, onDelete, onPresences }) {
           </Box>
         )}
 
-        <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-          {canManage && (
-            <Button size="small" variant="outlined" startIcon={<HowToReg />} onClick={() => onPresences(s)}
-              sx={{ borderColor: C.vert, color: C.vert, borderRadius: 1.5, fontSize: '0.75rem' }}>
-              Présences
-            </Button>
-          )}
-          {presences.length > 0 && (
-            <Button size="small" variant="text" onClick={() => setExpanded(!expanded)}
-              endIcon={expanded ? <ExpandLess /> : <ExpandMore />}
-              sx={{ color: C.vertFonce, fontSize: '0.75rem' }}>
-              Détail présences
-            </Button>
-          )}
-        </Box>
-
-        {expanded && presences.length > 0 && (
-          <Box sx={{ mt: 1.5, p: 1.5, bgcolor: `${C.or}10`, borderRadius: 1.5 }}>
+        {presences.length > 0 && (
+          <Box sx={{ p: 1.5, bgcolor: `${C.or}10`, borderRadius: 1.5 }}>
             <Grid container spacing={1}>
               <Grid item xs={6}>
                 <Typography variant="caption" sx={{ fontWeight: 600, color: 'success.main', display: 'block', mb: 0.5 }}>
@@ -132,8 +120,22 @@ function SeanceCard({ s, kourels, canManage, onEdit, onDelete, onPresences }) {
             </Grid>
           </Box>
         )}
-      </CardContent>
-    </Card>
+      </DialogContent>
+      <DialogActions>
+        {canManage && (
+          <Button startIcon={<HowToReg />} onClick={() => onPresences(s)} sx={{ color: C.vert }}>
+            Présences
+          </Button>
+        )}
+        {canManage && (
+          <IconButton onClick={() => onEdit(s)} sx={{ color: C.vert }}><Edit fontSize="small" /></IconButton>
+        )}
+        {canManage && (
+          <IconButton color="error" onClick={() => onDelete(s.id)}><Delete fontSize="small" /></IconButton>
+        )}
+        <Button onClick={onClose}>Fermer</Button>
+      </DialogActions>
+    </Dialog>
   )
 }
 
@@ -158,6 +160,7 @@ export default function SeancesPage({ onBack }) {
     date_heure: '', heure_fin: '', lieu: '', khassidas: [],
   })
   const [deleteTarget, setDeleteTarget] = useState(null)
+  const [detailSeance, setDetailSeance] = useState(null)
   const [openPresences, setOpenPresences] = useState(null)
   const [presencesForm, setPresencesForm] = useState({})
   const [savingPresences, setSavingPresences] = useState(false)
@@ -279,6 +282,8 @@ export default function SeancesPage({ onBack }) {
     (!filterKourel || s.kourel === Number(filterKourel))
   ).sort((a, b) => new Date(b.date_heure) - new Date(a.date_heure))
 
+  const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage, paginate } = usePagination(filtered.length)
+
   const getUserName = (id) => {
     const u = allUsers.find(u => u.id === Number(id))
     return u ? `${u.first_name} ${u.last_name}`.trim() : `Membre #${id}`
@@ -352,14 +357,76 @@ export default function SeancesPage({ onBack }) {
           {canManage && kourels.length === 0 && <Typography color="text.secondary" variant="body2">Créez d'abord un Kourel.</Typography>}
         </Box>
       ) : (
-        <Grid container spacing={2}>
-          {filtered.map(s => (
-            <Grid item xs={12} md={6} key={s.id}>
-              <SeanceCard s={s} kourels={kourels} canManage={canManage} onEdit={openEdit} onDelete={setDeleteTarget} onPresences={handleOpenPresences} />
-            </Grid>
-          ))}
-        </Grid>
+        <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${C.or}30` }}>
+          <Table size="small">
+            <TableHead>
+              <TableRow sx={{ '& th': { fontWeight: 700, color: C.vertFonce, bgcolor: `${C.vert}08`, whiteSpace: 'nowrap' } }}>
+                <TableCell>Type</TableCell>
+                <TableCell>Titre</TableCell>
+                <TableCell>Kourel</TableCell>
+                <TableCell>Date</TableCell>
+                <TableCell>Lieu</TableCell>
+                <TableCell align="center">Présences</TableCell>
+                <TableCell align="right">Actions</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {paginate(filtered).map(s => {
+                const type = TYPE_CHIP[s.type_seance] || { label: s.type_seance, color: C.vert, bg: `${C.vert}15` }
+                const { presences, nbPresents, nbAbsents } = seanceCounts(s)
+                return (
+                  <TableRow key={s.id} hover onClick={() => setDetailSeance(s)} sx={{ cursor: 'pointer' }}>
+                    <TableCell>
+                      <Chip label={type.label} size="small" sx={{ bgcolor: type.bg, color: type.color, fontWeight: 600, fontSize: '0.7rem' }} />
+                    </TableCell>
+                    <TableCell sx={{ fontWeight: 600, color: C.vert }}>{s.titre}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{s.kourel_nom || '—'}</TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {s.date_heure ? new Date(s.date_heure).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{s.lieu || '—'}</TableCell>
+                    <TableCell align="center">
+                      {presences.length > 0 ? (
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', flexWrap: 'wrap' }}>
+                          <Chip label={nbPresents} size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem', minWidth: 32 }} />
+                          {nbAbsents > 0 && <Chip label={nbAbsents} size="small" color="error" variant="outlined" sx={{ fontSize: '0.65rem', minWidth: 32 }} />}
+                        </Box>
+                      ) : '—'}
+                    </TableCell>
+                    <TableCell align="right" onClick={(e) => e.stopPropagation()}>
+                      <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'flex-end' }}>
+                        <IconButton size="small" onClick={() => setDetailSeance(s)} sx={{ color: C.vertFonce }}><Visibility fontSize="small" /></IconButton>
+                        {canManage && (
+                          <>
+                            <IconButton size="small" onClick={() => openEdit(s)} sx={{ color: C.vert }}><Edit fontSize="small" /></IconButton>
+                            <IconButton size="small" color="error" onClick={() => setDeleteTarget(s.id)}><Delete fontSize="small" /></IconButton>
+                          </>
+                        )}
+                      </Box>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
+          <TablePaginationFr
+            count={filtered.length}
+            page={page}
+            rowsPerPage={rowsPerPage}
+            onPageChange={handleChangePage}
+            onRowsPerPageChange={handleChangeRowsPerPage}
+          />
+        </TableContainer>
       )}
+
+      <SeanceDetailDialog
+        s={detailSeance}
+        canManage={canManage}
+        onClose={() => setDetailSeance(null)}
+        onEdit={(s) => { setDetailSeance(null); openEdit(s) }}
+        onDelete={(id) => { setDetailSeance(null); setDeleteTarget(id) }}
+        onPresences={(s) => { setDetailSeance(null); handleOpenPresences(s) }}
+      />
 
       {/* Seance form */}
       <Dialog open={openForm} onClose={() => setOpenForm(false)} maxWidth="md" fullWidth>
