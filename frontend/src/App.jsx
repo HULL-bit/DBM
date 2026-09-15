@@ -75,7 +75,10 @@ function AppRoutes() {
           </ProtectedRoute>
         }
       >
-        <Route index element={<Navigate to={defaultDashboard} replace />} />
+        {/* Pas de route "index" ici : le "/" exact est déjà géré par la route racine
+        ci-dessus (Accueil ou redirection dashboard). Une route index redondante sur ce
+        Layout gagnait le classement de React Router face à la route racine et affichait
+        systématiquement /login au chargement pour les visiteurs non connectés. */}
         <Route path="admin" element={<ProtectedRoute roles={['admin']}><DashboardAdmin /></ProtectedRoute>} />
         <Route path="membre" element={<ProtectedRoute roles={['membre']}><DashboardMembre /></ProtectedRoute>} />
         <Route path="jewrin" element={<ProtectedRoute roles={JEWRINE_ROLES}><DashboardJewrin /></ProtectedRoute>} />
