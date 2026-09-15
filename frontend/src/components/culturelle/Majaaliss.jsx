@@ -5,7 +5,7 @@ import {
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
   Alert, CircularProgress, Chip, Paper, Autocomplete, Divider,
 } from '@mui/material'
-import { Add, CheckCircle, Mic, Stop, Delete, MenuBook, Visibility } from '@mui/icons-material'
+import { Add, CheckCircle, RestartAlt, Mic, Stop, Delete, MenuBook, Visibility, PictureAsPdf } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { getMediaUrl } from '../../services/media'
@@ -25,13 +25,14 @@ export default function Majaaliss() {
   const [statutFilter, setStatutFilter] = useState('')
 
   const [openAssign, setOpenAssign] = useState(false)
-  const [assignForm, setAssignForm] = useState({ membres: [], nom_tere: '' })
+  const [assignForm, setAssignForm] = useState({ membres: [], nom_tere: '', fichier_pdf: null })
   const [saving, setSaving] = useState(false)
 
   const [detail, setDetail] = useState(null)
   const [bindForm, setBindForm] = useState({ page: '', notes: '', audio: null })
   const [savingBind, setSavingBind] = useState(false)
   const [enregistrement, setEnregistrement] = useState(false)
+  const [savingPdf, setSavingPdf] = useState(false)
   const mediaRecorderRef = useRef(null)
   const chunksRef = useRef([])
 
@@ -51,7 +52,7 @@ export default function Majaaliss() {
   const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage, paginate } = usePagination(filtered.length)
 
   const handleOpenAssign = () => {
-    setAssignForm({ membres: [], nom_tere: '' })
+    setAssignForm({ membres: [], nom_tere: '', fichier_pdf: null })
     setMessage({ type: '', text: '' })
     setOpenAssign(true)
   }
@@ -64,10 +65,11 @@ export default function Majaaliss() {
     setSaving(true)
     setMessage({ type: '', text: '' })
     try {
-      const { data } = await api.post('/culturelle/assignations-tere/assigner-multiple/', {
-        membres: assignForm.membres,
-        nom_tere: assignForm.nom_tere.trim().toUpperCase(),
-      })
+      const payload = new FormData()
+      payload.append('membres', JSON.stringify(assignForm.membres))
+      payload.append('nom_tere', assignForm.nom_tere.trim().toUpperCase())
+      if (assignForm.fichier_pdf) payload.append('fichier_pdf', assignForm.fichier_pdf)
+      const { data } = await api.post('/culturelle/assignations-tere/assigner-multiple/', payload)
       let text = `${data.created_count} assignation(s) créée(s).`
       if (data.skipped_count > 0) text += ` ${data.skipped_count} ignorée(s) (déjà en cours sur ce TERE).`
       setMessage({ type: 'success', text })
@@ -85,17 +87,51 @@ export default function Majaaliss() {
     setBindForm({ page: '', notes: '', audio: null })
   }
 
+  const updateDetailAndList = (data) => {
+    setList((prev) => prev.map((x) => (x.id === data.id ? data : x)))
+    setDetail((d) => (d && d.id === data.id ? data : d))
+  }
+
   const handleTerminer = async (a) => {
     setSaving(true)
     try {
       const { data } = await api.post(`/culturelle/assignations-tere/${a.id}/terminer/`)
       setMessage({ type: 'success', text: 'TERE marqué terminé.' })
-      setList((prev) => prev.map((x) => (x.id === data.id ? data : x)))
-      setDetail((d) => (d && d.id === data.id ? data : d))
+      updateDetailAndList(data)
     } catch {
       setMessage({ type: 'error', text: 'Erreur.' })
     } finally {
       setSaving(false)
+    }
+  }
+
+  const handleReprendre = async (a) => {
+    setSaving(true)
+    try {
+      const { data } = await api.post(`/culturelle/assignations-tere/${a.id}/reprendre/`)
+      setMessage({ type: 'success', text: 'TERE réouvert.' })
+      updateDetailAndList(data)
+    } catch {
+      setMessage({ type: 'error', text: 'Erreur.' })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const handleUpdatePdf = async (file) => {
+    if (!file || !detail) return
+    setSavingPdf(true)
+    setMessage({ type: '', text: '' })
+    try {
+      const payload = new FormData()
+      payload.append('fichier_pdf', file)
+      const { data } = await api.patch(`/culturelle/assignations-tere/${detail.id}/`, payload)
+      setMessage({ type: 'success', text: 'PDF du TERE mis à jour.' })
+      updateDetailAndList(data)
+    } catch {
+      setMessage({ type: 'error', text: "Erreur lors de l'envoi du PDF." })
+    } finally {
+      setSavingPdf(false)
     }
   }
 
@@ -133,7 +169,7 @@ export default function Majaaliss() {
     try {
       const payload = new FormData()
       payload.append('assignation', detail.id)
-      payload.append('page', bindForm.page || '')
+      if (bindForm.page) payload.append('page', bindForm.page)
       payload.append('notes', bindForm.notes || '')
       payload.append('audio', bindForm.audio)
       const { data } = await api.post('/culturelle/binds/', payload)
@@ -209,10 +245,16 @@ export default function Majaaliss() {
                   <TableCell sx={{ whiteSpace: 'nowrap' }}>{a.date_assignation ? new Date(a.date_assignation).toLocaleDateString('fr-FR') : '—'}</TableCell>
                   <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                     <IconButton size="small" onClick={() => handleOpenDetail(a)} sx={{ color: C.vertFonce }}><Visibility fontSize="small" /></IconButton>
-                    {canManage && a.statut === 'en_cours' && (
-                      <IconButton size="small" onClick={() => handleTerminer(a)} sx={{ color: 'success.main' }} title="Marquer terminé">
-                        <CheckCircle fontSize="small" />
-                      </IconButton>
+                    {canManage && (
+                      a.statut === 'en_cours' ? (
+                        <IconButton size="small" onClick={() => handleTerminer(a)} sx={{ color: 'success.main' }} title="Marquer terminé">
+                          <CheckCircle fontSize="small" />
+                        </IconButton>
+                      ) : (
+                        <IconButton size="small" onClick={() => handleReprendre(a)} sx={{ color: C.or }} title="Reprendre (rouvrir)">
+                          <RestartAlt fontSize="small" />
+                        </IconButton>
+                      )
                     )}
                   </TableCell>
                 </TableRow>
@@ -252,6 +294,13 @@ export default function Majaaliss() {
                 <TextField {...params} label="TERE (livre)" helperText="Choisissez un TERE courant ou tapez-en un autre." />
               )}
             />
+            <Button component="label" variant="outlined" startIcon={<PictureAsPdf />} sx={{ borderColor: C.vert, color: C.vert, alignSelf: 'flex-start' }}>
+              {assignForm.fichier_pdf ? assignForm.fichier_pdf.name : 'Joindre le PDF du livre (optionnel)'}
+              <input type="file" hidden accept="application/pdf" onChange={(e) => setAssignForm((f) => ({ ...f, fichier_pdf: e.target.files?.[0] || null }))} />
+            </Button>
+            <Typography variant="caption" color="text.secondary">
+              Un seul PDF pour tout le TERE (le livre) — pas besoin d'en joindre un par BIND.
+            </Typography>
           </Box>
         </DialogContent>
         <DialogActions>
@@ -276,6 +325,22 @@ export default function Majaaliss() {
               )}
             </DialogTitle>
             <DialogContent>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 2, flexWrap: 'wrap' }}>
+                {detail.fichier_pdf ? (
+                  <Button startIcon={<PictureAsPdf />} href={getMediaUrl(detail.fichier_pdf)} target="_blank" rel="noopener noreferrer" sx={{ color: C.vert }}>
+                    Ouvrir le livre (PDF)
+                  </Button>
+                ) : (
+                  <Typography variant="caption" color="text.secondary">Aucun PDF du livre pour ce TERE.</Typography>
+                )}
+                {canManage && (
+                  <Button size="small" component="label" variant="text" disabled={savingPdf} sx={{ color: C.vertFonce }}>
+                    {savingPdf ? <CircularProgress size={16} /> : (detail.fichier_pdf ? 'Remplacer le PDF' : 'Joindre le PDF')}
+                    <input type="file" hidden accept="application/pdf" onChange={(e) => handleUpdatePdf(e.target.files?.[0] || null)} />
+                  </Button>
+                )}
+              </Box>
+
               {(detail.binds || []).length === 0 ? (
                 <Typography color="text.secondary" sx={{ py: 2 }}>Aucun BIND pour l'instant.</Typography>
               ) : (
@@ -284,7 +349,7 @@ export default function Majaaliss() {
                     <Paper key={b.id} variant="outlined" sx={{ p: 1.5, borderRadius: 2 }}>
                       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5, flexWrap: 'wrap', gap: 1 }}>
                         <Typography variant="subtitle2" sx={{ fontWeight: 700, color: C.vert }}>BIND {b.numero}</Typography>
-                        {b.page && <Chip label={`Page ${b.page}`} size="small" sx={{ bgcolor: `${C.or}20`, color: C.vertFonce }} />}
+                        {b.page != null && b.page !== '' && <Chip label={`Page ${b.page}`} size="small" sx={{ bgcolor: `${C.or}20`, color: C.vertFonce }} />}
                       </Box>
                       {b.audio && (
                         <audio controls src={getMediaUrl(b.audio)} style={{ width: '100%', height: 36 }} />
@@ -298,13 +363,24 @@ export default function Majaaliss() {
                 </Box>
               )}
 
-              {canManage && detail.statut === 'en_cours' && (
+              {canManage && (
                 <>
                   <Divider sx={{ my: 2 }}>
                     <Chip label={`Nouveau BIND ${(detail.binds || []).length + 1}`} size="small" sx={{ bgcolor: `${C.vert}15`, color: C.vert }} />
                   </Divider>
+                  {detail.statut === 'termine' && (
+                    <Alert severity="info" sx={{ mb: 1.5 }}>
+                      Ce TERE est marqué terminé — vous pouvez quand même ajouter un BIND (ou cliquez sur « Reprendre » pour le remettre en cours).
+                    </Alert>
+                  )}
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
-                    <TextField size="small" label="Page(s) du TERE" value={bindForm.page} onChange={(e) => setBindForm((f) => ({ ...f, page: e.target.value }))} placeholder="ex : 12-14" />
+                    <TextField
+                      size="small" type="number" label="Page du TERE (optionnel)"
+                      value={bindForm.page}
+                      onChange={(e) => setBindForm((f) => ({ ...f, page: e.target.value }))}
+                      inputProps={{ min: 1, step: 1 }}
+                      sx={{ maxWidth: 200 }}
+                    />
                     <TextField size="small" label="Notes (optionnel)" value={bindForm.notes} onChange={(e) => setBindForm((f) => ({ ...f, notes: e.target.value }))} multiline rows={2} />
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                       {!enregistrement ? (
@@ -340,10 +416,16 @@ export default function Majaaliss() {
               )}
             </DialogContent>
             <DialogActions>
-              {canManage && detail.statut === 'en_cours' && (
-                <Button startIcon={<CheckCircle />} onClick={() => handleTerminer(detail)} disabled={saving} sx={{ color: 'success.main' }}>
-                  Marquer le TERE terminé
-                </Button>
+              {canManage && (
+                detail.statut === 'en_cours' ? (
+                  <Button startIcon={<CheckCircle />} onClick={() => handleTerminer(detail)} disabled={saving} sx={{ color: 'success.main' }}>
+                    Marquer le TERE terminé
+                  </Button>
+                ) : (
+                  <Button startIcon={<RestartAlt />} onClick={() => handleReprendre(detail)} disabled={saving} sx={{ color: C.or }}>
+                    Reprendre ce TERE
+                  </Button>
+                )
               )}
               <Button onClick={() => setDetail(null)}>Fermer</Button>
             </DialogActions>

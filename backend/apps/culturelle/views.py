@@ -243,7 +243,7 @@ class AssignationTereViewSet(viewsets.ModelViewSet):
         return qs
 
     def get_permissions(self):
-        if self.action in ['update', 'partial_update', 'destroy', 'terminer', 'assigner_multiple']:
+        if self.action in ['update', 'partial_update', 'destroy', 'terminer', 'reprendre', 'assigner_multiple']:
             return [IsAdminOrJewrinCulturelle()]
         return [IsAuthenticated()]
 
@@ -274,11 +274,33 @@ class AssignationTereViewSet(viewsets.ModelViewSet):
         assignation.save(update_fields=['statut', 'date_fin'])
         return Response(AssignationTereSerializer(assignation).data)
 
+    @action(detail=True, methods=['post'])
+    def reprendre(self, request, pk=None):
+        """Rouvre un TERE marqué terminé (le responsable culturelle peut alors ajouter d'autres BIND)."""
+        assignation = self.get_object()
+        if assignation.statut == 'en_cours':
+            return Response({'detail': 'Ce TERE est déjà en cours.'}, status=400)
+        assignation.statut = 'en_cours'
+        assignation.date_fin = None
+        assignation.save(update_fields=['statut', 'date_fin'])
+        return Response(AssignationTereSerializer(assignation).data)
+
     @action(detail=False, methods=['post'], url_path='assigner-multiple')
     def assigner_multiple(self, request):
-        """Assigner le même TERE à plusieurs membres en une seule fois."""
+        """Assigner le même TERE (avec éventuellement le PDF du livre) à plusieurs membres en
+        une seule fois. `membres` est une liste d'ids (JSON) envoyée en multipart si un PDF
+        accompagne l'assignation."""
+        import json
+        from django.core.files.base import ContentFile
+
         membres_ids = request.data.get('membres', [])
+        if isinstance(membres_ids, str):
+            try:
+                membres_ids = json.loads(membres_ids)
+            except (ValueError, TypeError):
+                membres_ids = []
         nom_tere = str(request.data.get('nom_tere', '')).strip()
+        fichier_pdf = request.FILES.get('fichier_pdf')
         if not membres_ids or not isinstance(membres_ids, list):
             return Response({'detail': 'Veuillez sélectionner au moins un membre.'}, status=400)
         if not nom_tere:
@@ -295,7 +317,14 @@ class AssignationTereViewSet(viewsets.ModelViewSet):
             if deja_en_cours:
                 skipped += 1
                 continue
-            created.append(AssignationTere.objects.create(membre=membre, nom_tere=nom_tere, assigne_par=request.user))
+            assignation = AssignationTere(membre=membre, nom_tere=nom_tere, assigne_par=request.user)
+            if fichier_pdf:
+                # Même fichier attaché à chaque assignation : on relit son contenu pour
+                # chaque membre (le pointeur de fichier est déjà consommé après la 1ère sauvegarde).
+                fichier_pdf.seek(0)
+                assignation.fichier_pdf.save(fichier_pdf.name, ContentFile(fichier_pdf.read()), save=False)
+            assignation.save()
+            created.append(assignation)
 
         if created:
             from apps.communication.notifications import creer_notifications
@@ -332,9 +361,8 @@ class BindViewSet(viewsets.ModelViewSet):
     def perform_create(self, serializer):
         assignation_id = self.request.data.get('assignation')
         assignation = get_object_or_404(AssignationTere, id=assignation_id)
-        if assignation.statut == 'termine':
-            from rest_framework.exceptions import ValidationError
-            raise ValidationError({'detail': 'Ce TERE est déjà terminé — assignez un nouveau TERE pour continuer.'})
+        # Un TERE marqué terminé reste modifiable (le responsable culturelle peut ajouter un
+        # BIND oublié ou corriger a posteriori) — aucun blocage sur le statut ici.
         prochain_numero = assignation.binds.count() + 1
         bind = serializer.save(assignation=assignation, numero=prochain_numero, cree_par=self.request.user)
         from apps.communication.notifications import creer_notifications

@@ -227,6 +227,10 @@ class AssignationTere(models.Model):
         max_length=200,
         help_text="Nom du TERE (livre) : KUN KAATIMAN, TAZA WUDU SIXAAR, JAWXARATUN NAFIIS, NAXJU, ou un autre."
     )
+    fichier_pdf = models.FileField(
+        upload_to='majaaliss/tere_pdf/', null=True, blank=True,
+        help_text="Le livre (PDF) du TERE — un seul fichier pour toute l'assignation, pas par BIND."
+    )
     statut = models.CharField(max_length=20, choices=STATUT_CHOICES, default='en_cours')
     assigne_par = models.ForeignKey(
         CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='tere_assignes'
@@ -249,7 +253,7 @@ class Bind(models.Model):
     (transcription/récitation) pour ce passage."""
     assignation = models.ForeignKey(AssignationTere, on_delete=models.CASCADE, related_name='binds')
     numero = models.PositiveIntegerField(help_text='BIND 1, BIND 2, ... — attribué automatiquement à la création')
-    page = models.CharField(max_length=50, blank=True, help_text='Page(s) du TERE couverte(s) par ce BIND')
+    page = models.PositiveIntegerField(null=True, blank=True, help_text='Numéro de page du TERE couverte par ce BIND')
     audio = models.FileField(upload_to='majaaliss/binds/audio/', help_text='Vocal du jewrine culturelle (transcription)')
     notes = models.TextField(blank=True)
     cree_par = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='binds_crees')
