@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import {
   Box, Typography, Grid, Button, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
@@ -7,7 +7,7 @@ import {
 } from '@mui/material'
 import {
   ArrowBack, Add, Edit, Delete, Event, HowToReg, GetApp, AccessTime,
-  LocationOn, MusicNote, Group, Visibility,
+  LocationOn, MusicNote, Group, Visibility, Image as ImageIcon,
 } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
@@ -30,13 +30,39 @@ function seanceCounts(s) {
   }
 }
 
-function SeanceDetailDialog({ s, canManage, onClose, onEdit, onDelete, onPresences }) {
+function SeanceDetailDialog({ s, canManage, onClose, onEdit, onDelete, onPresences, setMsg }) {
+  const captureRef = useRef(null)
+  const [exporting, setExporting] = useState(false)
   if (!s) return null
   const type = TYPE_CHIP[s.type_seance] || { label: s.type_seance, color: C.vert, bg: `${C.vert}15` }
   const { presences, nbPresents, nbAbsents } = seanceCounts(s)
 
+  const handleExportPng = async () => {
+    if (!captureRef.current) return
+    setExporting(true)
+    try {
+      const { default: html2canvas } = await import('html2canvas')
+      const canvas = await html2canvas(captureRef.current, {
+        backgroundColor: '#ffffff',
+        scale: 2,
+        useCORS: true,
+        logging: false,
+      })
+      const nomFichier = `seance_${(s.titre || 'seance').toLowerCase().replace(/[^a-z0-9]+/gi, '_')}.png`
+      const link = document.createElement('a')
+      link.download = nomFichier
+      link.href = canvas.toDataURL('image/png')
+      link.click()
+    } catch {
+      setMsg?.({ type: 'error', text: "Erreur lors de l'export en image." })
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <Dialog open={!!s} onClose={onClose} maxWidth="sm" fullWidth>
+      <Box ref={captureRef} sx={{ bgcolor: '#fff' }}>
       <DialogTitle sx={{ color: C.vert }}>
         <Box sx={{ display: 'flex', gap: 1, mb: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
           <Chip label={type.label} size="small" sx={{ bgcolor: type.bg, color: type.color, fontWeight: 600, fontSize: '0.7rem' }} />
@@ -121,7 +147,11 @@ function SeanceDetailDialog({ s, canManage, onClose, onEdit, onDelete, onPresenc
           </Box>
         )}
       </DialogContent>
-      <DialogActions>
+      </Box>
+      <DialogActions sx={{ flexWrap: 'wrap', gap: 0.5 }}>
+        <Button startIcon={exporting ? <CircularProgress size={16} /> : <ImageIcon />} onClick={handleExportPng} disabled={exporting} sx={{ color: C.vertFonce }}>
+          Exporter en image
+        </Button>
         {canManage && (
           <Button startIcon={<HowToReg />} onClick={() => onPresences(s)} sx={{ color: C.vert }}>
             Présences
@@ -426,6 +456,7 @@ export default function SeancesPage({ onBack }) {
         onEdit={(s) => { setDetailSeance(null); openEdit(s) }}
         onDelete={(id) => { setDetailSeance(null); setDeleteTarget(id) }}
         onPresences={(s) => { setDetailSeance(null); handleOpenPresences(s) }}
+        setMsg={setMsg}
       />
 
       {/* Seance form */}

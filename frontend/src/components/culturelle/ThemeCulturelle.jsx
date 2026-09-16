@@ -229,7 +229,7 @@ export default function ThemeCulturelle() {
                 )}
               </Box>
             </DialogContent>
-            <DialogActions>
+            <DialogActions sx={{ flexWrap: 'wrap', gap: 0.5 }}>
               {canManage && (
                 <>
                   <Button startIcon={<Edit />} onClick={() => { setDetail(null); handleOpenEdit(detail) }} sx={{ color: C.vert }}>Modifier</Button>
