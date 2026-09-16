@@ -6,6 +6,7 @@ import {
 import {
   AccountBalance, MenuBook, Event, Message, AttachMoney, TrendingUp,
   Forum, School, Payment, ArrowForward, Person,
+  AutoStories, QuestionAnswer, Style, Mic,
 } from '@mui/icons-material'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
@@ -79,6 +80,7 @@ export default function DashboardMembre() {
   const { user } = useAuth()
   const [cotisationStats, setCotisationStats] = useState(null)
   const [kamilStats, setKamilStats] = useState(null)
+  const [majaalissStats, setMajaalissStats] = useState(null)
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [loading, setLoading] = useState(true)
 
@@ -86,13 +88,15 @@ export default function DashboardMembre() {
     Promise.all([
       api.get('/finance/cotisations/statistiques/').then(({ data }) => data).catch(() => null),
       api.get('/culturelle/versements-kamil/mes_stats/').then(({ data }) => data).catch(() => null),
+      api.get('/culturelle/assignations-tere/stats/').then(({ data }) => data).catch(() => null),
       api.get('/communication/messages/conversations/').then(({ data }) => {
         const convs = Array.isArray(data) ? data : []
         return convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
       }).catch(() => 0),
-    ]).then(([cotisations, kamil, unread]) => {
+    ]).then(([cotisations, kamil, majaaliss, unread]) => {
       setCotisationStats(cotisations)
       setKamilStats(kamil)
+      setMajaalissStats(majaaliss)
       setUnreadMessages(unread)
     }).finally(() => setLoading(false))
   }, [])
@@ -202,6 +206,23 @@ export default function DashboardMembre() {
             </Grid>
           </>
         )}
+        {majaalissStats && (
+          <>
+            <Grid item xs={6} sm={4} md={3}>
+              <KpiCard label="TERE terminés (Majaaliss)" value={loading ? '…' : majaalissStats.tere_termines ?? 0} icon={AutoStories} color={C.vert} sub={`${majaalissStats.tere_en_cours ?? 0} en cours`} />
+            </Grid>
+            <Grid item xs={6} sm={4} md={3}>
+              <KpiCard
+                label="BIND récités (TARRI)"
+                value={loading ? '…' : `${majaalissStats.binds_recites ?? 0} / ${majaalissStats.binds_total ?? 0}`}
+                icon={Mic}
+                color={majaalissStats.binds_en_attente_tarri > 0 ? '#E65100' : C.vert}
+                sub={majaalissStats.binds_en_attente_tarri > 0 ? `${majaalissStats.binds_en_attente_tarri} à réciter` : null}
+                progress={majaalissStats.binds_total ? Math.round((majaalissStats.binds_recites / majaalissStats.binds_total) * 100) : 0}
+              />
+            </Grid>
+          </>
+        )}
       </Grid>
 
       {/* Actions */}
@@ -216,6 +237,9 @@ export default function DashboardMembre() {
               <Box display="flex" flexDirection="column" gap={1.2}>
                 <ActionBtn label="Payer ma cotisation" icon={AccountBalance} onClick={() => navigate('/finance/cotisations')} primary />
                 <ActionBtn label="Mes JUKKI" icon={MenuBook} onClick={() => navigate('/culturelle/mes-progressions')} />
+                <ActionBtn label="Majaaliss (mes TERE / BIND)" icon={AutoStories} onClick={() => navigate('/culturelle/majaaliss')} badge={majaalissStats?.binds_en_attente_tarri} />
+                <ActionBtn label="LAAJ" icon={QuestionAnswer} onClick={() => navigate('/culturelle/laaj')} />
+                <ActionBtn label="Thème culturel" icon={Style} onClick={() => navigate('/culturelle/theme-culturelle')} />
                 <ActionBtn label="Voir les événements" icon={Event} onClick={() => navigate('/informations/evenements')} />
                 <ActionBtn label="Messagerie" icon={Message} onClick={() => navigate('/communication/messagerie')} badge={unreadMessages} />
               </Box>

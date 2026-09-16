@@ -8,6 +8,7 @@ import {
   People, AccountBalance, Event, MenuBook, Add, AttachMoney,
   Message, School, TrendingUp, Forum, ArrowForward,
   Warning, Groups, AdminPanelSettings,
+  AutoStories, QuestionAnswer, Style, Mic,
 } from '@mui/icons-material'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
@@ -83,6 +84,7 @@ export default function DashboardAdmin() {
   const [loading, setLoading] = useState(true)
   const [unreadMessages, setUnreadMessages] = useState(0)
   const [kamilStats, setKamilStats] = useState(null)
+  const [majaalissStats, setMajaalissStats] = useState(null)
 
   useEffect(() => {
     Promise.all([
@@ -96,10 +98,12 @@ export default function DashboardAdmin() {
         const enAttente = Array.isArray(versements) ? versements.filter(v => v.statut === 'en_attente').length : 0
         return { en_attente: enAttente, total: Array.isArray(versements) ? versements.length : 0 }
       }).catch(() => null),
-    ]).then(([statsData, unread, kamil]) => {
+      api.get('/culturelle/assignations-tere/stats/').then(({ data }) => data).catch(() => null),
+    ]).then(([statsData, unread, kamil, majaaliss]) => {
       setStats(statsData)
       setUnreadMessages(unread)
       setKamilStats(kamil)
+      setMajaalissStats(majaaliss)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -205,6 +209,18 @@ export default function DashboardAdmin() {
         <Grid item xs={6} sm={4} md={3}>
           <KpiCard label="Total membres" value={loading ? '…' : stats?.total_membres ?? 0} icon={Groups} color={C.vert} />
         </Grid>
+        <Grid item xs={6} sm={4} md={3}>
+          <KpiCard label="TERE terminés (Majaaliss)" value={loading ? '…' : majaalissStats?.tere_termines ?? 0} icon={AutoStories} color={C.vert} sub={`${majaalissStats?.tere_en_cours ?? 0} en cours`} />
+        </Grid>
+        <Grid item xs={6} sm={4} md={3}>
+          <KpiCard
+            label="BIND en attente de TARRI"
+            value={loading ? '…' : majaalissStats?.binds_en_attente_tarri ?? 0}
+            icon={Mic}
+            color={majaalissStats?.binds_en_attente_tarri > 0 ? '#E65100' : C.vert}
+            sub={`/ ${majaalissStats?.binds_total ?? 0} BIND au total`}
+          />
+        </Grid>
       </Grid>
 
       {/* Actions rapides */}
@@ -234,6 +250,9 @@ export default function DashboardAdmin() {
               <Box display="flex" flexDirection="column" gap={1.2}>
                 <ActionBtn label="Programme Kamil" icon={MenuBook} onClick={() => navigate('/culturelle/kamil')} />
                 <ActionBtn label="Versements Kamil" icon={School} onClick={() => navigate('/culturelle/versements-kamil')} badge={kamilStats?.en_attente} />
+                <ActionBtn label="Majaaliss (TERE / BIND)" icon={AutoStories} onClick={() => navigate('/culturelle/majaaliss')} />
+                <ActionBtn label="LAAJ" icon={QuestionAnswer} onClick={() => navigate('/culturelle/laaj')} />
+                <ActionBtn label="Thème culturel" icon={Style} onClick={() => navigate('/culturelle/theme-culturelle')} />
                 <ActionBtn label="Messagerie" icon={Message} onClick={() => navigate('/communication/messagerie')} badge={unreadMessages} />
                 <ActionBtn label="Forums de discussion" icon={Forum} onClick={() => navigate('/communication/forums')} />
               </Box>

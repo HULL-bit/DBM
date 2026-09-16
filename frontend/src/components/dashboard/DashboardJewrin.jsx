@@ -4,7 +4,7 @@ import {
   Box, Grid, Card, CardContent, Typography, Button, Chip, Badge, LinearProgress, Avatar,
 } from '@mui/material'
 import {
-  CheckCircle, MenuBook, AutoStories, QuestionAnswer, School, TrendingUp, People,
+  CheckCircle, MenuBook, AutoStories, QuestionAnswer, Style, Mic, School, TrendingUp, People,
   Message, ArrowForward, Warning,
 } from '@mui/icons-material'
 import { useAuth } from '../../context/AuthContext'
@@ -74,6 +74,7 @@ export default function DashboardJewrin() {
   const [progressionsKamil, setProgressionsKamil] = useState(0)
   const [versementsEnAttente, setVersementsEnAttente] = useState(0)
   const [unreadMessages, setUnreadMessages] = useState(0)
+  const [majaalissStats, setMajaalissStats] = useState(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
@@ -91,11 +92,13 @@ export default function DashboardJewrin() {
         const convs = Array.isArray(data) ? data : []
         return convs.reduce((sum, conv) => sum + (conv.unread_count || 0), 0)
       }).catch(() => 0),
-    ]).then(([progressions, versements, unread]) => {
+      api.get('/culturelle/assignations-tere/stats/').then(({ data }) => data).catch(() => null),
+    ]).then(([progressions, versements, unread, majaaliss]) => {
       setValidationsEnAttente(progressions.enAttente)
       setProgressionsKamil(progressions.total)
       setVersementsEnAttente(versements)
       setUnreadMessages(unread)
+      setMajaalissStats(majaaliss)
     }).finally(() => setLoading(false))
   }, [])
 
@@ -184,7 +187,16 @@ export default function DashboardJewrin() {
           <KpiCard label="Programme Kamil" value="Actif" icon={MenuBook} color={C.vert} />
         </Grid>
         <Grid item xs={6} sm={4} md={3}>
-          <KpiCard label="Majaaliss" value="Actif" icon={AutoStories} color={C.or} />
+          <KpiCard label="TERE terminés (Majaaliss)" value={loading ? '…' : majaalissStats?.tere_termines ?? 0} icon={AutoStories} color={C.or} sub={`${majaalissStats?.tere_en_cours ?? 0} en cours`} />
+        </Grid>
+        <Grid item xs={6} sm={4} md={3}>
+          <KpiCard
+            label="BIND en attente de TARRI"
+            value={loading ? '…' : majaalissStats?.binds_en_attente_tarri ?? 0}
+            icon={Mic}
+            color={majaalissStats?.binds_en_attente_tarri > 0 ? '#E65100' : C.vert}
+            sub={`/ ${majaalissStats?.binds_total ?? 0} BIND au total`}
+          />
         </Grid>
       </Grid>
 
@@ -216,6 +228,7 @@ export default function DashboardJewrin() {
               <Box display="flex" flexDirection="column" gap={1.2}>
                 <ActionBtn label="Majaaliss (TERE / BIND)" icon={AutoStories} onClick={() => navigate('/culturelle/majaaliss')} />
                 <ActionBtn label="LAAJ" icon={QuestionAnswer} onClick={() => navigate('/culturelle/laaj')} />
+                <ActionBtn label="Thème culturel" icon={Style} onClick={() => navigate('/culturelle/theme-culturelle')} />
                 <ActionBtn label="Messagerie" icon={Message} onClick={() => navigate('/communication/messagerie')} badge={unreadMessages} />
                 <ActionBtn label="Statistiques Kamil" icon={TrendingUp} onClick={() => navigate('/culturelle/statistiques')} />
               </Box>

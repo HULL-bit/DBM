@@ -339,6 +339,27 @@ class AssignationTereViewSet(viewsets.ModelViewSet):
             'assignations': AssignationTereSerializer(created, many=True).data,
         }, status=status.HTTP_201_CREATED)
 
+    @action(detail=False, methods=['get'])
+    def stats(self, request):
+        """Progression Majaaliss : pour un membre, ses propres TERE/BIND ; pour
+        admin/jewrine_culturelle, une vue d'ensemble sur tous les membres."""
+        if has_admin_access(request.user, 'culturelle'):
+            qs = AssignationTere.objects.all()
+        else:
+            qs = AssignationTere.objects.filter(membre=request.user)
+        tere_en_cours = qs.filter(statut='en_cours').count()
+        tere_termines = qs.filter(statut='termine').count()
+        binds_qs = Bind.objects.filter(assignation__in=qs)
+        binds_total = binds_qs.count()
+        binds_recites = binds_qs.exclude(tarri_audio__in=['', None]).count()
+        return Response({
+            'tere_en_cours': tere_en_cours,
+            'tere_termines': tere_termines,
+            'binds_total': binds_total,
+            'binds_recites': binds_recites,
+            'binds_en_attente_tarri': binds_total - binds_recites,
+        })
+
 
 class BindViewSet(viewsets.ModelViewSet):
     """BIND successifs d'une assignation TERE (Majaaliss)."""
