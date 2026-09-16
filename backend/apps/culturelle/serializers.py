@@ -98,7 +98,7 @@ class BindSerializer(serializers.ModelSerializer):
     class Meta:
         model = Bind
         fields = '__all__'
-        read_only_fields = ['numero', 'cree_par', 'date_creation']
+        read_only_fields = ['numero', 'cree_par', 'date_creation', 'tarri_audio', 'tarri_date']
 
 
 class AssignationTereSerializer(serializers.ModelSerializer):

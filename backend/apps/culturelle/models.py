@@ -258,6 +258,13 @@ class Bind(models.Model):
     notes = models.TextField(blank=True)
     cree_par = models.ForeignKey(CustomUser, on_delete=models.SET_NULL, null=True, blank=True, related_name='binds_crees')
     date_creation = models.DateTimeField(auto_now_add=True)
+    # TARRI : le membre assigné récite à son tour ce BIND, pour prouver qu'il a bien écouté et
+    # appris le vocal du responsable culturelle.
+    tarri_audio = models.FileField(
+        upload_to='majaaliss/binds/tarri/', null=True, blank=True,
+        help_text="Récitation du membre (TARRI) pour ce BIND, prouvant qu'il l'a écouté/appris"
+    )
+    tarri_date = models.DateTimeField(null=True, blank=True)
 
     class Meta:
         unique_together = ['assignation', 'numero']

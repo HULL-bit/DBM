@@ -15,6 +15,92 @@ import TablePaginationFr from '../ui/TablePaginationFr'
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 const TERE_COURANTS = ['KUN KAATIMAN', 'TAZA WUDU SIXAAR', 'JAWXARATUN NAFIIS', 'NAXJU']
 
+function TarriSection({ bind, isMine, onSubmitted, setMessage }) {
+  const [enregistrement, setEnregistrement] = useState(false)
+  const [file, setFile] = useState(null)
+  const [saving, setSaving] = useState(false)
+  const mediaRecorderRef = useRef(null)
+  const chunksRef = useRef([])
+
+  const demarrer = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      const recorder = new MediaRecorder(stream)
+      chunksRef.current = []
+      recorder.ondataavailable = (e) => chunksRef.current.push(e.data)
+      recorder.onstop = () => {
+        const blob = new Blob(chunksRef.current, { type: 'audio/webm' })
+        setFile(new File([blob], `tarri_${Date.now()}.webm`, { type: 'audio/webm' }))
+        stream.getTracks().forEach((t) => t.stop())
+      }
+      recorder.start()
+      mediaRecorderRef.current = recorder
+      setEnregistrement(true)
+    } catch {
+      setMessage({ type: 'error', text: "Impossible d'accéder au microphone." })
+    }
+  }
+  const arreter = () => {
+    mediaRecorderRef.current?.stop()
+    setEnregistrement(false)
+  }
+
+  const handleSend = async () => {
+    if (!file) return
+    setSaving(true)
+    setMessage({ type: '', text: '' })
+    try {
+      const payload = new FormData()
+      payload.append('tarri_audio', file)
+      const { data } = await api.post(`/culturelle/binds/${bind.id}/tarri/`, payload)
+      setMessage({ type: 'success', text: `Récitation envoyée pour le BIND ${bind.numero}.` })
+      onSubmitted(data)
+      setFile(null)
+    } catch {
+      setMessage({ type: 'error', text: "Erreur lors de l'envoi de la récitation." })
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Box sx={{ mt: 1, pt: 1, borderTop: `1px dashed ${C.or}80` }}>
+      <Typography variant="caption" sx={{ fontWeight: 600, color: C.vertFonce, display: 'block', mb: 0.5 }}>
+        Récitation du membre (TARRI){bind.tarri_audio ? ' — envoyée' : ''}
+      </Typography>
+      {bind.tarri_audio && (
+        <audio controls src={getMediaUrl(bind.tarri_audio)} style={{ width: '100%', height: 32, marginBottom: isMine ? 6 : 0 }} />
+      )}
+      {!bind.tarri_audio && !isMine && (
+        <Typography variant="caption" color="text.secondary">Pas encore de récitation.</Typography>
+      )}
+      {isMine && (
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', mt: bind.tarri_audio ? 0.5 : 0 }}>
+          {!enregistrement ? (
+            <Button size="small" variant="outlined" startIcon={<Mic />} onClick={demarrer} sx={{ borderColor: C.vert, color: C.vert }}>
+              {bind.tarri_audio ? 'Refaire ma récitation' : 'Réciter (TARRI)'}
+            </Button>
+          ) : (
+            <Button size="small" variant="contained" color="error" startIcon={<Stop />} onClick={arreter}>Arrêter</Button>
+          )}
+          <Button size="small" component="label" sx={{ color: C.vertFonce }}>
+            ou fichier audio
+            <input type="file" hidden accept="audio/*" onChange={(e) => setFile(e.target.files?.[0] || null)} />
+          </Button>
+          {file && (
+            <>
+              <Chip label={file.name} size="small" onDelete={() => setFile(null)} deleteIcon={<Delete fontSize="small" />} />
+              <Button size="small" variant="contained" onClick={handleSend} disabled={saving} sx={{ bgcolor: C.vert, '&:hover': { bgcolor: C.vertFonce } }}>
+                {saving ? <CircularProgress size={16} color="inherit" /> : 'Envoyer'}
+              </Button>
+            </>
+          )}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
 export default function Majaaliss() {
   const { user, peut } = useAuth()
   const canManage = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_culturelle' || peut('culturelle', 'gerer')
@@ -91,6 +177,12 @@ export default function Majaaliss() {
   const updateDetailAndList = (data) => {
     setList((prev) => prev.map((x) => (x.id === data.id ? data : x)))
     setDetail((d) => (d && d.id === data.id ? data : d))
+  }
+
+  const handleTarriSubmitted = (updatedBind) => {
+    const applyToBinds = (a) => ({ ...a, binds: (a.binds || []).map((x) => (x.id === updatedBind.id ? updatedBind : x)) })
+    setDetail((d) => (d ? applyToBinds(d) : d))
+    setList((prev) => prev.map((a) => (a.id === updatedBind.assignation ? applyToBinds(a) : a)))
   }
 
   const handleTerminer = async (a) => {
@@ -371,6 +463,7 @@ export default function Majaaliss() {
                       <Typography variant="caption" color="text.secondary" display="block" sx={{ mt: 0.5 }}>
                         {b.cree_par_nom} · {new Date(b.date_creation).toLocaleDateString('fr-FR')}
                       </Typography>
+                      <TarriSection bind={b} isMine={!canManage} onSubmitted={handleTarriSubmitted} setMessage={setMessage} />
                     </Paper>
                   ))}
                 </Box>

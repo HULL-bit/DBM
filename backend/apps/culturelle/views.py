@@ -372,6 +372,31 @@ class BindViewSet(viewsets.ModelViewSet):
             lien='/culturelle/majaaliss'
         )
 
+    @action(detail=True, methods=['post'])
+    def tarri(self, request, pk=None):
+        """Le membre assigné soumet sa récitation (TARRI) de ce BIND, pour montrer qu'il l'a
+        bien écouté et appris."""
+        bind = self.get_object()
+        est_le_membre = bind.assignation.membre_id == request.user.id
+        if not est_le_membre and not has_admin_access(request.user, 'culturelle'):
+            return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+        tarri_audio = request.FILES.get('tarri_audio')
+        if not tarri_audio:
+            return Response({'detail': 'Le vocal de récitation (TARRI) est requis.'}, status=400)
+        from django.utils import timezone
+        bind.tarri_audio = tarri_audio
+        bind.tarri_date = timezone.now()
+        bind.save(update_fields=['tarri_audio', 'tarri_date'])
+        if bind.cree_par_id and bind.cree_par_id != request.user.id:
+            from apps.communication.notifications import creer_notifications
+            creer_notifications(
+                [bind.cree_par_id], 'majaaliss', f"TARRI reçu — BIND {bind.numero}",
+                f"{bind.assignation.membre.get_full_name()} a envoyé sa récitation pour le BIND {bind.numero} "
+                f"({bind.assignation.nom_tere}).",
+                lien='/culturelle/majaaliss'
+            )
+        return Response(BindSerializer(bind).data)
+
 
 class LaajViewSet(viewsets.ModelViewSet):
     """LAAJ : questions religieuses des membres et réponses du responsable culturelle."""

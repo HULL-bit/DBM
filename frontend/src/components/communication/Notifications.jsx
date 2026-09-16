@@ -36,6 +36,8 @@ const TYPES = [
   { value: 'evenement', label: 'Événement' },
   { value: 'finance', label: 'Finance' },
   { value: 'kamil', label: 'Kamil' },
+  { value: 'majaaliss', label: 'Majaaliss' },
+  { value: 'laaj', label: 'LAAJ' },
   { value: 'systeme', label: 'Système' },
 ]
 

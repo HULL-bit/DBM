@@ -9,6 +9,7 @@ import {
 } from '@mui/icons-material'
 import { useAuth } from '../../context/AuthContext'
 import api from '../../services/api'
+import NotificationsApercu from './NotificationsApercu'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029', vertClair: '#3d7a52' }
 
@@ -205,7 +206,7 @@ export default function DashboardMembre() {
 
       {/* Actions */}
       <Grid container spacing={2.5}>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Card sx={{ borderRadius: 3, height: '100%', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', border: `1px solid ${C.or}30` }}>
             <CardContent sx={{ p: 2.5 }}>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
@@ -221,7 +222,7 @@ export default function DashboardMembre() {
             </CardContent>
           </Card>
         </Grid>
-        <Grid item xs={12} md={6}>
+        <Grid item xs={12} md={4}>
           <Card sx={{ borderRadius: 3, height: '100%', boxShadow: '0 2px 12px rgba(0,0,0,0.05)', border: `1px solid ${C.vert}30` }}>
             <CardContent sx={{ p: 2.5 }}>
               <Box display="flex" alignItems="center" gap={1} mb={2}>
@@ -234,6 +235,9 @@ export default function DashboardMembre() {
               </Box>
             </CardContent>
           </Card>
+        </Grid>
+        <Grid item xs={12} md={4}>
+          <NotificationsApercu />
         </Grid>
       </Grid>
     </Box>
