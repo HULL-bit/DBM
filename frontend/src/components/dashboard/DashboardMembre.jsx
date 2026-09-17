@@ -240,7 +240,7 @@ export default function DashboardMembre() {
                 <ActionBtn label="Majaaliss (mes TERE / BIND)" icon={AutoStories} onClick={() => navigate('/culturelle/majaaliss')} badge={majaalissStats?.binds_en_attente_tarri} />
                 <ActionBtn label="LAAJ" icon={QuestionAnswer} onClick={() => navigate('/culturelle/laaj')} />
                 <ActionBtn label="Thème culturel" icon={Style} onClick={() => navigate('/culturelle/theme-culturelle')} />
-                <ActionBtn label="Voir les événements" icon={Event} onClick={() => navigate('/informations/evenements')} />
+                <ActionBtn label="Xew-Xew Yi" icon={Event} onClick={() => navigate('/informations/xew-xew-yi')} />
                 <ActionBtn label="Messagerie" icon={Message} onClick={() => navigate('/communication/messagerie')} badge={unreadMessages} />
               </Box>
             </CardContent>

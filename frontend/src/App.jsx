@@ -9,8 +9,7 @@ import PolitiqueConfidentialite from './components/legal/PolitiqueConfidentialit
 import DashboardAdmin from './components/dashboard/DashboardAdmin'
 import DashboardMembre from './components/dashboard/DashboardMembre'
 import DashboardJewrin from './components/dashboard/DashboardJewrin'
-import Evenements from './components/informations/Evenements'
-import News from './components/informations/News'
+import XewXewYi from './components/informations/XewXewYi'
 import Cotisations from './components/finance/Cotisations'
 import GestionDepenses from './components/finance/GestionDepenses'
 import ProgrammeKamil from './components/culturelle/ProgrammeKamil'
@@ -84,8 +83,10 @@ function AppRoutes() {
         <Route path="admin" element={<ProtectedRoute roles={['admin']}><DashboardAdmin /></ProtectedRoute>} />
         <Route path="membre" element={<ProtectedRoute roles={['membre']}><DashboardMembre /></ProtectedRoute>} />
         <Route path="jewrin" element={<ProtectedRoute roles={JEWRINE_ROLES}><DashboardJewrin /></ProtectedRoute>} />
-        <Route path="informations/evenements" element={<Evenements />} />
-        <Route path="informations/news" element={<News />} />
+        <Route path="informations/xew-xew-yi" element={<XewXewYi />} />
+        {/* Anciennes URLs (News/Événements séparés) redirigées vers le flux fusionné */}
+        <Route path="informations/evenements" element={<Navigate to="/informations/xew-xew-yi" replace />} />
+        <Route path="informations/news" element={<Navigate to="/informations/xew-xew-yi" replace />} />
         <Route path="finance/cotisations" element={<Cotisations />} />
         <Route path="finance/depenses" element={<GestionDepenses />} />
         <Route path="culturelle/kamil" element={<ProgrammeKamil />} />

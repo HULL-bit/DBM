@@ -516,4 +516,8 @@ def bilan_financier_export(request):
 
     resp = HttpResponse(buf.read(), content_type=content_type)
     resp['Content-Disposition'] = f'attachment; filename="bilan_financier.{ext}"'
+    log_audit(
+        request, 'consultation', rubrique='finance',
+        description=f"Bilan financier exporté ({fmt}){f' — année {annee}' if annee else ''}"
+    )
     return resp

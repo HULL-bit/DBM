@@ -256,6 +256,7 @@ class JournalAudit(models.Model):
         ('changement_role', 'Changement de rôle'),
         ('changement_permission', 'Changement de permission'),
         ('reset_mot_de_passe', 'Réinitialisation de mot de passe'),
+        ('consultation', 'Consultation'),
         ('autre', 'Autre'),
     ]
 

@@ -446,7 +446,7 @@ export default function Canaux() {
         }}
       >
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: `1px solid ${COLORS.or}30` }}>
-          <Typography variant="h6" sx={{ color: COLORS.vert, fontWeight: 700 }}>Canaux</Typography>
+          <Typography variant="h6" sx={{ color: COLORS.vert, fontWeight: 700 }}>Groupes Yi</Typography>
           <Tooltip title="Nouveau canal">
             <IconButton size="small" onClick={() => setOpenCreation(true)} sx={{ color: COLORS.vert }}><Add /></IconButton>
           </Tooltip>
@@ -547,11 +547,11 @@ export default function Canaux() {
                     Démarrer une réunion
                   </Button>
                 )}
+                <Tooltip title="Membres du groupe">
+                  <IconButton size="small" onClick={() => setOpenGestionMembres(true)} sx={{ color: COLORS.vert }}><Groups /></IconButton>
+                </Tooltip>
                 {canalSelectionne.est_admin_canal && (
                   <>
-                    <Tooltip title="Gérer les membres">
-                      <IconButton size="small" onClick={() => setOpenGestionMembres(true)} sx={{ color: COLORS.vert }}><Groups /></IconButton>
-                    </Tooltip>
                     <Tooltip title="Options du canal">
                       <IconButton size="small" onClick={(e) => setCanalMenuAnchor(e.currentTarget)} sx={{ color: COLORS.vert }}><MoreVert /></IconButton>
                     </Tooltip>
@@ -677,28 +677,32 @@ export default function Canaux() {
         </DialogActions>
       </Dialog>
 
-      {/* Dialog gestion des membres */}
+      {/* Dialog membres du canal — visible à tous les membres ; ajout/retrait réservés à l'admin du canal */}
       <Dialog open={openGestionMembres} onClose={() => setOpenGestionMembres(false)} maxWidth="sm" fullWidth>
         <DialogTitle sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-          Membres du canal
+          Membres du canal ({(canalSelectionne?.membres || []).length})
           <IconButton onClick={() => setOpenGestionMembres(false)} size="small"><Close /></IconButton>
         </DialogTitle>
         <DialogContent>
-          <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
-            <Autocomplete
-              options={tousMembres.filter((m) => !canalSelectionne?.membres?.some((mc) => mc.user === m.id))}
-              getOptionLabel={(m) => `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.username}
-              value={nouveauMembre}
-              onChange={(e, val) => setNouveauMembre(val)}
-              renderInput={(params) => <TextField {...params} label="Ajouter un membre" size="small" />}
-              sx={{ flex: 1 }}
-            />
-            <Button variant="contained" startIcon={<PersonAdd />} onClick={handleAjouterMembre} disabled={!nouveauMembre}
-              sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
-              Ajouter
-            </Button>
-          </Box>
-          <Divider sx={{ mb: 1 }} />
+          {canalSelectionne?.est_admin_canal && (
+            <>
+              <Box sx={{ display: 'flex', gap: 1, mb: 2 }}>
+                <Autocomplete
+                  options={tousMembres.filter((m) => !canalSelectionne?.membres?.some((mc) => mc.user === m.id))}
+                  getOptionLabel={(m) => `${m.first_name || ''} ${m.last_name || ''}`.trim() || m.username}
+                  value={nouveauMembre}
+                  onChange={(e, val) => setNouveauMembre(val)}
+                  renderInput={(params) => <TextField {...params} label="Ajouter un membre" size="small" />}
+                  sx={{ flex: 1 }}
+                />
+                <Button variant="contained" startIcon={<PersonAdd />} onClick={handleAjouterMembre} disabled={!nouveauMembre}
+                  sx={{ bgcolor: COLORS.vert, '&:hover': { bgcolor: COLORS.vertFonce } }}>
+                  Ajouter
+                </Button>
+              </Box>
+              <Divider sx={{ mb: 1 }} />
+            </>
+          )}
           <List dense>
             {(canalSelectionne?.membres || []).map((m) => (
               <Box key={m.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0.5 }}>
@@ -707,7 +711,7 @@ export default function Canaux() {
                   <Typography variant="body2">{m.membre_nom}</Typography>
                   {m.est_admin_canal && <Chip label="Admin" size="small" sx={{ bgcolor: `${COLORS.or}30`, fontSize: '0.65rem' }} />}
                 </Box>
-                {m.user !== canalSelectionne.cree_par && (
+                {canalSelectionne?.est_admin_canal && m.user !== canalSelectionne.cree_par && (
                   <IconButton size="small" color="error" onClick={() => handleRetirerMembre(m.user)}><Delete fontSize="small" /></IconButton>
                 )}
               </Box>

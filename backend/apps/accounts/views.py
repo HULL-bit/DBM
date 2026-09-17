@@ -269,7 +269,20 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
         if self.request.method in ['PUT', 'PATCH', 'DELETE']:
             return [IsAdminOrComptesGerer()]
         return [IsAdminOrComptesVoir()]
-    
+
+    def retrieve(self, request, *args, **kwargs):
+        """Consulter la fiche complète d'un AUTRE membre est une action sensible (données
+        personnelles) : on la trace, sans logger la consultation de son propre profil
+        (Mon Profil), qui n'a pas d'intérêt d'audit."""
+        instance = self.get_object()
+        response = super().retrieve(request, *args, **kwargs)
+        if request.user.is_authenticated and instance.id != request.user.id:
+            log_audit(
+                request, 'consultation', rubrique='comptes', objet=instance,
+                description=f"Fiche membre consultée : {instance.get_full_name()}"
+            )
+        return response
+
     def partial_update(self, request, *args, **kwargs):
         """Override pour s'assurer que la catégorie est bien sauvegardée"""
         instance = self.get_object()

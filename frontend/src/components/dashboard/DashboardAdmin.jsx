@@ -157,10 +157,10 @@ export default function DashboardAdmin() {
               <Button
                 variant="contained"
                 startIcon={<Add />}
-                onClick={() => navigate('/informations/evenements')}
+                onClick={() => navigate('/informations/xew-xew-yi')}
                 sx={{ bgcolor: C.vert, color: '#fff', fontWeight: 700, borderRadius: 2, '&:hover': { bgcolor: C.vertFonce } }}
               >
-                Créer Événement
+                Publier sur Xew-Xew Yi
               </Button>
             </Box>
           </Box>
@@ -235,7 +235,7 @@ export default function DashboardAdmin() {
               <Box display="flex" flexDirection="column" gap={1.2}>
                 <ActionBtn label="Gestion des membres" icon={People} onClick={() => navigate('/admin/membres')} primary />
                 <ActionBtn label="Gérer les cotisations" icon={AccountBalance} onClick={() => navigate('/finance/cotisations')} />
-                <ActionBtn label="Gérer les événements" icon={Event} onClick={() => navigate('/informations/evenements')} />
+                <ActionBtn label="Xew-Xew Yi" icon={Event} onClick={() => navigate('/informations/xew-xew-yi')} />
               </Box>
             </CardContent>
           </Card>

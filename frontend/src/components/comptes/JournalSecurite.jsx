@@ -40,6 +40,7 @@ const ACTIONS = [
   { value: 'changement_role', label: 'Changement de rôle' },
   { value: 'changement_permission', label: 'Changement de permission' },
   { value: 'reset_mot_de_passe', label: 'Réinitialisation de mot de passe' },
+  { value: 'consultation', label: 'Consultation' },
   { value: 'autre', label: 'Autre' },
 ]
 

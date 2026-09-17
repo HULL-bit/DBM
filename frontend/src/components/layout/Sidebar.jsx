@@ -16,7 +16,6 @@ import {
 import { ChevronLeft, ChevronRight, Home as HomeIcon } from '@mui/icons-material'
 import {
   Dashboard as DashboardIcon,
-  Event as EventIcon,
   Feed as FeedIcon,
   AccountBalance as FinanceIcon,
   MenuBook as KamilIcon,
@@ -69,8 +68,7 @@ const sectionsAdmin = [
     ],
   },
   { title: 'Informations', items: [
-    { label: 'Événements', path: '/informations/evenements', icon: <EventIcon />, rubrique: 'informations' },
-    { label: 'News', path: '/informations/news', icon: <FeedIcon />, rubrique: 'informations' },
+    { label: 'Xew-Xew Yi', path: '/informations/xew-xew-yi', icon: <FeedIcon />, rubrique: 'informations' },
   ] },
   {
     title: 'Finance',
@@ -93,7 +91,7 @@ const sectionsAdmin = [
     title: 'Communication',
     items: [
       { label: 'Messagerie', path: '/communication/messagerie', icon: <MessageIcon />, rubrique: 'communication' },
-      { label: 'Canaux', path: '/communication/canaux', icon: <CanalIcon />, rubrique: 'communication' },
+      { label: 'Groupes Yi', path: '/communication/canaux', icon: <CanalIcon />, rubrique: 'communication' },
       { label: 'Notifications', path: '/communication/notifications', icon: <NotifIcon />, rubrique: 'communication' },
     ],
   },
@@ -121,8 +119,7 @@ const sectionsMembre = [
     ],
   },
   { title: 'Informations', items: [
-    { label: 'Événements', path: '/informations/evenements', icon: <EventIcon />, rubrique: 'informations' },
-    { label: 'News', path: '/informations/news', icon: <FeedIcon />, rubrique: 'informations' },
+    { label: 'Xew-Xew Yi', path: '/informations/xew-xew-yi', icon: <FeedIcon />, rubrique: 'informations' },
   ] },
   {
     title: 'Finance',
@@ -144,7 +141,7 @@ const sectionsMembre = [
     title: 'Communication',
     items: [
       { label: 'Messagerie', path: '/communication/messagerie', icon: <MessageIcon />, rubrique: 'communication' },
-      { label: 'Canaux', path: '/communication/canaux', icon: <CanalIcon />, rubrique: 'communication' },
+      { label: 'Groupes Yi', path: '/communication/canaux', icon: <CanalIcon />, rubrique: 'communication' },
       { label: 'Notifications', path: '/communication/notifications', icon: <NotifIcon />, rubrique: 'communication' },
     ],
   },
@@ -175,8 +172,7 @@ const sectionsJewrin = [
     ],
   },
   { title: 'Informations', items: [
-    { label: 'Événements', path: '/informations/evenements', icon: <EventIcon />, rubrique: 'informations' },
-    { label: 'News', path: '/informations/news', icon: <FeedIcon />, rubrique: 'informations' },
+    { label: 'Xew-Xew Yi', path: '/informations/xew-xew-yi', icon: <FeedIcon />, rubrique: 'informations' },
   ] },
   {
     title: 'Finance',
@@ -189,7 +185,7 @@ const sectionsJewrin = [
     title: 'Communication',
     items: [
       { label: 'Messagerie', path: '/communication/messagerie', icon: <MessageIcon />, rubrique: 'communication' },
-      { label: 'Canaux', path: '/communication/canaux', icon: <CanalIcon />, rubrique: 'communication' },
+      { label: 'Groupes Yi', path: '/communication/canaux', icon: <CanalIcon />, rubrique: 'communication' },
       { label: 'Notifications', path: '/communication/notifications', icon: <NotifIcon />, rubrique: 'communication' },
     ],
   },
