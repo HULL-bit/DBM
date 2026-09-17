@@ -5,7 +5,9 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.shortcuts import get_object_or_404
 from django.contrib.auth import get_user_model
 from django.db.models import Sum, Count
-from apps.accounts.permissions import IsAdminOrJewrinCulturelle, has_admin_access
+from apps.accounts.permissions import (
+    IsAdminOrJewrinCulturelle, has_admin_access, log_audit, AuditedModelViewSet,
+)
 
 from .models import (
     Kamil, Chapitre, Jukki, ProgressionLecture, ActiviteReligieuse, Enseignement, VersementKamil,
@@ -20,11 +22,12 @@ from .serializers import (
 User = get_user_model()
 
 
-class KamilViewSet(viewsets.ModelViewSet):
+class KamilViewSet(AuditedModelViewSet):
     queryset = Kamil.objects.filter(statut='actif').order_by('-date_creation')
     serializer_class = KamilSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['statut']
+    audit_rubrique = 'culturelle'
 
     def get_queryset(self):
         return Kamil.objects.all().prefetch_related('jukkis').order_by('-date_creation')
@@ -38,6 +41,9 @@ class KamilViewSet(viewsets.ModelViewSet):
         kamil = serializer.save(cree_par=self.request.user)
         for i in range(1, 31):
             Jukki.objects.create(kamil=kamil, numero=i)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=kamil,
+                  description=f"Kamil créé : {kamil}")
+        return kamil
 
     @action(detail=True, methods=['patch'])
     def assigner_jukkis(self, request, pk=None):
@@ -66,6 +72,10 @@ class KamilViewSet(viewsets.ModelViewSet):
                 lien='/culturelle/mes-progressions'
             )
 
+        if assignations:
+            log_audit(request, 'modification', rubrique='culturelle', objet=kamil,
+                      description=f"JUKKIs assignés : {kamil} ({len(assignations)} numéro(s))")
+
         return Response(KamilSerializer(kamil).data)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrJewrinCulturelle])
@@ -76,14 +86,17 @@ class KamilViewSet(viewsets.ModelViewSet):
         kamil.nb_lectures = (kamil.nb_lectures or 0) + 1
         kamil.save(update_fields=['nb_lectures'])
         kamil.refresh_from_db()
+        log_audit(request, 'modification', rubrique='culturelle', objet=kamil,
+                  description=f"Kamil recommencé (JUKKIs réinitialisés) : {kamil}")
         return Response(KamilSerializer(kamil).data)
 
 
-class ChapitreViewSet(viewsets.ModelViewSet):
+class ChapitreViewSet(AuditedModelViewSet):
     queryset = Chapitre.objects.all().order_by('kamil', 'numero')
     serializer_class = ChapitreSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['kamil', 'est_publie']
+    audit_rubrique = 'culturelle'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -141,11 +154,13 @@ class JukkiViewSet(viewsets.ReadOnlyModelViewSet):
         return Response(JukkiSerializer(jukki).data)
 
 
-class ProgressionLectureViewSet(viewsets.ModelViewSet):
+class ProgressionLectureViewSet(AuditedModelViewSet):
     queryset = ProgressionLecture.objects.all().order_by('membre', 'kamil', 'chapitre__numero')
     serializer_class = ProgressionLectureSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['membre', 'kamil', 'chapitre', 'statut']
+    audit_rubrique = 'culturelle'
+    audit_label = 'Progression de lecture'
 
     def get_queryset(self):
         qs = ProgressionLecture.objects.all().select_related('membre', 'kamil', 'chapitre').order_by('membre', 'kamil', 'chapitre__numero')
@@ -164,7 +179,10 @@ class ProgressionLectureViewSet(viewsets.ModelViewSet):
             membre = get_object_or_404(User, id=self.request.data.get('membre'))
         else:
             membre = self.request.user
-        serializer.save(membre=membre)
+        instance = serializer.save(membre=membre)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Progression de lecture créée : {instance} ({membre.get_full_name()})")
+        return instance
 
     @action(detail=False, methods=['post'])
     def marquer_comme_lu(self, request):
@@ -197,6 +215,8 @@ class ProgressionLectureViewSet(viewsets.ModelViewSet):
         prog.date_validation = timezone.now()
         prog.commentaire_validation = request.data.get('commentaire', '')
         prog.save()
+        log_audit(request, 'modification', rubrique='culturelle', objet=prog,
+                  description=f"Progression de lecture validée : {prog} ({prog.membre.get_full_name()})")
         return Response(ProgressionLectureSerializer(prog).data)
 
     @action(detail=True, methods=['post'])
@@ -211,14 +231,17 @@ class ProgressionLectureViewSet(viewsets.ModelViewSet):
         prog.date_validation = timezone.now()
         prog.commentaire_validation = request.data.get('commentaire', '')
         prog.save()
+        log_audit(request, 'modification', rubrique='culturelle', objet=prog,
+                  description=f"Progression de lecture refusée : {prog} ({prog.membre.get_full_name()})")
         return Response(ProgressionLectureSerializer(prog).data)
 
 
-class ActiviteReligieuseViewSet(viewsets.ModelViewSet):
+class ActiviteReligieuseViewSet(AuditedModelViewSet):
     queryset = ActiviteReligieuse.objects.all().order_by('-date_activite')
     serializer_class = ActiviteReligieuseSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['type_activite', 'animateur']
+    audit_rubrique = 'culturelle'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -226,15 +249,20 @@ class ActiviteReligieuseViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(animateur=self.request.user)
+        instance = serializer.save(animateur=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Activité religieuse créée : {instance}")
+        return instance
 
 
-class AssignationTereViewSet(viewsets.ModelViewSet):
+class AssignationTereViewSet(AuditedModelViewSet):
     """Majaaliss : assignation d'un membre à un TERE (livre)."""
     queryset = AssignationTere.objects.all().order_by('membre', '-date_assignation')
     serializer_class = AssignationTereSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['membre', 'statut']
+    audit_rubrique = 'culturelle'
+    audit_label = 'Assignation TERE'
 
     def get_queryset(self):
         qs = AssignationTere.objects.all().select_related('membre', 'assigne_par').prefetch_related('binds').order_by('membre', '-date_assignation')
@@ -255,12 +283,15 @@ class AssignationTereViewSet(viewsets.ModelViewSet):
         else:
             membre = self.request.user
         assignation = serializer.save(membre=membre, assigne_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=assignation,
+                  description=f"Assignation TERE créée : {assignation} ({membre.get_full_name()})")
         from apps.communication.notifications import creer_notifications
         creer_notifications(
             [membre.id], 'majaaliss', 'Nouveau TERE assigné — Majaaliss',
             f"Vous avez été assigné(e) au TERE « {assignation.nom_tere} ».",
             lien='/culturelle/majaaliss'
         )
+        return assignation
 
     @action(detail=True, methods=['post'])
     def terminer(self, request, pk=None):
@@ -272,6 +303,8 @@ class AssignationTereViewSet(viewsets.ModelViewSet):
         assignation.statut = 'termine'
         assignation.date_fin = timezone.now()
         assignation.save(update_fields=['statut', 'date_fin'])
+        log_audit(request, 'modification', rubrique='culturelle', objet=assignation,
+                  description=f"TERE marqué terminé : {assignation} ({assignation.membre.get_full_name()})")
         return Response(AssignationTereSerializer(assignation).data)
 
     @action(detail=True, methods=['post'])
@@ -283,6 +316,8 @@ class AssignationTereViewSet(viewsets.ModelViewSet):
         assignation.statut = 'en_cours'
         assignation.date_fin = None
         assignation.save(update_fields=['statut', 'date_fin'])
+        log_audit(request, 'modification', rubrique='culturelle', objet=assignation,
+                  description=f"TERE rouvert (repris) : {assignation} ({assignation.membre.get_full_name()})")
         return Response(AssignationTereSerializer(assignation).data)
 
     @action(detail=False, methods=['post'], url_path='assigner-multiple')
@@ -333,6 +368,9 @@ class AssignationTereViewSet(viewsets.ModelViewSet):
                 f"Vous avez été assigné(e) au TERE « {nom_tere} ».",
                 lien='/culturelle/majaaliss'
             )
+            noms_membres = ', '.join(a.membre.get_full_name() for a in created)
+            log_audit(request, 'creation', rubrique='culturelle', objet=nom_tere,
+                      description=f"TERE « {nom_tere} » assigné à {len(created)} membre(s) : {noms_membres}")
         return Response({
             'created_count': len(created),
             'skipped_count': skipped,
@@ -361,12 +399,14 @@ class AssignationTereViewSet(viewsets.ModelViewSet):
         })
 
 
-class BindViewSet(viewsets.ModelViewSet):
+class BindViewSet(AuditedModelViewSet):
     """BIND successifs d'une assignation TERE (Majaaliss)."""
     queryset = Bind.objects.all().order_by('assignation', 'numero')
     serializer_class = BindSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['assignation']
+    audit_rubrique = 'culturelle'
+    audit_label = 'BIND'
 
     def get_queryset(self):
         qs = Bind.objects.all().select_related('assignation', 'assignation__membre', 'cree_par').order_by('assignation', 'numero')
@@ -386,12 +426,15 @@ class BindViewSet(viewsets.ModelViewSet):
         # BIND oublié ou corriger a posteriori) — aucun blocage sur le statut ici.
         prochain_numero = assignation.binds.count() + 1
         bind = serializer.save(assignation=assignation, numero=prochain_numero, cree_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=bind,
+                  description=f"BIND {bind.numero} créé pour {assignation.nom_tere} ({assignation.membre.get_full_name()})")
         from apps.communication.notifications import creer_notifications
         creer_notifications(
             [assignation.membre_id], 'majaaliss', f"Nouveau BIND {bind.numero} — {assignation.nom_tere}",
             f"Un nouveau BIND vous a été transmis pour le TERE « {assignation.nom_tere} ».",
             lien='/culturelle/majaaliss'
         )
+        return bind
 
     @action(detail=True, methods=['post'])
     def tarri(self, request, pk=None):
@@ -408,6 +451,8 @@ class BindViewSet(viewsets.ModelViewSet):
         bind.tarri_audio = tarri_audio
         bind.tarri_date = timezone.now()
         bind.save(update_fields=['tarri_audio', 'tarri_date'])
+        log_audit(request, 'modification', rubrique='culturelle', objet=bind,
+                  description=f"TARRI soumis : BIND {bind.numero} ({bind.assignation.nom_tere}) par {bind.assignation.membre.get_full_name()}")
         if bind.cree_par_id and bind.cree_par_id != request.user.id:
             from apps.communication.notifications import creer_notifications
             creer_notifications(
@@ -419,12 +464,14 @@ class BindViewSet(viewsets.ModelViewSet):
         return Response(BindSerializer(bind).data)
 
 
-class LaajViewSet(viewsets.ModelViewSet):
+class LaajViewSet(AuditedModelViewSet):
     """LAAJ : questions religieuses des membres et réponses du responsable culturelle."""
     queryset = Laaj.objects.all().order_by('-date_question')
     serializer_class = LaajSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['membre', 'statut']
+    audit_rubrique = 'culturelle'
+    audit_label = 'LAAJ'
 
     def get_queryset(self):
         qs = Laaj.objects.all().select_related('membre', 'repondu_par').order_by('-date_question')
@@ -438,7 +485,10 @@ class LaajViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(membre=self.request.user)
+        instance = serializer.save(membre=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"LAAJ posée : {instance} ({self.request.user.get_full_name()})")
+        return instance
 
     @action(detail=True, methods=['post'])
     def repondre(self, request, pk=None):
@@ -456,6 +506,8 @@ class LaajViewSet(viewsets.ModelViewSet):
         laaj.date_reponse = timezone.now()
         laaj.statut = 'repondu'
         laaj.save()
+        log_audit(request, 'modification', rubrique='culturelle', objet=laaj,
+                  description=f"LAAJ répondu : {laaj} (membre : {laaj.membre.get_full_name()})")
         from apps.communication.notifications import creer_notifications
         creer_notifications(
             [laaj.membre_id], 'laaj', 'Votre LAAJ a reçu une réponse',
@@ -465,11 +517,12 @@ class LaajViewSet(viewsets.ModelViewSet):
         return Response(LaajSerializer(laaj).data)
 
 
-class EnseignementViewSet(viewsets.ModelViewSet):
+class EnseignementViewSet(AuditedModelViewSet):
     queryset = Enseignement.objects.all().order_by('-date_publication')
     serializer_class = EnseignementSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie', 'auteur']
+    audit_rubrique = 'culturelle'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -477,15 +530,20 @@ class EnseignementViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(auteur=self.request.user)
+        instance = serializer.save(auteur=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Enseignement (Thème culturel) créé : {instance}")
+        return instance
 
 
-class VersementKamilViewSet(viewsets.ModelViewSet):
+class VersementKamilViewSet(AuditedModelViewSet):
     """Gestion des versements pour les assignations Kamil"""
     queryset = VersementKamil.objects.all().order_by('-date_versement')
     serializer_class = VersementKamilSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['progression', 'membre', 'statut', 'methode_paiement']
+    audit_rubrique = 'culturelle'
+    audit_label = 'Versement Kamil'
 
     def get_queryset(self):
         qs = VersementKamil.objects.all().select_related(
@@ -513,7 +571,10 @@ class VersementKamilViewSet(viewsets.ModelViewSet):
         if float(montant) > float(progression.reste_a_payer):
             from rest_framework.exceptions import ValidationError
             raise ValidationError({'montant': f"Le montant ne peut pas dépasser le reste à payer ({progression.reste_a_payer} FCFA)."})
-        serializer.save(membre=self.request.user)
+        instance = serializer.save(membre=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Versement Kamil créé : {instance} ({self.request.user.get_full_name()})")
+        return instance
 
     @action(detail=True, methods=['post'])
     def valider(self, request, pk=None):
@@ -535,6 +596,8 @@ class VersementKamilViewSet(viewsets.ModelViewSet):
         ).aggregate(total=Sum('montant'))['total'] or 0
         progression.montant_verse = total_verse
         progression.save(update_fields=['montant_verse'])
+        log_audit(request, 'validation_paiement', rubrique='culturelle', objet=versement,
+                  description=f"Versement Kamil validé : {versement} ({versement.membre.get_full_name()})")
         return Response(VersementKamilSerializer(versement).data)
 
     @action(detail=True, methods=['post'])
@@ -551,6 +614,8 @@ class VersementKamilViewSet(viewsets.ModelViewSet):
         versement.date_validation = timezone.now()
         versement.commentaire = request.data.get('commentaire', '')
         versement.save()
+        log_audit(request, 'modification', rubrique='culturelle', objet=versement,
+                  description=f"Versement Kamil refusé : {versement} ({versement.membre.get_full_name()})")
         return Response(VersementKamilSerializer(versement).data)
 
     @action(detail=False, methods=['get'])

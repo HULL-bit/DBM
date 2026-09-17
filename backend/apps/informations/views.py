@@ -10,7 +10,9 @@ from .models import (
     ParticipationEvenement, Publication, Annonce, GalerieMedia,
     NewsPost, NewsImage, NewsLike, NewsBookmark, NewsComment,
 )
-from apps.accounts.permissions import IsAdminOrJewrinInformations, has_rubrique_access, log_audit
+from apps.accounts.permissions import (
+    IsAdminOrJewrinInformations, has_rubrique_access, log_audit, AuditedModelViewSet,
+)
 from apps.communication.push import send_push_to_user
 from .serializers import (
     GroupeSerializer, EvenementSerializer, EvenementCommentSerializer, ParticipationEvenementSerializer,
@@ -33,10 +35,11 @@ def _detecter_type_media(fichier):
     return 'image'
 
 
-class GroupeViewSet(viewsets.ModelViewSet):
+class GroupeViewSet(AuditedModelViewSet):
     queryset = Groupe.objects.filter(est_actif=True)
     serializer_class = GroupeSerializer
     permission_classes = [IsAuthenticated]
+    audit_rubrique = 'informations'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -44,11 +47,13 @@ class GroupeViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-class EvenementViewSet(viewsets.ModelViewSet):
+class EvenementViewSet(AuditedModelViewSet):
     queryset = Evenement.objects.select_related('cree_par').filter(est_publie=True).order_by('-date_debut')
     serializer_class = EvenementSerializer
     filterset_fields = ['type_evenement', 'est_publie']
     parser_classes = [MultiPartParser, FormParser, JSONParser]
+    audit_rubrique = 'informations'
+    audit_label = 'Événement (Xew-Xew Yi)'
 
     def get_queryset(self):
         qs = (
@@ -72,6 +77,8 @@ class EvenementViewSet(viewsets.ModelViewSet):
         evt = serializer.save(cree_par=request.user)
         self._enregistrer_medias(evt, request)
         self._notifier_creation(evt)
+        log_audit(request, 'creation', rubrique=self.audit_rubrique, objet=evt,
+                  description=f"Événement créé : {evt.titre}")
         out = self.get_serializer(evt)
         return Response(out.data, status=status.HTTP_201_CREATED)
 
@@ -81,6 +88,12 @@ class EvenementViewSet(viewsets.ModelViewSet):
             self._enregistrer_medias(self.get_object(), request)
             resp.data = self.get_serializer(self.get_object()).data
         return resp
+
+    def perform_update(self, serializer):
+        instance = serializer.save()
+        log_audit(self.request, 'modification', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Événement modifié : {instance.titre}")
+        return instance
 
     def _enregistrer_medias(self, evt, request):
         fichiers = request.FILES.getlist('medias') or []
@@ -172,10 +185,11 @@ class EvenementViewSet(viewsets.ModelViewSet):
         return Response(EvenementCommentSerializer(c).data, status=201)
 
 
-class PublicationViewSet(viewsets.ModelViewSet):
+class PublicationViewSet(AuditedModelViewSet):
     queryset = Publication.objects.filter(est_publiee=True).order_by('-date_publication')
     serializer_class = PublicationSerializer
     filterset_fields = ['categorie', 'est_publiee']
+    audit_rubrique = 'informations'
 
     def get_queryset(self):
         qs = Publication.objects.all().order_by('-date_publication')
@@ -189,13 +203,17 @@ class PublicationViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(auteur=self.request.user)
+        instance = serializer.save(auteur=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Publication créée : {instance}")
+        return instance
 
 
-class AnnonceViewSet(viewsets.ModelViewSet):
+class AnnonceViewSet(AuditedModelViewSet):
     queryset = Annonce.objects.filter(est_active=True).order_by('-date_publication')
     serializer_class = AnnonceSerializer
     filterset_fields = ['priorite', 'est_active']
+    audit_rubrique = 'informations'
 
     def get_queryset(self):
         qs = Annonce.objects.all().order_by('-date_publication')
@@ -209,13 +227,19 @@ class AnnonceViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(auteur=self.request.user)
+        instance = serializer.save(auteur=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Annonce créée : {instance}")
+        return instance
 
 
-class GalerieMediaViewSet(viewsets.ModelViewSet):
+class GalerieMediaViewSet(AuditedModelViewSet):
     queryset = GalerieMedia.objects.all().order_by('-date_upload')
     serializer_class = GalerieMediaSerializer
     filterset_fields = ['type_media', 'evenement']
+    audit_rubrique = 'informations'
+    audit_label = 'Média (galerie)'
+    audit_log_consultation = False  # toujours affiché en grille dans son événement, pas de vue détail dédiée
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -223,12 +247,14 @@ class GalerieMediaViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-class NewsPostViewSet(viewsets.ModelViewSet):
+class NewsPostViewSet(AuditedModelViewSet):
     serializer_class = NewsPostSerializer
     queryset = NewsPost.objects.all()
     permission_classes = [IsAuthenticated]
     parser_classes = [MultiPartParser, FormParser, JSONParser]
     filterset_fields = ['auteur']
+    audit_rubrique = 'informations'
+    audit_label = 'Actualité (Xew-Xew Yi)'
 
     def get_queryset(self):
         qs = (

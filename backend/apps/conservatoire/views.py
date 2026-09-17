@@ -7,7 +7,10 @@ from rest_framework import viewsets
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.response import Response
-from apps.accounts.permissions import IsAdminOrJewrinConservatoire, has_admin_access
+from apps.accounts.permissions import (
+    IsAdminOrJewrinConservatoire, has_admin_access, log_audit,
+    AuditedModelViewSet,
+)
 
 from .models import (
     CategorieDocument, DocumentNumerique, MediaAudio, MediaVideo,
@@ -60,11 +63,12 @@ class CategorieDocumentViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
 
-class DocumentNumeriqueViewSet(viewsets.ModelViewSet):
+class DocumentNumeriqueViewSet(AuditedModelViewSet):
     queryset = DocumentNumerique.objects.select_related('telecharge_par', 'categorie').order_by('-date_ajout')
     serializer_class = DocumentNumeriqueSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie', 'type_document']
+    audit_rubrique = 'conservatoire'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -72,7 +76,10 @@ class DocumentNumeriqueViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(telecharge_par=self.request.user)
+        instance = serializer.save(telecharge_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Document ajouté : {instance}")
+        return instance
 
     def _serve_fichier(self, document, as_attachment=False):
         """Sert le fichier via le storage (compatible FileSystem, S3, etc.)."""
@@ -116,11 +123,12 @@ class DocumentNumeriqueViewSet(viewsets.ModelViewSet):
         return self._serve_fichier(document, as_attachment=True)
 
 
-class MediaAudioViewSet(viewsets.ModelViewSet):
+class MediaAudioViewSet(AuditedModelViewSet):
     queryset = MediaAudio.objects.select_related('upload_par').order_by('-date_ajout')
     serializer_class = MediaAudioSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie']
+    audit_rubrique = 'conservatoire'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -128,14 +136,18 @@ class MediaAudioViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(upload_par=self.request.user)
+        instance = serializer.save(upload_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Média audio ajouté : {instance}")
+        return instance
 
 
-class MediaVideoViewSet(viewsets.ModelViewSet):
+class MediaVideoViewSet(AuditedModelViewSet):
     queryset = MediaVideo.objects.select_related('upload_par').order_by('-date_ajout')
     serializer_class = MediaVideoSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie']
+    audit_rubrique = 'conservatoire'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -143,14 +155,18 @@ class MediaVideoViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(upload_par=self.request.user)
+        instance = serializer.save(upload_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Média vidéo ajouté : {instance}")
+        return instance
 
 
-class ArchiveHistoriqueViewSet(viewsets.ModelViewSet):
+class ArchiveHistoriqueViewSet(AuditedModelViewSet):
     queryset = ArchiveHistorique.objects.select_related('archiviste').order_by('-annee', 'date_evenement')
     serializer_class = ArchiveHistoriqueSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['type_archive', 'annee']
+    audit_rubrique = 'conservatoire'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -158,12 +174,16 @@ class ArchiveHistoriqueViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(archiviste=self.request.user)
+        instance = serializer.save(archiviste=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Archive ajoutée : {instance}")
+        return instance
 
 
-class AlbumPhotoViewSet(viewsets.ModelViewSet):
+class AlbumPhotoViewSet(AuditedModelViewSet):
     serializer_class = AlbumPhotoSerializer
     permission_classes = [IsAuthenticated]
+    audit_rubrique = 'conservatoire'
 
     def get_queryset(self):
         qs = AlbumPhoto.objects.select_related('cree_par').all().order_by('-date_evenement')
@@ -177,14 +197,19 @@ class AlbumPhotoViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(cree_par=self.request.user)
+        instance = serializer.save(cree_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Album photo créé : {instance}")
+        return instance
 
 
-class PhotoViewSet(viewsets.ModelViewSet):
+class PhotoViewSet(AuditedModelViewSet):
     queryset = Photo.objects.select_related('album', 'photographe').order_by('album', 'ordre')
     serializer_class = PhotoSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['album']
+    audit_rubrique = 'conservatoire'
+    audit_log_consultation = False  # consultation d'une photo unitaire peu utile à l'audit (galerie très parcourue)
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -192,15 +217,20 @@ class PhotoViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(photographe=self.request.user)
+        instance = serializer.save(photographe=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Photo ajoutée : {instance}")
+        return instance
 
 
-class KourelViewSet(viewsets.ModelViewSet):
+class KourelViewSet(AuditedModelViewSet):
     queryset = Kourel.objects.all().prefetch_related('membres').select_related(
         'maitre_de_coeur', 'maitre_de_coeur_2', 'responsable', 'jewrine'
     ).order_by('ordre', 'nom')
     serializer_class = KourelSerializer
     permission_classes = [IsAuthenticated]
+    audit_rubrique = 'conservatoire'
+    audit_label = 'Kourel'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -292,10 +322,12 @@ class KourelViewSet(viewsets.ModelViewSet):
         return Response(result)
 
 
-class SeanceConservatoireViewSet(viewsets.ModelViewSet):
+class SeanceConservatoireViewSet(AuditedModelViewSet):
     serializer_class = SeanceConservatoireSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['kourel', 'type_seance']
+    audit_rubrique = 'conservatoire'
+    audit_label = 'Séance'
 
     def get_queryset(self):
         qs = SeanceConservatoire.objects.all().select_related('kourel').prefetch_related(
@@ -311,7 +343,10 @@ class SeanceConservatoireViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(cree_par=self.request.user)
+        instance = serializer.save(cree_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Séance créée : {instance} ({instance.kourel.nom})")
+        return instance
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrJewrinConservatoire()])
     def presences(self, request, pk=None):
@@ -334,6 +369,8 @@ class SeanceConservatoireViewSet(viewsets.ModelViewSet):
                 membre_id=mid,
                 defaults={'statut': statut, 'remarque': item.get('remarque', '')}
             )
+        log_audit(request, 'modification', rubrique='conservatoire', objet=seance,
+                  description=f"Présences enregistrées : {seance} ({len(data)} membre(s))")
         return Response(SeanceConservatoireSerializer(seance).data)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrJewrinConservatoire()])
@@ -371,6 +408,8 @@ class SeanceConservatoireViewSet(viewsets.ModelViewSet):
                 lien='/conservatoire'
             )
 
+        log_audit(request, 'modification', rubrique='conservatoire', objet=seance,
+                  description=f"Programme de répétition mis à jour : {seance} ({len(noms)} khassida(s))")
         return Response(SeanceConservatoireSerializer(seance).data)
 
     @action(detail=False, methods=['get'],
@@ -415,11 +454,14 @@ class SeanceConservatoireViewSet(viewsets.ModelViewSet):
         return _export_response(buf, fmt, filename)
 
 
-class PresenceSeanceViewSet(viewsets.ModelViewSet):
+class PresenceSeanceViewSet(AuditedModelViewSet):
     queryset = PresenceSeance.objects.all().select_related('seance', 'membre').order_by('seance', 'membre')
     serializer_class = PresenceSeanceSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['seance', 'membre', 'statut']
+    audit_rubrique = 'conservatoire'
+    audit_label = 'Présence'
+    audit_log_consultation = False  # déjà tracé via presences() en masse ; le retrieve unitaire est du bruit
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:

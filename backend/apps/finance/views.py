@@ -5,17 +5,22 @@ from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from django.db.models import Sum, Q
 from django.utils import timezone
 from decimal import Decimal
-from apps.accounts.permissions import IsAdminOrJewrinFinance, has_admin_access, log_audit
+from apps.accounts.permissions import (
+    IsAdminOrJewrinFinance, has_admin_access, log_audit,
+    AuditedModelViewSet, AuditedReadOnlyModelViewSet,
+)
 
 from .models import CotisationMensuelle, LeveeFonds, Transaction, Don, ParametresFinanciers, Depense
 from .serializers import CotisationMensuelleSerializer, LeveeFondsSerializer, TransactionSerializer, DonSerializer, ParametresFinanciersSerializer, DepenseSerializer
 
 
-class CotisationMensuelleViewSet(viewsets.ModelViewSet):
+class CotisationMensuelleViewSet(AuditedModelViewSet):
     queryset = CotisationMensuelle.objects.all().order_by('-annee', '-mois')
     serializer_class = CotisationMensuelleSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['membre', 'mois', 'annee', 'statut']
+    audit_rubrique = 'finance'
+    audit_label = 'Cotisation'
 
     def get_queryset(self):
         qs = CotisationMensuelle.objects.select_related('membre').order_by('-annee', '-mois')
@@ -42,16 +47,26 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
             
             cotisations = []
             for serializer in serializer_data:
-                self.perform_create(serializer)
+                serializer.save()
                 cotisations.append(serializer.instance)
-            
+
+            if cotisations:
+                log_audit(
+                    request, 'creation', rubrique=self.audit_rubrique,
+                    description=f"{len(cotisations)} cotisation(s) créée(s) (via liste)",
+                )
+
             headers = self.get_success_headers(serializer_data[0].data if serializer_data else {})
             return Response(CotisationMensuelleSerializer(cotisations, many=True).data, status=status.HTTP_201_CREATED, headers=headers)
         else:
             # Création unitaire classique
             serializer = self.get_serializer(data=data)
             serializer.is_valid(raise_exception=True)
-            self.perform_create(serializer)
+            instance = serializer.save()
+            log_audit(
+                request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                description=f"Cotisation créée : {instance.membre.get_full_name()} — {instance.montant} FCFA ({instance.mois}/{instance.annee})",
+            )
             headers = self.get_success_headers(serializer.data)
             return Response(serializer.data, status=status.HTTP_201_CREATED, headers=headers)
 
@@ -169,6 +184,11 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
                 self.request, 'validation_paiement', rubrique='finance', objet=instance,
                 description=f"Paiement validé : {instance.membre.get_full_name()} — {instance.montant} FCFA ({instance.mois}/{instance.annee})",
             )
+        else:
+            log_audit(
+                self.request, 'modification', rubrique='finance', objet=instance,
+                description=f"Cotisation modifiée : {instance.membre.get_full_name()} — {instance.montant} FCFA ({instance.mois}/{instance.annee})",
+            )
 
     def perform_destroy(self, instance):
         log_audit(
@@ -260,14 +280,20 @@ class CotisationMensuelleViewSet(viewsets.ModelViewSet):
         cotisation.date_declaration = timezone.now()
         cotisation.statut = 'declare'
         cotisation.save(update_fields=['reference_wave', 'mode_paiement', 'date_declaration', 'statut'])
+        log_audit(
+            request, 'modification', rubrique='finance', objet=cotisation,
+            description=f"Paiement déclaré : {cotisation.membre.get_full_name()} — {cotisation.montant} FCFA ({cotisation.mois}/{cotisation.annee})",
+        )
         return Response(CotisationMensuelleSerializer(cotisation).data)
 
 
-class LeveeFondsViewSet(viewsets.ModelViewSet):
+class LeveeFondsViewSet(AuditedModelViewSet):
     queryset = LeveeFonds.objects.select_related('cree_par').filter(statut='active').order_by('-date_creation')
     serializer_class = LeveeFondsSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['statut']
+    audit_rubrique = 'finance'
+    audit_label = 'Levée de fonds'
 
     def get_queryset(self):
         qs = LeveeFonds.objects.select_related('cree_par').all().order_by('-date_creation')
@@ -281,7 +307,10 @@ class LeveeFondsViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(cree_par=self.request.user)
+        instance = serializer.save(cree_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Levée de fonds créée : {instance}")
+        return instance
 
     @action(detail=True, methods=['post'])
     def participer(self, request, pk=None):
@@ -319,7 +348,11 @@ class LeveeFondsViewSet(viewsets.ModelViewSet):
             levee_fonds=levee_fonds,
             statut='en_attente',  # En attente de confirmation du paiement Wave
         )
-        
+        log_audit(
+            request, 'creation', rubrique='finance', objet=transaction,
+            description=f"Participation créée : {request.user.get_full_name()} — {montant_decimal} FCFA ({levee_fonds.titre})",
+        )
+
         return Response({
             **TransactionSerializer(transaction).data,
             'lien_wave': levee_fonds.lien_paiement_wave,
@@ -374,6 +407,10 @@ class LeveeFondsViewSet(viewsets.ModelViewSet):
         # de l'admin/chargé de finance (voir action `valider_transaction`).
         transaction.reference_wave = reference_wave
         transaction.save(update_fields=['reference_wave'])
+        log_audit(
+            request, 'modification', rubrique='finance', objet=transaction,
+            description=f"Paiement Wave déclaré sur transaction : {transaction.membre.get_full_name()} — {transaction.montant} FCFA (réf. {reference_wave})",
+        )
 
         return Response(TransactionSerializer(transaction).data, status=status.HTTP_200_OK)
 
@@ -396,14 +433,20 @@ class LeveeFondsViewSet(viewsets.ModelViewSet):
         transaction.statut = 'validee' if approuver else 'echouee'
         transaction.save(update_fields=['statut'])
         # Le save() de Transaction met à jour automatiquement montant_collecte
+        log_audit(
+            request, 'validation_paiement' if approuver else 'modification', rubrique='finance', objet=transaction,
+            description=f"Transaction {'validée' if approuver else 'rejetée'} : {transaction.membre.get_full_name()} — {transaction.montant} FCFA ({levee_fonds.titre})",
+        )
         return Response(TransactionSerializer(transaction).data, status=status.HTTP_200_OK)
 
 
-class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
+class TransactionViewSet(AuditedReadOnlyModelViewSet):
     queryset = Transaction.objects.all().order_by('-date_transaction')
     serializer_class = TransactionSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['type_transaction', 'statut', 'membre']
+    audit_rubrique = 'finance'
+    audit_label = 'Transaction'
 
     def get_queryset(self):
         qs = Transaction.objects.all().select_related('membre').order_by('-date_transaction')
@@ -412,10 +455,12 @@ class TransactionViewSet(viewsets.ReadOnlyModelViewSet):
         return qs
 
 
-class DonViewSet(viewsets.ModelViewSet):
+class DonViewSet(AuditedModelViewSet):
     queryset = Don.objects.all().order_by('-date_don')
     serializer_class = DonSerializer
     permission_classes = [IsAuthenticated]
+    audit_rubrique = 'finance'
+    audit_label = 'Don'
 
     def get_queryset(self):
         qs = Don.objects.all().order_by('-date_don')
@@ -424,7 +469,10 @@ class DonViewSet(viewsets.ModelViewSet):
         return qs
 
     def perform_create(self, serializer):
-        serializer.save(donateur=self.request.user)
+        instance = serializer.save(donateur=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Don créé : {instance}")
+        return instance
 
 
 class ParametresFinanciersViewSet(viewsets.ReadOnlyModelViewSet):
@@ -433,11 +481,13 @@ class ParametresFinanciersViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAdminOrJewrinFinance]
 
 
-class DepenseViewSet(viewsets.ModelViewSet):
+class DepenseViewSet(AuditedModelViewSet):
     queryset = Depense.objects.all().select_related('cree_par', 'valide_par').order_by('-date_depense')
     serializer_class = DepenseSerializer
     permission_classes = [IsAdminOrJewrinFinance]
     filterset_fields = ['categorie', 'statut']
+    audit_rubrique = 'finance'
+    audit_label = 'Dépense'
 
     def perform_create(self, serializer):
         depense = serializer.save(cree_par=self.request.user)
@@ -488,6 +538,10 @@ def bilan_financier(request):
     from .bilan_export import calculer_bilan
     annee = request.query_params.get('annee')
     annee = int(annee) if annee else None
+    log_audit(
+        request, 'consultation', rubrique='finance',
+        description=f"Bilan financier consulté{f' — année {annee}' if annee else ''}"
+    )
     return Response(calculer_bilan(annee))
 
 

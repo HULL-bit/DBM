@@ -2,7 +2,7 @@ from rest_framework import viewsets, status
 from rest_framework.decorators import action
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
 from rest_framework.response import Response
-from apps.accounts.permissions import IsAdminOrJewrinSociale
+from apps.accounts.permissions import IsAdminOrJewrinSociale, log_audit, AuditedModelViewSet
 
 from .models import ProjetEntraide, ActionSociale, Beneficiaire, AideAccordee, ContributionSociale
 from .serializers import (
@@ -14,11 +14,12 @@ from .serializers import (
 )
 
 
-class ProjetEntraideViewSet(viewsets.ModelViewSet):
+class ProjetEntraideViewSet(AuditedModelViewSet):
     queryset = ProjetEntraide.objects.all().order_by('-date_creation')
     serializer_class = ProjetEntraideSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['statut', 'categorie']
+    audit_rubrique = 'sociale'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy', 'assignations']:
@@ -26,7 +27,10 @@ class ProjetEntraideViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(responsable=self.request.user)
+        instance = serializer.save(responsable=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Projet d'entraide créé : {instance}")
+        return instance
 
     @action(detail=True, methods=['post'])
     def assignations(self, request, pk=None):
@@ -59,24 +63,29 @@ class ProjetEntraideViewSet(viewsets.ModelViewSet):
                     contrib.montant = montant_val
                     contrib.save(update_fields=['montant'])
                     updated += 1
+        if created or updated or deleted:
+            log_audit(request, 'modification', rubrique='sociale', objet=projet,
+                      description=f"Contributions assignées : {projet} ({created} créée(s), {updated} mise(s) à jour, {deleted} supprimée(s))")
         return Response({
             'created': created, 'updated': updated, 'deleted': deleted,
             'detail': f'{created} créée(s), {updated} mise(s) à jour, {deleted} supprimée(s).'
         })
 
 
-class ActionSocialeViewSet(viewsets.ModelViewSet):
+class ActionSocialeViewSet(AuditedModelViewSet):
     queryset = ActionSociale.objects.all().order_by('-date_action')
     serializer_class = ActionSocialeSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['type_action', 'projet']
+    audit_rubrique = 'sociale'
 
 
-class BeneficiaireViewSet(viewsets.ModelViewSet):
+class BeneficiaireViewSet(AuditedModelViewSet):
     queryset = Beneficiaire.objects.filter(est_actif=True).order_by('nom_complet')
     serializer_class = BeneficiaireSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie', 'est_actif']
+    audit_rubrique = 'sociale'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -84,14 +93,18 @@ class BeneficiaireViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-class AideAccordeeViewSet(viewsets.ModelViewSet):
+class AideAccordeeViewSet(AuditedModelViewSet):
     queryset = AideAccordee.objects.all().order_by('-date_aide')
     serializer_class = AideAccordeeSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['beneficiaire', 'type_aide', 'projet']
+    audit_rubrique = 'sociale'
 
     def perform_create(self, serializer):
-        serializer.save(accorde_par=self.request.user)
+        instance = serializer.save(accorde_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Aide accordée : {instance}")
+        return instance
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -99,11 +112,12 @@ class AideAccordeeViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-class ContributionSocialeViewSet(viewsets.ModelViewSet):
+class ContributionSocialeViewSet(AuditedModelViewSet):
     queryset = ContributionSociale.objects.all().order_by('-date_creation')
     serializer_class = ContributionSocialeSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['projet', 'membre', 'statut']
+    audit_rubrique = 'sociale'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:

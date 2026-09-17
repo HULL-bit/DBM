@@ -4,7 +4,7 @@ from rest_framework import viewsets
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.decorators import action
 from rest_framework.response import Response
-from apps.accounts.permissions import IsAdminOrJewrinOrganisation
+from apps.accounts.permissions import IsAdminOrJewrinOrganisation, AuditedModelViewSet, log_audit
 
 from .models import (
     TypeReunion, Reunion, ProcesVerbal, Decision, Vote,
@@ -25,11 +25,12 @@ class TypeReunionViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
 
-class ReunionViewSet(viewsets.ModelViewSet):
+class ReunionViewSet(AuditedModelViewSet):
     queryset = Reunion.objects.select_related('organisateur', 'type_reunion').all().order_by('-date_reunion')
     serializer_class = ReunionSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['statut', 'type_reunion']
+    audit_rubrique = 'organisation'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -37,14 +38,18 @@ class ReunionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(organisateur=self.request.user)
+        instance = serializer.save(organisateur=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Réunion créée : {instance}")
+        return instance
 
 
-class ProcesVerbalViewSet(viewsets.ModelViewSet):
+class ProcesVerbalViewSet(AuditedModelViewSet):
     queryset = ProcesVerbal.objects.all().order_by('-date_redaction')
     serializer_class = ProcesVerbalSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['statut']
+    audit_rubrique = 'organisation'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -52,11 +57,12 @@ class ProcesVerbalViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-class DecisionViewSet(viewsets.ModelViewSet):
+class DecisionViewSet(AuditedModelViewSet):
     queryset = Decision.objects.all().order_by('-date_proposition')
     serializer_class = DecisionSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['statut', 'pv', 'reunion']
+    audit_rubrique = 'organisation'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -64,14 +70,18 @@ class DecisionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(propose_par=self.request.user)
+        instance = serializer.save(propose_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Décision proposée : {instance}")
+        return instance
 
 
-class VoteViewSet(viewsets.ModelViewSet):
+class VoteViewSet(AuditedModelViewSet):
     queryset = Vote.objects.all().order_by('-date_ouverture')
     serializer_class = VoteSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['statut', 'decision']
+    audit_rubrique = 'organisation'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -79,13 +89,17 @@ class VoteViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(lance_par=self.request.user)
+        instance = serializer.save(lance_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Vote lancé : {instance}")
+        return instance
 
 
-class StructureOrganisationViewSet(viewsets.ModelViewSet):
+class StructureOrganisationViewSet(AuditedModelViewSet):
     queryset = StructureOrganisation.objects.all().order_by('ordre', 'nom')
     serializer_class = StructureOrganisationSerializer
     permission_classes = [IsAuthenticated]
+    audit_rubrique = 'organisation'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -93,11 +107,12 @@ class StructureOrganisationViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-class RapportActiviteViewSet(viewsets.ModelViewSet):
+class RapportActiviteViewSet(AuditedModelViewSet):
     queryset = RapportActivite.objects.all().order_by('-date_fin')
     serializer_class = RapportActiviteSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['periode']
+    audit_rubrique = 'organisation'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -105,14 +120,18 @@ class RapportActiviteViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(redige_par=self.request.user)
+        instance = serializer.save(redige_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Rapport d'activité créé : {instance}")
+        return instance
 
 
-class MaterielViewSet(viewsets.ModelViewSet):
+class MaterielViewSet(AuditedModelViewSet):
     queryset = Materiel.objects.all().order_by('module', 'nom')
     serializer_class = MaterielSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['module', 'categorie']
+    audit_rubrique = 'organisation'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -179,11 +198,12 @@ class MaterielViewSet(viewsets.ModelViewSet):
         })
 
 
-class EvenementOrganiseViewSet(viewsets.ModelViewSet):
+class EvenementOrganiseViewSet(AuditedModelViewSet):
     queryset = EvenementOrganise.objects.all()
     serializer_class = EvenementOrganiseSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['type_evenement', 'annee']
+    audit_rubrique = 'organisation'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -191,14 +211,18 @@ class EvenementOrganiseViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(created_by=self.request.user)
+        instance = serializer.save(created_by=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Événement créé : {instance}")
+        return instance
 
 
-class JourneeEvenementViewSet(viewsets.ModelViewSet):
+class JourneeEvenementViewSet(AuditedModelViewSet):
     queryset = JourneeEvenement.objects.select_related('evenement').prefetch_related('kourels_invites__kourel').all()
     serializer_class = JourneeEvenementSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['evenement']
+    audit_rubrique = 'organisation'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -206,11 +230,12 @@ class JourneeEvenementViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-class KourelInviteViewSet(viewsets.ModelViewSet):
+class KourelInviteViewSet(AuditedModelViewSet):
     queryset = KourelInvite.objects.select_related('journee', 'kourel').all()
     serializer_class = KourelInviteSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['journee', 'kourel']
+    audit_rubrique = 'organisation'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:

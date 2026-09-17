@@ -9,7 +9,7 @@ from rest_framework.response import Response
 from django.http import FileResponse, Http404, HttpResponse
 from django.utils.encoding import smart_str
 
-from apps.accounts.permissions import IsAdminRoleOrStaff
+from apps.accounts.permissions import IsAdminRoleOrStaff, AuditedModelViewSet, log_audit
 
 from .models import LivreNumerique
 from .serializers import LivreNumeriqueSerializer
@@ -22,7 +22,7 @@ class BibliothequePagination(PageNumberPagination):
     max_page_size = 200
 
 
-class LivreNumeriqueViewSet(viewsets.ModelViewSet):
+class LivreNumeriqueViewSet(AuditedModelViewSet):
     queryset = LivreNumerique.objects.select_related('ajoute_par').order_by('categorie', 'ordre', 'nom')
     serializer_class = LivreNumeriqueSerializer
     permission_classes = [IsAuthenticated]
@@ -34,6 +34,7 @@ class LivreNumeriqueViewSet(viewsets.ModelViewSet):
     search_fields = ['nom', 'description']
     parser_classes = [JSONParser, MultiPartParser, FormParser]
     pagination_class = BibliothequePagination
+    audit_rubrique = 'bibliotheque'
 
     def get_permissions(self):
         if self.action in ['create', 'update', 'partial_update', 'destroy']:
@@ -41,7 +42,10 @@ class LivreNumeriqueViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(ajoute_par=self.request.user)
+        instance = serializer.save(ajoute_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Livre ajouté : {instance}")
+        return instance
 
     def create(self, request, *args, **kwargs):
         try:

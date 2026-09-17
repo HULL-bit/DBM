@@ -16,7 +16,10 @@ from .serializers import (
     MatricePermissionRoleSerializer, PermissionMembreOverrideSerializer, JournalAuditSerializer,
 )
 from .models import Badge, AttributionBadge, BadgeMission, CodeReinitialisation, MatricePermissionRole, PermissionMembreOverride, JournalAudit, RUBRIQUES
-from .permissions import IsAdminRoleOrStaff, IsAdminOrComptesVoir, IsAdminOrComptesGerer, has_rubrique_access, log_audit
+from .permissions import (
+    IsAdminRoleOrStaff, IsAdminOrComptesVoir, IsAdminOrComptesGerer, has_rubrique_access, log_audit,
+    AuditedModelViewSet,
+)
 
 User = get_user_model()
 
@@ -283,19 +286,34 @@ class UserDetail(generics.RetrieveUpdateDestroyAPIView):
             )
         return response
 
+    def perform_update(self, serializer):
+        ancien_role = serializer.instance.role
+        instance = serializer.save()
+        if instance.role != ancien_role:
+            log_audit(
+                self.request, 'changement_role', rubrique='comptes', objet=instance,
+                description=f"Rôle de {instance.get_full_name()} changé de '{ancien_role}' à '{instance.role}'"
+            )
+        else:
+            log_audit(
+                self.request, 'modification', rubrique='comptes', objet=instance,
+                description=f"Fiche membre modifiée : {instance.get_full_name()}"
+            )
+        return instance
+
+    def perform_destroy(self, instance):
+        log_audit(
+            self.request, 'suppression', rubrique='comptes', objet=instance,
+            description=f"Membre supprimé : {instance.get_full_name()} ({instance.username})"
+        )
+        instance.delete()
+
     def partial_update(self, request, *args, **kwargs):
         """Override pour s'assurer que la catégorie est bien sauvegardée"""
         instance = self.get_object()
-        ancien_role = instance.role
         serializer = self.get_serializer(instance, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         self.perform_update(serializer)
-        nouveau_role = serializer.instance.role
-        if 'role' in request.data and nouveau_role != ancien_role:
-            log_audit(
-                request, 'changement_role', objet=serializer.instance,
-                description=f"Rôle de {serializer.instance.get_full_name()} changé de '{ancien_role}' à '{nouveau_role}'"
-            )
         return Response(serializer.data)
 
 
@@ -355,12 +373,14 @@ def mes_badges(request):
     return Response(serializer.data)
 
 
-class BadgeViewSet(viewsets.ModelViewSet):
+class BadgeViewSet(AuditedModelViewSet):
     """Définitions de badges (nom, catégorie, points...) : consultables par tous, gérées
     (créer/modifier/supprimer) par l'admin ou un utilisateur autorisé sur 'comptes'."""
     queryset = Badge.objects.filter(est_actif=True).order_by('categorie', 'nom')
     serializer_class = BadgeSerializer
     permission_classes = [IsAuthenticated]
+    audit_rubrique = 'comptes'
+    audit_log_consultation = False  # liste de définitions très souvent chargée, peu d'intérêt d'audit unitaire
 
     def get_permissions(self):
         if self.request.method not in ['GET', 'HEAD', 'OPTIONS']:
@@ -368,13 +388,15 @@ class BadgeViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
 
-class BadgeMissionViewSet(viewsets.ModelViewSet):
+class BadgeMissionViewSet(AuditedModelViewSet):
     """Badges d'événement/mission (distincts des badges de récompense) : un membre voit ses
     propres badges, un utilisateur avec un droit de gestion sur 'comptes' (admin y compris)
     voit et gère ceux de tout le monde."""
     serializer_class = BadgeMissionSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['membre']
+    audit_rubrique = 'comptes'
+    audit_label = 'Badge de mission'
 
     def get_queryset(self):
         qs = BadgeMission.objects.select_related('membre', 'cree_par').order_by('-date_evenement')
@@ -388,7 +410,10 @@ class BadgeMissionViewSet(viewsets.ModelViewSet):
         return [IsAuthenticated()]
 
     def perform_create(self, serializer):
-        serializer.save(cree_par=self.request.user)
+        instance = serializer.save(cree_par=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Badge de mission créé : {instance}")
+        return instance
 
 
 @api_view(['GET'])
@@ -449,7 +474,7 @@ def badges_membre(request, user_id):
         [membre.id], 'systeme', 'Nouveau badge obtenu !',
         f"Vous avez obtenu le badge « {badge.nom} »." + (f" {attribution.raison}" if attribution.raison else '')
     )
-    log_audit(request, 'modification', rubrique='comptes', objet=membre,
+    log_audit(request, 'creation', rubrique='comptes', objet=membre,
               description=f"Badge « {badge.nom} » attribué à {membre.get_full_name()}")
     return Response(AttributionBadgeSerializer(attribution).data, status=status.HTTP_201_CREATED)
 
@@ -461,7 +486,7 @@ def retirer_badge(request, attribution_id):
     attribution = AttributionBadge.objects.filter(id=attribution_id).select_related('user', 'badge').first()
     if not attribution:
         return Response(status=status.HTTP_204_NO_CONTENT)
-    log_audit(request, 'modification', rubrique='comptes', objet=attribution.user,
+    log_audit(request, 'suppression', rubrique='comptes', objet=attribution.user,
               description=f"Badge « {attribution.badge.nom} » retiré à {attribution.user.get_full_name()}")
     attribution.delete()
     return Response(status=status.HTTP_204_NO_CONTENT)

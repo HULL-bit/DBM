@@ -5,7 +5,10 @@ from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.exceptions import PermissionDenied
 from rest_framework.response import Response
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from apps.accounts.permissions import IsAdminOrJewrinCommunication, has_admin_access, has_rubrique_access, log_audit
+from apps.accounts.permissions import (
+    IsAdminOrJewrinCommunication, has_admin_access, has_rubrique_access, log_audit,
+    AuditedModelViewSet,
+)
 
 from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal, AbonnementPush
 from .push import send_push_to_user
@@ -396,24 +399,35 @@ class CategorieForumViewSet(viewsets.ReadOnlyModelViewSet):
     permission_classes = [IsAuthenticated]
 
 
-class SujetForumViewSet(viewsets.ModelViewSet):
+class SujetForumViewSet(AuditedModelViewSet):
     queryset = SujetForum.objects.all().order_by('-est_epingle', '-date_modification')
     serializer_class = SujetForumSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['categorie', 'est_epingle']
+    audit_rubrique = 'communication'
+    audit_label = 'Sujet de forum'
 
     def perform_create(self, serializer):
-        serializer.save(auteur=self.request.user)
+        instance = serializer.save(auteur=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Sujet de forum créé : {instance}")
+        return instance
 
 
-class ReponseForumViewSet(viewsets.ModelViewSet):
+class ReponseForumViewSet(AuditedModelViewSet):
     queryset = ReponseForum.objects.all().order_by('date_creation')
     serializer_class = ReponseForumSerializer
     permission_classes = [IsAuthenticated]
     filterset_fields = ['sujet', 'auteur']
+    audit_rubrique = 'communication'
+    audit_label = 'Réponse de forum'
+    audit_log_consultation = False  # pas de vue dédiée par réponse unitaire (toujours affichée dans le sujet)
 
     def perform_create(self, serializer):
-        serializer.save(auteur=self.request.user)
+        instance = serializer.save(auteur=self.request.user)
+        log_audit(self.request, 'creation', rubrique=self.audit_rubrique, objet=instance,
+                  description=f"Réponse de forum créée sur : {instance.sujet}")
+        return instance
 
 
 def _est_gestionnaire_canal(canal, user):
@@ -426,9 +440,11 @@ def _est_gestionnaire_canal(canal, user):
     return has_admin_access(user, 'communication')
 
 
-class CanalViewSet(viewsets.ModelViewSet):
+class CanalViewSet(AuditedModelViewSet):
     serializer_class = CanalSerializer
     permission_classes = [IsAuthenticated]
+    audit_rubrique = 'communication'
+    audit_label = 'Groupe (Groupes Yi)'
 
     def get_queryset(self):
         if has_admin_access(self.request.user, 'communication'):
@@ -584,6 +600,8 @@ class MessageCanalViewSet(viewsets.ModelViewSet):
         message = self.get_object()
         if message.expediteur_id != request.user.id and not _est_gestionnaire_canal(message.canal, request.user):
             return Response({'detail': 'Non autorisé.'}, status=status.HTTP_403_FORBIDDEN)
+        log_audit(request, 'suppression', rubrique='communication', objet=message,
+                  description=f"Message supprimé dans « {message.canal.nom} » (auteur : {message.expediteur.get_full_name()})")
         return super().destroy(request, *args, **kwargs)
 
     @action(detail=True, methods=['post'])
@@ -670,6 +688,9 @@ class NotificationViewSet(viewsets.ModelViewSet):
                 texte += f"\n\nPlus d'infos : {lien}"
             for u in utilisateurs:
                 send_push_to_user(u, texte, contexte='notification')
+
+        log_audit(request, 'creation', rubrique='communication',
+                  description=f"Notification diffusée « {titre} » à {nb_membres} membre(s)")
 
         return Response(
             {'detail': f'1 message envoyé à {nb_membres} membre(s).', 'count': nb_membres},
