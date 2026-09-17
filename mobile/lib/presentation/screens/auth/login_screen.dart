@@ -239,11 +239,11 @@ class _LoginScreenState extends State<LoginScreen> {
                             const SizedBox(height: 4),
                             GestureDetector(
                               onTap: () async {
-                                final url = Uri.parse('https://dbm-0yic.onrender.com/#/accueil');
+                                final url = Uri.parse('https://darabarakatulmahahidi.online/#/accueil');
                                 if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
                               },
                               child: const Text(
-                                'https://dbm-0yic.onrender.com',
+                                'darabarakatulmahahidi.online',
                                 style: TextStyle(color: AppColors.primaryGreen, fontWeight: FontWeight.bold, decoration: TextDecoration.underline),
                               ),
                             ),
