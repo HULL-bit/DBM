@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'package:go_router/go_router.dart';
+import 'package:url_launcher/url_launcher.dart';
 import '../../core/constants/colors.dart';
 import '../../core/constants/api_endpoints.dart';
 import '../../data/providers/auth_provider.dart';
@@ -90,6 +91,16 @@ class AppDrawer extends StatelessWidget {
               child: ListView(
                 padding: const EdgeInsets.symmetric(vertical: 8),
                 children: [
+                  // Accueil (page publique du portail web)
+                  _DrawerItem(
+                    icon: Icons.home_outlined,
+                    label: 'Accueil',
+                    onTap: () async {
+                      Navigator.pop(context);
+                      final url = Uri.parse('https://darabarakatulmahahidi.online/#/accueil');
+                      if (await canLaunchUrl(url)) await launchUrl(url, mode: LaunchMode.externalApplication);
+                    },
+                  ),
                   // Dashboard
                   _DrawerItem(
                     icon: Icons.dashboard_outlined,

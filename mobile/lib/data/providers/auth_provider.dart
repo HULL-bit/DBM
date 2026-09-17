@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
@@ -11,12 +12,33 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus _status = AuthStatus.unknown;
   UserModel? _user;
   String? _error;
+  Map<String, dynamic>? _permissions;
 
   AuthStatus get status => _status;
   UserModel? get user => _user;
   String? get error => _error;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   bool get isLoading => _status == AuthStatus.unknown;
+
+  /// Permissions RBAC effectives (rôle + exceptions par membre), même source que côté web
+  /// (AuthContext.peut) : `peut('bibliotheque', action: 'gerer')`. Pendant le chargement
+  /// (permissions encore null), retourne false — les écrans doivent combiner avec un test de
+  /// rôle explicite (ex: `user.isAdmin || auth.peut(...)`) plutôt que de s'y fier seules.
+  bool peut(String rubrique, {String action = 'voir'}) {
+    final droits = _permissions?[rubrique];
+    if (droits is Map) return droits[action] == true;
+    return false;
+  }
+
+  Future<void> _chargerPermissions() async {
+    try {
+      final data = await _api.get(ApiEndpoints.mesPermissions);
+      _permissions = data;
+      notifyListeners();
+    } catch (_) {
+      // Non bloquant : les écrans retombent sur les vérifications de rôle codées en dur.
+    }
+  }
 
   Future<void> checkAuth() async {
     final token = await _api.getAccessToken();
@@ -29,6 +51,7 @@ class AuthProvider extends ChangeNotifier {
       final data = await _api.get(ApiEndpoints.me);
       _user = UserModel.fromJson(data);
       _status = AuthStatus.authenticated;
+      unawaited(_chargerPermissions());
     } catch (e) {
       _status = AuthStatus.unauthenticated;
       await _api.clearTokens();
@@ -57,6 +80,7 @@ class AuthProvider extends ChangeNotifier {
         _user = UserModel.fromJson(userData);
       }
       _status = AuthStatus.authenticated;
+      unawaited(_chargerPermissions());
       notifyListeners();
       return true;
     } on ApiException catch (e) {
@@ -127,6 +151,7 @@ class AuthProvider extends ChangeNotifier {
   Future<void> logout() async {
     await _api.clearTokens();
     _user = null;
+    _permissions = null;
     _status = AuthStatus.unauthenticated;
     notifyListeners();
   }

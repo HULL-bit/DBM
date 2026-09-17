@@ -25,6 +25,9 @@ class UserModel {
   final int chapitresLus;
   final int evenementsParticipes;
   final DateTime? dateInscription;
+  final DateTime? dateNaissance;
+  final DateTime? dateDelivranceCarte;
+  final DateTime? dateExpirationCarte;
 
   UserModel({
     required this.id,
@@ -53,6 +56,9 @@ class UserModel {
     this.chapitresLus = 0,
     this.evenementsParticipes = 0,
     this.dateInscription,
+    this.dateNaissance,
+    this.dateDelivranceCarte,
+    this.dateExpirationCarte,
   });
 
   factory UserModel.fromJson(Map<String, dynamic> json) {
@@ -85,6 +91,9 @@ class UserModel {
       dateInscription: json['date_inscription'] != null
           ? DateTime.tryParse(json['date_inscription'])
           : null,
+      dateNaissance: json['date_naissance'] != null ? DateTime.tryParse(json['date_naissance']) : null,
+      dateDelivranceCarte: json['date_delivrance_carte'] != null ? DateTime.tryParse(json['date_delivrance_carte']) : null,
+      dateExpirationCarte: json['date_expiration_carte'] != null ? DateTime.tryParse(json['date_expiration_carte']) : null,
     );
   }
 

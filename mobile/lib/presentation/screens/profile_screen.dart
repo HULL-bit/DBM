@@ -10,6 +10,8 @@ import '../../data/providers/auth_provider.dart';
 import '../../data/services/api_service.dart';
 import '../widgets/safe_avatar.dart';
 import '../widgets/app_drawer.dart';
+import 'carte_membre_screen.dart';
+import '../../data/models/user_model.dart';
 
 class ProfileScreen extends StatefulWidget {
   const ProfileScreen({super.key});
@@ -24,7 +26,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -46,8 +48,10 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
           indicatorColor: AppColors.primaryGold,
           labelColor: AppColors.white,
           unselectedLabelColor: AppColors.white.withValues(alpha: 0.6),
+          isScrollable: true,
           tabs: const [
             Tab(icon: Icon(Icons.person_outline), text: 'Profil'),
+            Tab(icon: Icon(Icons.badge_outlined), text: 'Ma carte'),
             Tab(icon: Icon(Icons.workspace_premium_outlined), text: 'Badges'),
             Tab(icon: Icon(Icons.lock_outline), text: 'Sécurité'),
           ],
@@ -60,6 +64,7 @@ class _ProfileScreenState extends State<ProfileScreen> with SingleTickerProvider
               controller: _tabController,
               children: [
                 _EditProfileTab(user: user, auth: auth),
+                _CarteMembreTab(user: user),
                 _BadgesTab(),
                 _ChangePasswordTab(),
               ],
@@ -580,6 +585,45 @@ class _ChangePasswordTabState extends State<_ChangePasswordTab> {
         ),
       ),
       validator: validator,
+    );
+  }
+}
+
+// ─── Tab 2: Ma carte de membre ────────────────────────────────────
+class _CarteMembreTab extends StatelessWidget {
+  final UserModel user;
+  const _CarteMembreTab({required this.user});
+
+  @override
+  Widget build(BuildContext context) {
+    return Center(
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.badge_outlined, size: 64, color: AppColors.primaryGreen),
+            const SizedBox(height: 16),
+            const Text(
+              'Consultez votre carte de membre officielle : identité, matricule et QR code à scanner.',
+              textAlign: TextAlign.center,
+              style: TextStyle(color: AppColors.textGrey, fontSize: 13),
+            ),
+            const SizedBox(height: 20),
+            ElevatedButton.icon(
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => CarteMembreScreen(membre: user))),
+              icon: const Icon(Icons.badge),
+              label: const Text('Voir ma carte de membre'),
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primaryGreen,
+                foregroundColor: AppColors.white,
+                padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }

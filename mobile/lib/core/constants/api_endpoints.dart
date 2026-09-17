@@ -13,6 +13,7 @@ class ApiEndpoints {
   static const String users = '/auth/users/';
   static const String adminStats = '/auth/admin/statistiques/';
   static const String badges = '/auth/me/badges/';
+  static const String mesPermissions = '/auth/rbac/mes-permissions/';
 
   // Informations
   static const String evenements = '/informations/evenements/';

@@ -36,6 +36,7 @@ dependencies:
   open_file: ^3.3.2
   path_provider: ^2.1.4
   syncfusion_flutter_pdfviewer: ^27.2.5
+  qr_flutter: ^4.1.0
 
   # Messages vocaux (Canaux / Messagerie)
   record: ^6.0.0

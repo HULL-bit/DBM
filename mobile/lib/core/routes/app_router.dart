@@ -20,6 +20,7 @@ import '../../presentation/screens/placeholder_screen.dart';
 import '../../presentation/screens/culturelle/majaaliss_screen.dart';
 import '../../presentation/screens/culturelle/laaj_screen.dart';
 import '../../presentation/screens/culturelle/theme_culturel_screen.dart';
+import '../../presentation/screens/bibliotheque/bibliotheque_screen.dart';
 import '../../data/providers/auth_provider.dart';
 
 class AppRouter {
