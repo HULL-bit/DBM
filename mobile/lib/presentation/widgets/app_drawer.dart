@@ -147,6 +147,21 @@ class AppDrawer extends StatelessWidget {
                     label: 'Mes progressions',
                     onTap: () => _nav(context, '/progressions'),
                   ),
+                  _DrawerItem(
+                    icon: Icons.auto_stories_outlined,
+                    label: 'Majaaliss',
+                    onTap: () => _nav(context, '/majaaliss'),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.question_answer_outlined,
+                    label: 'LAAJ',
+                    onTap: () => _nav(context, '/laaj'),
+                  ),
+                  _DrawerItem(
+                    icon: Icons.style_outlined,
+                    label: 'Thème culturel',
+                    onTap: () => _nav(context, '/theme-culturel'),
+                  ),
 
                   _SectionLabel('RESSOURCES'),
                   _DrawerItem(

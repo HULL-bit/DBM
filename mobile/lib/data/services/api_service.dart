@@ -144,6 +144,31 @@ class ApiService {
     return _parseResponse(response);
   }
 
+  /// Envoie une requête multipart (PATCH) : même usage que [postMultipart], pour les mises
+  /// à jour partielles qui doivent inclure un fichier (ex: remplacer le PDF d'un TERE).
+  Future<Map<String, dynamic>> patchMultipart(
+    String endpoint, {
+    Map<String, String> fields = const {},
+    List<http.MultipartFile> files = const [],
+  }) async {
+    Future<http.StreamedResponse> doRequest() async {
+      final request = http.MultipartRequest('PATCH', Uri.parse('${ApiEndpoints.baseUrl}$endpoint'));
+      final token = await getAccessToken();
+      if (token != null) request.headers['Authorization'] = 'Bearer $token';
+      request.fields.addAll(fields);
+      request.files.addAll(files);
+      return request.send();
+    }
+
+    var streamed = await doRequest();
+    if (streamed.statusCode == 401) {
+      final refreshed = await _refreshToken();
+      if (refreshed) streamed = await doRequest();
+    }
+    final response = await http.Response.fromStream(streamed);
+    return _parseResponse(response);
+  }
+
   /// GET brut pour les fichiers binaires (export Excel/PDF) : renvoie la
   /// réponse HTTP complète (bytes) au lieu de tenter un décodage JSON.
   Future<http.Response> getBytes(String endpoint) async {

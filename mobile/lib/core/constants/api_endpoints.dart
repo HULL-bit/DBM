@@ -40,6 +40,9 @@ class ApiEndpoints {
   static const String versementsKamil = '/culturelle/versements-kamil/';
   static const String activitesReligieuses = '/culturelle/activites-religieuses/';
   static const String enseignements = '/culturelle/enseignements/';
+  static const String assignationsTere = '/culturelle/assignations-tere/';
+  static const String binds = '/culturelle/binds/';
+  static const String laaj = '/culturelle/laaj/';
 
   // Communication
   static const String messages = '/communication/messages/';

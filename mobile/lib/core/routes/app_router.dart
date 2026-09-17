@@ -17,6 +17,9 @@ import '../../presentation/screens/auth/forgot_password_screen.dart';
 import '../../presentation/screens/messagerie_screen.dart';
 import '../../presentation/screens/communication/canaux_screen.dart';
 import '../../presentation/screens/placeholder_screen.dart';
+import '../../presentation/screens/culturelle/majaaliss_screen.dart';
+import '../../presentation/screens/culturelle/laaj_screen.dart';
+import '../../presentation/screens/culturelle/theme_culturel_screen.dart';
 import '../../data/providers/auth_provider.dart';
 
 class AppRouter {
@@ -150,6 +153,22 @@ class AppRouter {
       GoRoute(
         path: '/placeholder',
         builder: (context, state) => const PlaceholderScreen(title: 'Bientôt disponible'),
+      ),
+      GoRoute(
+        path: '/majaaliss',
+        builder: (context, state) => const MajaalissScreen(),
+      ),
+      GoRoute(
+        path: '/majaaliss/detail',
+        builder: (context, state) => MajaalissDetailScreen(assignation: state.extra as Map<String, dynamic>),
+      ),
+      GoRoute(
+        path: '/laaj',
+        builder: (context, state) => const LaajScreen(),
+      ),
+      GoRoute(
+        path: '/theme-culturel',
+        builder: (context, state) => const ThemeCulturelScreen(),
       ),
     ],
   );
