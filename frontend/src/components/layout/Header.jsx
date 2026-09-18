@@ -120,7 +120,7 @@ export default function Header({ onMenuClick, sidebarCollapsed, sidebarWidth = 0
             component="img"
             src={logo}
             alt="Daara Barakatul Mahaahidi"
-            sx={{ height: 42, mr: 1.5, flexShrink: 0, objectFit: 'contain' }}
+            sx={{ height: { xs: 48, sm: 58 }, mr: 1.5, flexShrink: 0, objectFit: 'contain' }}
           />
           <Typography
             variant="body1"

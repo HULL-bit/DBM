@@ -365,7 +365,7 @@ export default function Sidebar({ open, onClose, collapsed, onToggleCollapse }) 
           src={logo}
           alt="Daara Barakatul Mahaahidi"
           sx={{
-            height: collapsed ? 36 : 40,
+            height: collapsed ? 44 : 54,
             width: 'auto',
             flexShrink: 0,
             objectFit: 'contain',
