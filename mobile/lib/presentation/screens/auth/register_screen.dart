@@ -229,8 +229,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
     const SizedBox(height: 16),
     TextFormField(
       controller: _usernameCtrl,
-      decoration: const InputDecoration(labelText: "Nom d'utilisateur *", prefixIcon: Icon(Icons.person_outline, color: AppColors.primaryGreen)),
-      validator: (v) => v == null || v.isEmpty ? 'Champ requis' : null,
+      decoration: const InputDecoration(
+        labelText: "Nom d'utilisateur *",
+        helperText: 'Sans espace : lettres, chiffres, . _ - + uniquement',
+        prefixIcon: Icon(Icons.person_outline, color: AppColors.primaryGreen),
+      ),
+      validator: (v) {
+        if (v == null || v.isEmpty) return 'Champ requis';
+        if (!RegExp(r'^[\w.@+-]+$', unicode: true).hasMatch(v)) {
+          return "Pas d'espace ni de caractère spécial (lettres, chiffres, . _ - + uniquement)";
+        }
+        return null;
+      },
       textInputAction: TextInputAction.next,
     ),
     const SizedBox(height: 16),

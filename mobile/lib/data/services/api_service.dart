@@ -235,10 +235,32 @@ class ApiService {
       }
       throw ApiException(
         statusCode: response.statusCode,
-        message: errorBody['detail'] ?? errorBody['message'] ?? 'Erreur serveur',
+        message: _extraireMessageErreur(errorBody, response.statusCode),
         errors: errorBody,
       );
     }
+  }
+
+  /// Django REST renvoie la plupart des erreurs de validation sous la forme
+  /// `{"champ": ["message"], ...}` (pas `detail`/`message`) : sans ceci, l'appli
+  /// affichait "Erreur serveur" pour toute erreur de formulaire (champ invalide,
+  /// doublon, mot de passe trop court...), ce qui poussait les utilisateurs à
+  /// retenter la même saisie invalide en boucle sans jamais comprendre pourquoi.
+  String _extraireMessageErreur(Map<String, dynamic> errorBody, int statusCode) {
+    if (errorBody['detail'] is String) return errorBody['detail'];
+    if (errorBody['message'] is String) return errorBody['message'];
+
+    final messages = <String>[];
+    errorBody.forEach((champ, valeur) {
+      final textes = valeur is List
+          ? valeur.map((v) => v.toString())
+          : [valeur.toString()];
+      for (final texte in textes) {
+        messages.add(champ == 'non_field_errors' ? texte : '$texte');
+      }
+    });
+    if (messages.isNotEmpty) return messages.join('\n');
+    return 'Erreur serveur ($statusCode)';
   }
 }
 
