@@ -53,8 +53,20 @@ class _RegisterScreenState extends State<RegisterScreen> {
     super.dispose();
   }
 
+  void _signalerChampsInvalides() {
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text('Veuillez corriger les champs en rouge ci-dessus avant de continuer.'),
+        backgroundColor: AppColors.error,
+      ),
+    );
+  }
+
   Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) return;
+    if (!_formKey.currentState!.validate()) {
+      _signalerChampsInvalides();
+      return;
+    }
     setState(() => _loading = true);
 
     final auth = context.read<AuthProvider>();
@@ -113,6 +125,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
       body: SafeArea(
         child: Form(
           key: _formKey,
+          autovalidateMode: AutovalidateMode.onUserInteraction,
           child: Column(
             children: [
               // Indicateur d'étape
@@ -177,7 +190,10 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         height: 50,
                         child: ElevatedButton(
                           onPressed: _loading ? null : () {
-                            if (!_formKey.currentState!.validate()) return;
+                            if (!_formKey.currentState!.validate()) {
+                              _signalerChampsInvalides();
+                              return;
+                            }
                             if (_step < 2) {
                               setState(() => _step++);
                             } else {
