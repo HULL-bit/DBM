@@ -21,12 +21,20 @@ const TYPE_CHIP = {
   prestation: { label: 'Prestation', color: '#6A1B9A', bg: '#F3E5F5' },
 }
 
+const STATUTS_PRESENT = ['present', 'present_retard', 'present_hors_kourel']
+const STATUT_BG = {
+  present: '#E8F5E9',
+  present_retard: '#FFF8E1',
+  absent_justifie: '#FFF3E0',
+  absent_non_justifie: '#FFEBEE',
+}
+
 function seanceCounts(s) {
   const presences = s.presences || []
   return {
     presences,
-    nbPresents: presences.filter(p => p.statut === 'present').length,
-    nbAbsents: presences.filter(p => p.statut !== 'present').length,
+    nbPresents: presences.filter(p => STATUTS_PRESENT.includes(p.statut)).length,
+    nbAbsents: presences.filter(p => !STATUTS_PRESENT.includes(p.statut)).length,
   }
 }
 
@@ -125,24 +133,36 @@ function SeanceDetailDialog({ s, canManage, onClose, onEdit, onDelete, onPresenc
             <Grid container spacing={1}>
               <Grid item xs={6}>
                 <Typography variant="caption" sx={{ fontWeight: 600, color: 'success.main', display: 'block', mb: 0.5 }}>
-                  Présents ({nbPresents})
+                  Présents ({presences.filter(p => p.statut === 'present' || p.statut === 'present_retard').length})
                 </Typography>
-                {presences.filter(p => p.statut === 'present').map(p => (
+                {presences.filter(p => p.statut === 'present' || p.statut === 'present_retard').map(p => (
                   <Typography key={p.id || p.membre} variant="caption" display="block" color="text.secondary">
-                    • {p.membre_nom || `#${p.membre}`}
+                    • {p.membre_nom || `#${p.membre}`}{p.statut === 'present_retard' ? ' (retard)' : ''}
                   </Typography>
                 ))}
               </Grid>
               <Grid item xs={6}>
                 <Typography variant="caption" sx={{ fontWeight: 600, color: 'error.main', display: 'block', mb: 0.5 }}>
-                  Absents ({nbAbsents})
+                  Absents ({presences.filter(p => p.statut === 'absent_justifie' || p.statut === 'absent_non_justifie').length})
                 </Typography>
-                {presences.filter(p => p.statut !== 'present').map(p => (
+                {presences.filter(p => p.statut === 'absent_justifie' || p.statut === 'absent_non_justifie').map(p => (
                   <Typography key={p.id || p.membre} variant="caption" display="block" color="text.secondary">
-                    • {p.membre_nom || `#${p.membre}`} ({p.statut_display || p.statut})
+                    • {p.membre_nom || `#${p.membre}`} ({p.statut_display || p.statut}){p.remarque ? ` — ${p.remarque}` : ''}
                   </Typography>
                 ))}
               </Grid>
+              {presences.some(p => p.statut === 'present_hors_kourel') && (
+                <Grid item xs={12}>
+                  <Typography variant="caption" sx={{ fontWeight: 600, color: '#1565C0', display: 'block', mb: 0.5, mt: 0.5 }}>
+                    Invités hors kourel ({presences.filter(p => p.statut === 'present_hors_kourel').length})
+                  </Typography>
+                  {presences.filter(p => p.statut === 'present_hors_kourel').map(p => (
+                    <Typography key={p.id || p.membre} variant="caption" display="block" color="text.secondary">
+                      • {p.membre_nom || `#${p.membre}`}
+                    </Typography>
+                  ))}
+                </Grid>
+              )}
             </Grid>
           </Box>
         )}
@@ -194,6 +214,9 @@ export default function SeancesPage({ onBack }) {
   const [openPresences, setOpenPresences] = useState(null)
   const [presencesForm, setPresencesForm] = useState({})
   const [savingPresences, setSavingPresences] = useState(false)
+  const [openAjoutExterne, setOpenAjoutExterne] = useState(false)
+  const [externeKourel, setExterneKourel] = useState('')
+  const [externeMembre, setExterneMembre] = useState('')
   const [openExport, setOpenExport] = useState(false)
   const [exportFmt, setExportFmt] = useState('excel')
   const [exporting, setExporting] = useState(false)
@@ -317,6 +340,18 @@ export default function SeancesPage({ onBack }) {
   const getUserName = (id) => {
     const u = allUsers.find(u => u.id === Number(id))
     return u ? `${u.first_name} ${u.last_name}`.trim() : `Membre #${id}`
+  }
+
+  const getKourelMemberIds = (kourelId) => {
+    const k = kourels.find(x => x.id === Number(kourelId))
+    if (!k?.membres) return []
+    return k.membres.map(x => (typeof x === 'object' ? x?.id : x)).filter(Boolean)
+  }
+
+  const handleAjouterExterne = () => {
+    if (!externeMembre) return
+    setPresencesForm(p => ({ ...p, [externeMembre]: { statut: 'present_hors_kourel', remarque: '' } }))
+    setOpenAjoutExterne(false); setExterneKourel(''); setExterneMembre('')
   }
 
   return (
@@ -533,30 +568,98 @@ export default function SeancesPage({ onBack }) {
           <Typography variant="caption" display="block" color="text.secondary">{openPresences?.kourel_nom}</Typography>
         </DialogTitle>
         <DialogContent>
-          {Object.keys(presencesForm).length === 0 ? (
-            <Typography color="text.secondary" sx={{ py: 2 }}>Aucun membre dans ce Kourel.</Typography>
-          ) : (
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 1 }}>
-              {Object.entries(presencesForm).map(([membreId, v]) => (
-                <Box key={membreId} sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 1.5, bgcolor: v.statut === 'present' ? '#E8F5E9' : v.statut === 'absent_justifie' ? '#FFF3E0' : '#FFEBEE', borderRadius: 2 }}>
-                  <Typography variant="body2" sx={{ minWidth: 140, fontWeight: 500 }}>{getUserName(membreId)}</Typography>
-                  <TextField select size="small" value={v.statut} onChange={e => setPresencesForm(p => ({ ...p, [membreId]: { ...p[membreId], statut: e.target.value } }))} sx={{ minWidth: 190 }}>
-                    <MenuItem value="present">Présent</MenuItem>
-                    <MenuItem value="absent_justifie">Absent justifié</MenuItem>
-                    <MenuItem value="absent_non_justifie">Absent non justifié</MenuItem>
-                  </TextField>
-                  {v.statut !== 'present' && (
-                    <TextField size="small" placeholder="Justification..." value={v.remarque} onChange={e => setPresencesForm(p => ({ ...p, [membreId]: { ...p[membreId], remarque: e.target.value } }))} sx={{ flex: 1 }} />
-                  )}
-                </Box>
-              ))}
-            </Box>
-          )}
+          {(() => {
+            const kourelMemberIds = new Set(getKourelMemberIds(openPresences?.kourel))
+            const entries = Object.entries(presencesForm)
+            const propres = entries.filter(([id]) => kourelMemberIds.has(Number(id)))
+            const externes = entries.filter(([id]) => !kourelMemberIds.has(Number(id)))
+            return (
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, pt: 1 }}>
+                {propres.length === 0 ? (
+                  <Typography color="text.secondary">Aucun membre dans ce Kourel.</Typography>
+                ) : propres.map(([membreId, v]) => (
+                  <Box key={membreId} sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 1.5, bgcolor: STATUT_BG[v.statut] || '#FFEBEE', borderRadius: 2, flexWrap: 'wrap' }}>
+                    <Typography variant="body2" sx={{ minWidth: 140, fontWeight: 500 }}>{getUserName(membreId)}</Typography>
+                    <TextField select size="small" value={v.statut} onChange={e => setPresencesForm(p => ({ ...p, [membreId]: { ...p[membreId], statut: e.target.value } }))} sx={{ minWidth: 190 }}>
+                      <MenuItem value="present">Présent</MenuItem>
+                      <MenuItem value="present_retard">Présent (retard)</MenuItem>
+                      <MenuItem value="absent_justifie">Absent justifié</MenuItem>
+                      <MenuItem value="absent_non_justifie">Absent non justifié</MenuItem>
+                    </TextField>
+                    {(v.statut === 'absent_justifie' || v.statut === 'absent_non_justifie') && (
+                      <TextField
+                        size="small"
+                        placeholder={v.statut === 'absent_justifie' ? 'Justification (facultatif)' : 'Remarque (facultatif)'}
+                        value={v.remarque}
+                        onChange={e => setPresencesForm(p => ({ ...p, [membreId]: { ...p[membreId], remarque: e.target.value } }))}
+                        sx={{ flex: 1, minWidth: 180 }}
+                      />
+                    )}
+                  </Box>
+                ))}
+
+                {externes.length > 0 && (
+                  <>
+                    <Divider sx={{ mt: 1 }}><Chip label="Membres hors kourel" size="small" /></Divider>
+                    {externes.map(([membreId]) => (
+                      <Box key={membreId} sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 1.5, bgcolor: '#E3F2FD', borderRadius: 2 }}>
+                        <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>{getUserName(membreId)}</Typography>
+                        <Chip label="Présent — hors kourel" size="small" sx={{ bgcolor: '#BBDEFB', color: '#0D47A1', fontWeight: 600 }} />
+                        <IconButton size="small" onClick={() => setPresencesForm(p => { const n = { ...p }; delete n[membreId]; return n })}>
+                          <Delete fontSize="small" />
+                        </IconButton>
+                      </Box>
+                    ))}
+                  </>
+                )}
+
+                <Button
+                  size="small" startIcon={<Add />} onClick={() => setOpenAjoutExterne(true)}
+                  sx={{ alignSelf: 'flex-start', mt: 1, color: C.vert }}
+                >
+                  Membres hors kourel
+                </Button>
+              </Box>
+            )
+          })()}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setOpenPresences(null)}>Fermer</Button>
           <Button variant="contained" onClick={handleSavePresences} disabled={savingPresences || Object.keys(presencesForm).length === 0} sx={{ bgcolor: C.vert, '&:hover': { bgcolor: C.vertFonce } }}>
             {savingPresences ? <CircularProgress size={20} /> : 'Enregistrer les présences'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Ajouter un membre hors kourel */}
+      <Dialog open={openAjoutExterne} onClose={() => setOpenAjoutExterne(false)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ color: C.vert }}>Ajouter un membre hors kourel</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+            Un membre d'un autre kourel venu assister à cette répétition. Sa présence comptera
+            en surplus dans ses statistiques, sans affecter son taux de présence sur son propre kourel.
+          </Typography>
+          <TextField
+            select fullWidth size="small" label="Kourel d'origine" value={externeKourel}
+            onChange={e => { setExterneKourel(e.target.value); setExterneMembre('') }} sx={{ mb: 2 }}
+          >
+            {kourels.filter(k => k.id !== openPresences?.kourel).map(k => (
+              <MenuItem key={k.id} value={k.id}>{k.nom}</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select fullWidth size="small" label="Membre" value={externeMembre}
+            onChange={e => setExterneMembre(e.target.value)} disabled={!externeKourel}
+          >
+            {getKourelMemberIds(externeKourel).filter(id => !presencesForm[id]).map(id => (
+              <MenuItem key={id} value={id}>{getUserName(id)}</MenuItem>
+            ))}
+          </TextField>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setOpenAjoutExterne(false)}>Annuler</Button>
+          <Button variant="contained" disabled={!externeMembre} onClick={handleAjouterExterne} sx={{ bgcolor: C.vert, '&:hover': { bgcolor: C.vertFonce } }}>
+            Ajouter
           </Button>
         </DialogActions>
       </Dialog>

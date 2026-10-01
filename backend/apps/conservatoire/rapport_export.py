@@ -28,7 +28,15 @@ def _get_queryset(date_debut=None, date_fin=None, kourel_id=None):
 
 
 def _get_stats_par_membre(qs):
-    """[{membre, nom, kourel, nb_seances_attendues, nb_presents, nb_abs_just, nb_abs_non_just, taux_presence}]"""
+    """Stats de présence par membre, strictement scopées au(x) kourel(s) DONT IL EST
+    MEMBRE : une présence "hors kourel" (invité d'un autre kourel) ne compte jamais dans le
+    taux propre du membre, elle n'a d'impact que sur `nb_hors_kourel` (surplus), pour ne pas
+    fausser son évaluation d'assiduité sur son propre kourel.
+
+    Retourne une liste de dicts : membre_id, membre, nom, kourel, nb_seances_attendues,
+    nb_presents (retards inclus), nb_retards, nb_abs_just, nb_abs_non_just, taux_presence,
+    justifications (liste de {seance, date, justification}), nb_hors_kourel.
+    """
     from collections import defaultdict
     seance_ids = list(qs.values_list('id', flat=True))
     membre_seances = defaultdict(set)
@@ -41,23 +49,43 @@ def _get_stats_par_membre(qs):
             membre_seances[m.id].add(seance.id)
             if m.id not in membre_kourel:
                 membre_kourel[m.id] = (m, kourel.nom)
-    presences = PresenceSeance.objects.filter(seance_id__in=seance_ids).select_related('membre')
-    from collections import defaultdict
+
+    # Présences "propres" : uniquement les séances où le membre appartient réellement au
+    # kourel de la séance (cf. membre_seances ci-dessus) — une présence hors-kourel d'un
+    # membre dans une séance d'un AUTRE kourel n'est jamais dans cet ensemble.
+    presences = PresenceSeance.objects.filter(seance_id__in=seance_ids).select_related('membre', 'seance')
     membre_presents = defaultdict(int)
+    membre_retards = defaultdict(int)
     membre_abs_just = defaultdict(int)
     membre_abs_non_just = defaultdict(int)
+    membre_hors_kourel = defaultdict(int)
+    membre_justifications = defaultdict(list)
     for p in presences:
         mid = p.membre_id
-        if p.statut == 'present':
+        est_propre = p.seance_id in membre_seances.get(mid, set())
+        if p.statut == 'present_hors_kourel' or not est_propre:
+            # Invité d'un autre kourel (ou ligne orpheline) : jamais dans le taux propre.
+            if p.statut == 'present_hors_kourel':
+                membre_hors_kourel[mid] += 1
+            continue
+        if p.statut == 'present_retard':
+            membre_presents[mid] += 1
+            membre_retards[mid] += 1
+        elif p.statut == 'present':
             membre_presents[mid] += 1
         elif p.statut == 'absent_justifie':
             membre_abs_just[mid] += 1
+            if p.remarque:
+                membre_justifications[mid].append({
+                    'seance': str(p.seance), 'date': p.seance.date_heure, 'justification': p.remarque,
+                })
         else:
             membre_abs_non_just[mid] += 1
     result = []
     for mid, seance_ids_att in membre_seances.items():
         nb_attendues = len(seance_ids_att)
         nb_pres = membre_presents[mid]
+        nb_ret = membre_retards[mid]
         nb_aj = membre_abs_just[mid]
         nb_anj = membre_abs_non_just[mid]
         taux = round(100 * nb_pres / nb_attendues, 1) if nb_attendues else 0
@@ -65,11 +93,82 @@ def _get_stats_par_membre(qs):
         nom = m.get_full_name() if m else f'Membre #{mid}'
         result.append({
             'membre_id': mid, 'membre': m, 'nom': nom, 'kourel': kourel_nom,
-            'nb_seances_attendues': nb_attendues, 'nb_presents': nb_pres,
+            'nb_seances_attendues': nb_attendues, 'nb_presents': nb_pres, 'nb_retards': nb_ret,
             'nb_abs_just': nb_aj, 'nb_abs_non_just': nb_anj,
-            'taux_presence': taux
+            'justifications': membre_justifications.get(mid, []),
+            'taux_presence': taux,
+            'nb_hors_kourel': membre_hors_kourel.get(mid, 0),
         })
     return sorted(result, key=lambda x: (-x['taux_presence'], x['nom']))
+
+
+def _get_invites_hors_kourel(qs):
+    """Présences 'hors kourel' (invités venus d'un autre kourel) enregistrées sur les
+    séances de `qs`, regroupées par kourel ACCUEILLANT (celui de la séance).
+    Retourne {kourel_id: [{nom, kourel_origine, nb_venues, detail: [{seance, date}]}]}"""
+    from collections import defaultdict
+    presences = PresenceSeance.objects.filter(
+        seance__in=qs, statut='present_hors_kourel'
+    ).select_related('membre', 'seance', 'seance__kourel').order_by('seance__date_heure')
+
+    par_kourel_accueil = defaultdict(lambda: defaultdict(list))
+    for p in presences:
+        if not p.seance.kourel_id or not p.membre_id:
+            continue
+        par_kourel_accueil[p.seance.kourel_id][p.membre_id].append(p)
+
+    result = {}
+    for kourel_accueil_id, par_membre in par_kourel_accueil.items():
+        invites = []
+        for mid, rows in par_membre.items():
+            membre = rows[0].membre
+            kourels_origine = list(
+                membre.kourels.exclude(pk=kourel_accueil_id).values_list('nom', flat=True)
+            )
+            invites.append({
+                'nom': membre.get_full_name(),
+                'kourel_origine': ', '.join(kourels_origine) or 'Aucun kourel',
+                'nb_venues': len(rows),
+                'detail': [
+                    {'seance': str(r.seance), 'date': r.seance.date_heure.strftime('%d/%m/%Y') if r.seance.date_heure else ''}
+                    for r in rows
+                ],
+            })
+        result[kourel_accueil_id] = sorted(invites, key=lambda x: x['nom'])
+    return result
+
+
+def _build_detail_par_kourel(kourel_qs, qs, stats_membres):
+    """Regroupe les statistiques de présence PAR KOUREL puis PAR MEMBRE (jamais par séance,
+    qui mélangerait les kourels entre eux) — chaque bloc contient l'encadrement du kourel,
+    ses membres avec leur assiduité propre (justifications d'absence incluses), et les
+    éventuels invités "hors kourel" venus d'un autre kourel assister à ses répétitions."""
+    stats_par_membre_id = {s['membre_id']: s for s in stats_membres}
+    invites_par_kourel = _get_invites_hors_kourel(qs)
+    seances_par_kourel = {}
+    for s in qs:
+        seances_par_kourel[s.kourel_id] = seances_par_kourel.get(s.kourel_id, 0) + 1
+
+    blocs = []
+    for k in kourel_qs:
+        membres_stats = []
+        for m in k.membres.all().order_by('last_name', 'first_name'):
+            s = stats_par_membre_id.get(m.id)
+            membres_stats.append(s if s else {
+                'membre_id': m.id, 'nom': m.get_full_name(), 'kourel': k.nom,
+                'nb_seances_attendues': 0, 'nb_presents': 0, 'nb_retards': 0,
+                'nb_abs_just': 0, 'nb_abs_non_just': 0, 'justifications': [],
+                'taux_presence': 0, 'nb_hors_kourel': 0,
+            })
+        membres_stats.sort(key=lambda x: (-x['taux_presence'], x['nom']))
+        blocs.append({
+            'kourel': k,
+            'encadrement': _kourel_encadrement(k),
+            'nb_seances': seances_par_kourel.get(k.pk, 0),
+            'membres': membres_stats,
+            'invites': invites_par_kourel.get(k.pk, []),
+        })
+    return blocs
 
 
 def _kourel_encadrement(kourel):
@@ -135,10 +234,14 @@ def export_rapport_excel(date_debut=None, date_fin=None, kourel_id=None):
     ws_stats = wb.active
     ws_stats.title = "Statistiques"
 
-    presences_all = PresenceSeance.objects.filter(seance__in=qs)
+    # Les présences "hors kourel" (invités) sont exclues du taux global : elles ne
+    # reflètent l'assiduité propre d'aucun kourel particulier, affichées à part.
+    presences_all = PresenceSeance.objects.filter(seance__in=qs).exclude(statut='present_hors_kourel')
+    nb_hors_kourel = PresenceSeance.objects.filter(seance__in=qs, statut='present_hors_kourel').count()
     nb_seances = qs.count()
     nb_total = presences_all.count()
-    nb_presents = presences_all.filter(statut='present').count()
+    nb_retards = presences_all.filter(statut='present_retard').count()
+    nb_presents = presences_all.filter(statut__in=PresenceSeance.STATUTS_PRESENT).count()
     nb_abs_just = presences_all.filter(statut='absent_justifie').count()
     nb_abs_non_just = presences_all.filter(statut='absent_non_justifie').count()
     taux_presence = round(100 * nb_presents / nb_total, 1) if nb_total else 0
@@ -160,10 +263,12 @@ def export_rapport_excel(date_debut=None, date_fin=None, kourel_id=None):
     stats_rows = [
         ("Nombre total de séances", nb_seances),
         ("Total marquages présence", nb_total),
-        ("Présents", nb_presents),
+        ("Présents (dont retards)", nb_presents),
+        ("  dont en retard", nb_retards),
         ("Absents justifiés", nb_abs_just),
         ("Absents non justifiés", nb_abs_non_just),
-        (f"Taux de présence global", f"{taux_presence}%"),
+        ("Taux de présence global", f"{taux_presence}%"),
+        ("Présences hors kourel (invités, hors calcul)", nb_hors_kourel),
     ]
     for i, (label, val) in enumerate(stats_rows, 5):
         ws_stats.cell(row=i, column=1, value=label).border = border
@@ -213,14 +318,15 @@ def export_rapport_excel(date_debut=None, date_fin=None, kourel_id=None):
     stats_membres = _get_stats_par_membre(qs)
     ws_membres = wb.create_sheet("Taux par membre")
     _write_header_row(ws_membres, 1, [
-        'Membre', 'Kourel', 'Séances attendues',
-        'Présents', 'Abs. justifiés', 'Abs. non justifiés', 'Taux présence (%)'
+        'Membre', 'Kourel', 'Séances attendues', 'Présents (dont retards)', 'dont retards',
+        'Abs. justifiés', 'Abs. non justifiés', 'Taux présence (%)', 'Présences hors kourel'
     ])
     for i, s in enumerate(stats_membres, 2):
         taux_val = s['taux_presence']
         row_data = [
             s['nom'], s['kourel'], s['nb_seances_attendues'],
-            s['nb_presents'], s['nb_abs_just'], s['nb_abs_non_just'], f"{taux_val}%"
+            s['nb_presents'], s['nb_retards'], s['nb_abs_just'], s['nb_abs_non_just'],
+            f"{taux_val}%", s['nb_hors_kourel'],
         ]
         # Couleur selon taux
         if taux_val >= 80:
@@ -234,63 +340,70 @@ def export_rapport_excel(date_debut=None, date_fin=None, kourel_id=None):
             c.border = border
             c.fill = fill(row_bg)
             c.alignment = Alignment(horizontal='center' if col > 1 else 'left')
-    _autofit(ws_membres, [28, 20, 16, 12, 16, 18, 16])
+    _autofit(ws_membres, [28, 20, 16, 18, 12, 16, 18, 16, 18])
 
     # ══════════════════════════════════════════════════
-    # Feuille 4 : Détail des séances
+    # Feuille 4 : Détail par Kourel — jamais par séance, cela mélangerait les kourels.
+    # Pour chaque kourel : son encadrement, chacun de ses membres avec son assiduité
+    # PROPRE (justifications d'absence incluses), puis ses éventuels invités hors kourel.
     # ══════════════════════════════════════════════════
-    ws = wb.create_sheet("Détail séances")
-    taux_par_membre = {s['membre_id']: s['taux_presence'] for s in stats_membres}
-    _write_header_row(ws, 1, [
-        'Date', 'Heure début', 'Heure fin', 'Lieu', 'Kourel',
-        'Responsable', '1er MC', '2ème MC', 'Jewrine',
-        'Khassidas (nom, dathie, portion)', 'Membre', 'Statut', 'Taux présence (%)', 'Remarque'
-    ])
+    ws = wb.create_sheet("Détail par Kourel")
+    blocs = _build_detail_par_kourel(kourel_qs, qs, stats_membres)
+    row = 1
+    for bloc in blocs:
+        k, enc = bloc['kourel'], bloc['encadrement']
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=7)
+        c = ws.cell(row=row, column=1, value=f"KOUREL : {k.nom.upper()}  —  {bloc['nb_seances']} séance(s) sur la période")
+        c.font = Font(bold=True, size=12, color='FFFFFF')
+        c.fill = fill(_GREEN)
+        row += 1
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=7)
+        infos = f"Responsable : {enc['responsable']}  |  1er MC : {enc['maitre_1']}  |  2ème MC : {enc['maitre_2']}  |  Jewrine : {enc['jewrine']}"
+        ws.cell(row=row, column=1, value=infos).font = Font(italic=True, size=9)
+        row += 1
 
-    row = 2
-    for seance in qs:
-        kourel = seance.kourel
-        enc = _kourel_encadrement(kourel) if kourel else {
-            'responsable': '—', 'maitre_1': '—', 'maitre_2': '—', 'jewrine': '—'
-        }
-        khass_str = ' | '.join(
-            f"{k.nom_khassida} ({k.dathie})" + (f" - {k.khassida_portion}" if k.khassida_portion else "")
-            for k in seance.khassidas.all()
-        ) or '—'
-        date_str = seance.date_heure.strftime('%d/%m/%Y') if seance.date_heure else ''
-        heure_debut = seance.date_heure.strftime('%H:%M') if seance.date_heure else ''
-        heure_fin_str = seance.heure_fin.strftime('%H:%M') if seance.heure_fin else ''
-        kourel_nom = kourel.nom if kourel else ''
-
-        presences = list(seance.presences.all())
-        base_row = [
-            date_str, heure_debut, heure_fin_str, seance.lieu or '',
-            kourel_nom, enc['responsable'], enc['maitre_1'], enc['maitre_2'],
-            enc['jewrine'], khass_str
-        ]
-        if not presences:
-            row_data = base_row + ['—', '—', '—', '']
+        _write_header_row(ws, row, [
+            'Membre', 'Séances attendues', 'Présents (dont retards)', 'dont retards',
+            'Abs. justifiées', 'Abs. non justifiées', 'Taux (%)'
+        ], bg_color=_GOLD, text_color='000000')
+        row += 1
+        for s in bloc['membres']:
+            taux_val = s['taux_presence']
+            row_data = [
+                s['nom'], s['nb_seances_attendues'], s['nb_presents'], s['nb_retards'],
+                s['nb_abs_just'], s['nb_abs_non_just'], f"{taux_val}%"
+            ]
+            row_bg = 'E8F5E9' if taux_val >= 80 else ('FFF9E6' if taux_val >= 50 else 'FFEBEE')
             for col, val in enumerate(row_data, 1):
                 c = ws.cell(row=row, column=col, value=val)
                 c.border = border
-                c.fill = fill(_LIGHT)
+                c.fill = fill(row_bg)
+                c.alignment = Alignment(horizontal='center' if col > 1 else 'left')
             row += 1
-        else:
-            for idx_p, p in enumerate(presences):
-                taux = f"{taux_par_membre.get(p.membre_id, 0)}%" if p.membre_id else '—'
-                statut_display = p.get_statut_display()
-                row_data = base_row + [
-                    p.membre.get_full_name() if p.membre else '',
-                    statut_display, taux, p.remarque or ''
-                ]
-                bg = _LIGHT if idx_p % 2 == 0 else 'FFFFFF'
+            # Détail des justifications d'absence de ce membre, s'il y en a.
+            for j in s['justifications']:
+                ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=7)
+                date_str = j['date'].strftime('%d/%m/%Y') if j['date'] else ''
+                ws.cell(row=row, column=1, value='   ↳ Justification').font = Font(italic=True, size=8)
+                ws.cell(row=row, column=2, value=f"{date_str} — {j['seance']} : {j['justification']}").font = Font(italic=True, size=8)
+                row += 1
+
+        if bloc['invites']:
+            row += 1
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=7)
+            ws.cell(row=row, column=1, value="Invités hors kourel (venus assister à la répétition)").font = Font(bold=True, size=10, color=_GREEN)
+            row += 1
+            _write_header_row(ws, row, ['Membre', 'Kourel d\'origine', 'Nb venues', '', '', '', ''], bg_color=_LIGHT, text_color='000000')
+            row += 1
+            for inv in bloc['invites']:
+                row_data = [inv['nom'], inv['kourel_origine'], inv['nb_venues'], '', '', '', '']
                 for col, val in enumerate(row_data, 1):
                     c = ws.cell(row=row, column=col, value=val)
                     c.border = border
-                    c.fill = fill(bg)
                 row += 1
+        row += 2  # espace entre kourels
 
-    _autofit(ws, [12, 10, 10, 18, 18, 18, 18, 18, 18, 30, 24, 18, 14, 24])
+    _autofit(ws, [26, 18, 20, 12, 16, 18, 12])
 
     from io import BytesIO
     buf = BytesIO()
@@ -365,9 +478,13 @@ def export_rapport_pdf(date_debut=None, date_fin=None, kourel_id=None):
         elements.append(Spacer(1, 0.5*cm))
 
     # ── Statistiques globales ──
-    presences_all = list(PresenceSeance.objects.filter(seance__in=qs))
+    # Les présences "hors kourel" (invités) sont exclues du taux global : elles ne
+    # reflètent l'assiduité propre d'aucun kourel particulier, affichées à part.
+    presences_all = list(PresenceSeance.objects.filter(seance__in=qs).exclude(statut='present_hors_kourel'))
+    nb_hors_kourel = PresenceSeance.objects.filter(seance__in=qs, statut='present_hors_kourel').count()
     nb_total = len(presences_all)
-    nb_presents = sum(1 for p in presences_all if p.statut == 'present')
+    nb_presents = sum(1 for p in presences_all if p.statut in PresenceSeance.STATUTS_PRESENT)
+    nb_retards = sum(1 for p in presences_all if p.statut == 'present_retard')
     nb_abs_just = sum(1 for p in presences_all if p.statut == 'absent_justifie')
     nb_abs_non_just = sum(1 for p in presences_all if p.statut == 'absent_non_justifie')
     taux_presence = round(100 * nb_presents / nb_total, 1) if nb_total else 0
@@ -376,10 +493,12 @@ def export_rapport_pdf(date_debut=None, date_fin=None, kourel_id=None):
     stats_data = [['Indicateur', 'Valeur']] + [
         ['Nombre de séances', str(qs.count())],
         ['Total marquages présence', str(nb_total)],
-        ['Présents', str(nb_presents)],
+        ['Présents (dont retards)', str(nb_presents)],
+        ['  dont en retard', str(nb_retards)],
         ['Absents justifiés', str(nb_abs_just)],
         ['Absents non justifiés', str(nb_abs_non_just)],
         ['Taux de présence global', f'{taux_presence}%'],
+        ['Présences hors kourel (invités, hors calcul)', str(nb_hors_kourel)],
     ]
     stats_table = Table(stats_data, colWidths=[9*cm, 5*cm])
     stats_table.setStyle(tbl_style(header_color=GOLD))
@@ -413,92 +532,82 @@ def export_rapport_pdf(date_debut=None, date_fin=None, kourel_id=None):
     elements.append(Paragraph('Taux de présence par membre', h2_style))
     elements.append(Spacer(1, 0.3*cm))
     if stats_membres:
-        m_headers = [['Membre', 'Kourel', 'Attendues', 'Présents', 'Abs. just.', 'Abs. non just.', 'Taux (%)']]
+        m_headers = [['Membre', 'Kourel', 'Attendues', 'Présents', 'Retards', 'Abs. just.', 'Abs. non just.', 'Taux (%)']]
         m_data = [
-            [s['nom'], s['kourel'], str(s['nb_seances_attendues']), str(s['nb_presents']),
+            [s['nom'], s['kourel'], str(s['nb_seances_attendues']), str(s['nb_presents']), str(s['nb_retards']),
              str(s['nb_abs_just']), str(s['nb_abs_non_just']), f"{s['taux_presence']}%"]
             for s in stats_membres
         ]
-        mt = Table(m_headers + m_data, colWidths=[4.5*cm, 3.5*cm, 2*cm, 2*cm, 2*cm, 2.5*cm, 2*cm])
+        mt = Table(m_headers + m_data, colWidths=[4*cm, 3*cm, 1.8*cm, 1.8*cm, 1.8*cm, 2*cm, 2.2*cm, 1.8*cm])
         style = tbl_style()
         # Coloration conditionnelle du taux
         for i, s in enumerate(stats_membres, 1):
             taux = s['taux_presence']
             color = colors.HexColor('#E8F5E9') if taux >= 80 else (colors.HexColor('#FFF9E6') if taux >= 50 else colors.HexColor('#FFEBEE'))
-            style.add('BACKGROUND', (6, i), (6, i), color)
+            style.add('BACKGROUND', (7, i), (7, i), color)
         mt.setStyle(style)
         elements.append(mt)
     else:
         elements.append(Paragraph('Aucun membre concerné.', styles['Normal']))
     elements.append(Spacer(1, 0.8*cm))
 
-    # ── Détail des séances ──
+    # ── Détail par Kourel — jamais par séance, cela mélangerait les kourels entre eux ──
     elements.append(PageBreak())
-    elements.append(Paragraph('Détail des séances', h2_style))
+    elements.append(Paragraph('Détail par Kourel', h2_style))
     elements.append(Spacer(1, 0.3*cm))
 
-    taux_par_membre = {s['membre_id']: s['taux_presence'] for s in stats_membres}
-    for seance in qs:
-        kourel = seance.kourel
-        enc = _kourel_encadrement(kourel) if kourel else {
-            'responsable': '—', 'maitre_1': '—', 'maitre_2': '—', 'jewrine': '—'
-        }
-        khass_str = ', '.join(
-            f"{k.nom_khassida} ({k.dathie})" + (f" - {k.khassida_portion}" if k.khassida_portion else "")
-            for k in seance.khassidas.all()
-        ) or '—'
-        date_str = seance.date_heure.strftime('%d/%m/%Y %H:%M') if seance.date_heure else ''
-        heure_fin_str = seance.heure_fin.strftime('%H:%M') if seance.heure_fin else '—'
+    kourel_qs_detail = Kourel.objects.select_related(
+        'responsable', 'maitre_de_coeur', 'maitre_de_coeur_2', 'jewrine'
+    ).prefetch_related('membres').order_by('ordre', 'nom')
+    if kourel_id:
+        kourel_qs_detail = kourel_qs_detail.filter(pk=kourel_id)
+    blocs = _build_detail_par_kourel(kourel_qs_detail, qs, stats_membres)
 
-        # Entête séance
-        seance_info = Table([
-            ['Date/Heure', 'Heure fin', 'Lieu', 'Kourel'],
-            [date_str, heure_fin_str, seance.lieu or '—', kourel.nom if kourel else '—'],
-            ['Responsable', '1er MC', '2ème MC', 'Jewrine'],
-            [enc['responsable'], enc['maitre_1'], enc['maitre_2'], enc['jewrine']],
-        ], colWidths=[4*cm, 3*cm, 4.5*cm, 4.5*cm])
-        seance_info.setStyle(TableStyle([
-            ('BACKGROUND', (0, 0), (-1, 0), GREEN),
-            ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
-            ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-            ('BACKGROUND', (0, 1), (-1, 1), LIGHT),
-            ('BACKGROUND', (0, 2), (-1, 2), GOLD),
-            ('FONTNAME', (0, 2), (-1, 2), 'Helvetica-Bold'),
-            ('BACKGROUND', (0, 3), (-1, 3), colors.HexColor('#FAF3E0')),
-            ('GRID', (0, 0), (-1, -1), 0.4, colors.grey),
-            ('FONTSIZE', (0, 0), (-1, -1), 8),
-            ('TOPPADDING', (0, 0), (-1, -1), 4),
-            ('BOTTOMPADDING', (0, 0), (-1, -1), 4),
-        ]))
-        elements.append(seance_info)
+    for bloc in blocs:
+        k, enc = bloc['kourel'], bloc['encadrement']
+        elements.append(Paragraph(f"{k.nom} — {bloc['nb_seances']} séance(s) sur la période", h2_style))
+        elements.append(Paragraph(
+            f"Responsable : {enc['responsable']} | 1er MC : {enc['maitre_1']} | "
+            f"2ème MC : {enc['maitre_2']} | Jewrine : {enc['jewrine']}", small
+        ))
+        elements.append(Spacer(1, 0.2*cm))
 
-        if khass_str != '—':
-            elements.append(Spacer(1, 0.15*cm))
-            elements.append(Paragraph(f"<b>Khassidas :</b> {khass_str}", small))
+        if bloc['membres']:
+            mh = [['Membre', 'Attendues', 'Présents', 'Retards', 'Abs. just.', 'Abs. non just.', 'Taux (%)']]
+            mrows = [
+                [s['nom'], str(s['nb_seances_attendues']), str(s['nb_presents']), str(s['nb_retards']),
+                 str(s['nb_abs_just']), str(s['nb_abs_non_just']), f"{s['taux_presence']}%"]
+                for s in bloc['membres']
+            ]
+            kt = Table(mh + mrows, colWidths=[4.5*cm, 2.2*cm, 2.2*cm, 1.8*cm, 2*cm, 2.2*cm, 1.8*cm])
+            kstyle = tbl_style(header_color=GOLD)
+            for i, s in enumerate(bloc['membres'], 1):
+                taux = s['taux_presence']
+                color = colors.HexColor('#E8F5E9') if taux >= 80 else (colors.HexColor('#FFF9E6') if taux >= 50 else colors.HexColor('#FFEBEE'))
+                kstyle.add('BACKGROUND', (6, i), (6, i), color)
+            kt.setStyle(kstyle)
+            elements.append(kt)
 
-        presences = list(seance.presences.all())
-        if presences:
-            elements.append(Spacer(1, 0.2*cm))
-            ph = [['Membre', 'Statut', 'Taux présence', 'Remarque']]
-            for p in presences:
-                taux = f"{taux_par_membre.get(p.membre_id, 0)}%" if p.membre_id else '—'
-                ph.append([
-                    p.membre.get_full_name() if p.membre else '',
-                    p.get_statut_display(), taux, p.remarque or ''
-                ])
-            pt = Table(ph, colWidths=[5*cm, 3.5*cm, 2.5*cm, 5*cm])
-            pt_style = tbl_style(header_color=GOLD)
-            # Coloriser statut
-            for i, p in enumerate(presences, 1):
-                if p.statut == 'present':
-                    pt_style.add('TEXTCOLOR', (1, i), (1, i), GREEN)
-                elif p.statut == 'absent_non_justifie':
-                    pt_style.add('TEXTCOLOR', (1, i), (1, i), RED)
-                else:
-                    pt_style.add('TEXTCOLOR', (1, i), (1, i), ORANGE)
-            pt.setStyle(pt_style)
-            elements.append(pt)
-        elements.append(Spacer(1, 0.6*cm))
+            # Justifications d'absence, listées sous le tableau pour ne pas l'alourdir.
+            justifs = [(s['nom'], j) for s in bloc['membres'] for j in s['justifications']]
+            if justifs:
+                elements.append(Spacer(1, 0.2*cm))
+                elements.append(Paragraph("<b>Justifications d'absence :</b>", small))
+                for nom, j in justifs:
+                    date_str = j['date'].strftime('%d/%m/%Y') if j['date'] else ''
+                    elements.append(Paragraph(f"• {nom} — {date_str} ({j['seance']}) : {j['justification']}", small))
+        else:
+            elements.append(Paragraph('Aucun membre dans ce kourel.', styles['Normal']))
+
+        if bloc['invites']:
+            elements.append(Spacer(1, 0.3*cm))
+            elements.append(Paragraph("<b>Invités hors kourel</b> (venus assister à la répétition) :", small))
+            for inv in bloc['invites']:
+                elements.append(Paragraph(
+                    f"• {inv['nom']} (kourel : {inv['kourel_origine']}) — {inv['nb_venues']} venue(s)", small
+                ))
+
+        elements.append(Spacer(1, 0.7*cm))
 
     doc.build(elements)
     buf.seek(0)
@@ -522,11 +631,16 @@ def export_rapport_csv(date_debut=None, date_fin=None, kourel_id=None):
     )
     writer.writerow([f'Rapport séances de répétition DBM — Période : {periode_str}'])
 
-    presences_all = list(PresenceSeance.objects.filter(seance__in=qs))
+    presences_all = list(PresenceSeance.objects.filter(seance__in=qs).exclude(statut='present_hors_kourel'))
+    nb_hors_kourel = PresenceSeance.objects.filter(seance__in=qs, statut='present_hors_kourel').count()
     nb_total = len(presences_all)
-    nb_presents = sum(1 for p in presences_all if p.statut == 'present')
+    nb_presents = sum(1 for p in presences_all if p.statut in PresenceSeance.STATUTS_PRESENT)
+    nb_retards = sum(1 for p in presences_all if p.statut == 'present_retard')
     taux_presence = round(100 * nb_presents / nb_total, 1) if nb_total else 0
-    writer.writerow([f'Séances: {qs.count()} | Présences: {nb_total} | Présents: {nb_presents} | Taux: {taux_presence}%'])
+    writer.writerow([
+        f'Séances: {qs.count()} | Présences: {nb_total} | Présents (dont retards): {nb_presents} '
+        f'(dont {nb_retards} retard(s)) | Taux: {taux_presence}% | Hors kourel (invités, hors calcul): {nb_hors_kourel}'
+    ])
     writer.writerow([])
 
     # Section kourels
@@ -545,46 +659,40 @@ def export_rapport_csv(date_debut=None, date_fin=None, kourel_id=None):
     # Section taux par membre
     stats_membres = _get_stats_par_membre(qs)
     writer.writerow(['=== TAUX DE PRESENCE PAR MEMBRE ==='])
-    writer.writerow(['Membre', 'Kourel', 'Séances attendues', 'Présents', 'Abs. justifiés', 'Abs. non justifiés', 'Taux (%)'])
+    writer.writerow(['Membre', 'Kourel', 'Séances attendues', 'Présents', 'Retards',
+                      'Abs. justifiés', 'Abs. non justifiés', 'Taux (%)', 'Présences hors kourel'])
     for s in stats_membres:
-        writer.writerow([s['nom'], s['kourel'], s['nb_seances_attendues'], s['nb_presents'],
-                        s['nb_abs_just'], s['nb_abs_non_just'], f"{s['taux_presence']}%"])
+        writer.writerow([s['nom'], s['kourel'], s['nb_seances_attendues'], s['nb_presents'], s['nb_retards'],
+                        s['nb_abs_just'], s['nb_abs_non_just'], f"{s['taux_presence']}%", s['nb_hors_kourel']])
     writer.writerow([])
 
-    # Section détail séances
-    writer.writerow(['=== DETAIL DES SEANCES ==='])
-    writer.writerow([
-        'Date', 'Heure début', 'Heure fin', 'Lieu', 'Kourel',
-        'Responsable', '1er MC', '2ème MC', 'Jewrine',
-        'Khassidas (nom, dathie, portion)', 'Membre', 'Statut', 'Taux présence (%)', 'Remarque'
-    ])
-    taux_par_membre = {s['membre_id']: s['taux_presence'] for s in stats_membres}
-    for seance in qs:
-        kourel = seance.kourel
-        enc = _kourel_encadrement(kourel) if kourel else {
-            'responsable': '—', 'maitre_1': '—', 'maitre_2': '—', 'jewrine': '—'
-        }
-        khass_str = ' | '.join(
-            f"{k.nom_khassida} ({k.dathie})" + (f" - {k.khassida_portion}" if k.khassida_portion else "")
-            for k in seance.khassidas.all()
-        ) or '—'
-        date_str = seance.date_heure.strftime('%d/%m/%Y') if seance.date_heure else ''
-        heure_debut = seance.date_heure.strftime('%H:%M') if seance.date_heure else ''
-        heure_fin_str = seance.heure_fin.strftime('%H:%M') if seance.heure_fin else ''
-        kourel_nom = kourel.nom if kourel else ''
-        base = [date_str, heure_debut, heure_fin_str, seance.lieu or '',
-                kourel_nom, enc['responsable'], enc['maitre_1'], enc['maitre_2'], enc['jewrine'], khass_str]
+    # Section détail par kourel — jamais par séance, cela mélangerait les kourels entre eux.
+    writer.writerow(['=== DETAIL PAR KOUREL ==='])
+    kourel_qs_detail = Kourel.objects.select_related(
+        'responsable', 'maitre_de_coeur', 'maitre_de_coeur_2', 'jewrine'
+    ).prefetch_related('membres').order_by('ordre', 'nom')
+    if kourel_id:
+        kourel_qs_detail = kourel_qs_detail.filter(pk=kourel_id)
+    blocs = _build_detail_par_kourel(kourel_qs_detail, qs, stats_membres)
 
-        presences = list(seance.presences.all())
-        if not presences:
-            writer.writerow(base + ['—', '—', '—', ''])
-        else:
-            for p in presences:
-                taux = f"{taux_par_membre.get(p.membre_id, 0)}%" if p.membre_id else '—'
-                writer.writerow(base + [
-                    p.membre.get_full_name() if p.membre else '',
-                    p.get_statut_display(), taux, p.remarque or ''
-                ])
+    for bloc in blocs:
+        k, enc = bloc['kourel'], bloc['encadrement']
+        writer.writerow([])
+        writer.writerow([f"KOUREL : {k.nom}", f"{bloc['nb_seances']} séance(s) sur la période"])
+        writer.writerow([f"Responsable: {enc['responsable']} | 1er MC: {enc['maitre_1']} | "
+                          f"2ème MC: {enc['maitre_2']} | Jewrine: {enc['jewrine']}"])
+        writer.writerow(['Membre', 'Séances attendues', 'Présents', 'Retards',
+                          'Abs. justifiées', 'Abs. non justifiées', 'Taux (%)'])
+        for s in bloc['membres']:
+            writer.writerow([s['nom'], s['nb_seances_attendues'], s['nb_presents'], s['nb_retards'],
+                              s['nb_abs_just'], s['nb_abs_non_just'], f"{s['taux_presence']}%"])
+            for j in s['justifications']:
+                date_str = j['date'].strftime('%d/%m/%Y') if j['date'] else ''
+                writer.writerow(['', f"↳ Justification ({date_str}, {j['seance']})", j['justification']])
+        if bloc['invites']:
+            writer.writerow(['Invités hors kourel :'])
+            for inv in bloc['invites']:
+                writer.writerow(['', inv['nom'], f"kourel: {inv['kourel_origine']}", f"{inv['nb_venues']} venue(s)"])
 
     from io import BytesIO
     out = BytesIO(buf.getvalue().encode('utf-8-sig'))

@@ -303,9 +303,11 @@ class KourelViewSet(AuditedModelViewSet):
         result = []
         for k in kourels:
             seances = k.seances.filter(type_seance='repetition')
-            presences = PresenceSeance.objects.filter(seance__in=seances)
+            # Les présences "hors kourel" (invités d'un autre kourel) ne reflètent pas
+            # l'assiduité propre des membres de CE kourel : exclues du taux du kourel.
+            presences = PresenceSeance.objects.filter(seance__in=seances).exclude(statut='present_hors_kourel')
             nb_total = presences.count()
-            nb_presents = presences.filter(statut='present').count()
+            nb_presents = presences.filter(statut__in=PresenceSeance.STATUTS_PRESENT).count()
             taux = round(100 * nb_presents / nb_total, 1) if nb_total else 0
             result.append({
                 'id': k.pk,
@@ -351,19 +353,27 @@ class SeanceConservatoireViewSet(AuditedModelViewSet):
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrJewrinConservatoire()])
     def presences(self, request, pk=None):
         """
-        Met à jour les présences des membres du kourel pour cette séance.
-        Payload: { "presences": [{"membre": id, "statut": "present|absent_justifie|absent_non_justifie", "remarque": ""}] }
+        Met à jour les présences des membres du kourel pour cette séance, ainsi que celles de
+        membres extérieurs venus assister à la répétition d'un autre kourel ("hors kourel").
+        Un membre hors kourel (statut='present_hors_kourel') n'a pas besoin d'appartenir au
+        kourel de cette séance ; sa présence compte en surplus dans ses statistiques, jamais
+        dans son taux de présence propre (voir stats_membres).
+        Payload: { "presences": [{"membre": id, "statut": "present|present_retard|
+        present_hors_kourel|absent_justifie|absent_non_justifie", "remarque": ""}] }
         """
         seance = self.get_object()
         data = request.data.get('presences', [])
         kourel_membres = set(seance.kourel.membres.values_list('id', flat=True))
+        statuts_valides = {s for s, _ in PresenceSeance.STATUT_CHOICES}
         for item in data:
             mid = item.get('membre')
-            if mid not in kourel_membres:
-                continue
             statut = item.get('statut', 'present')
-            if statut not in ['present', 'absent_justifie', 'absent_non_justifie']:
+            if statut not in statuts_valides:
                 statut = 'present'
+            # Un membre absent du kourel ne peut être marqué que "hors kourel" (invité) ;
+            # sinon on ignore la ligne pour ne pas créer de présence incohérente.
+            if mid not in kourel_membres and statut != 'present_hors_kourel':
+                continue
             PresenceSeance.objects.update_or_create(
                 seance=seance,
                 membre_id=mid,
@@ -470,23 +480,47 @@ class PresenceSeanceViewSet(AuditedModelViewSet):
 
     @action(detail=False, methods=['get'])
     def stats_membres(self, request):
-        """Pour chaque membre ayant des présences : nb_presents, nb_absents, nb_total, pourcentage."""
+        """Pour chaque membre : nb_presents (retards inclus), nb_retards, nb_absents
+        (détaillés justifiés/non justifiés + leurs justifications), nb_total et pourcentage.
+
+        Calculé uniquement sur les présences "propres" du membre (il est effectivement
+        membre du kourel de la séance) : les présences "hors kourel" (invité venu assister
+        à la répétition d'un AUTRE kourel) ne comptent jamais dans ce taux, pour ne pas
+        fausser l'évaluation d'assiduité du membre sur son propre kourel. Elles sont
+        remontées à part, en surplus, via nb_hors_kourel.
+        """
         from django.db.models import Count, Q
         from django.contrib.auth import get_user_model
         User = get_user_model()
 
         kourel_id = request.query_params.get('kourel_id')
-        qs = PresenceSeance.objects.all()
-        if kourel_id:
-            qs = qs.filter(seance__kourel_id=kourel_id)
 
-        qs = qs.values('membre').annotate(
+        qs_propre = PresenceSeance.objects.exclude(statut='present_hors_kourel')
+        qs_hors_kourel = PresenceSeance.objects.filter(statut='present_hors_kourel')
+        if kourel_id:
+            qs_propre = qs_propre.filter(seance__kourel_id=kourel_id)
+            qs_hors_kourel = qs_hors_kourel.filter(seance__kourel_id=kourel_id)
+
+        agg = qs_propre.values('membre').annotate(
             nb_total=Count('id'),
-            nb_presents=Count('id', filter=Q(statut='present')),
+            nb_presents=Count('id', filter=Q(statut__in=PresenceSeance.STATUTS_PRESENT)),
+            nb_retards=Count('id', filter=Q(statut='present_retard')),
             nb_absents=Count('id', filter=Q(statut__in=['absent_non_justifie', 'absent_justifie'])),
+            nb_abs_justifiees=Count('id', filter=Q(statut='absent_justifie')),
+            nb_abs_non_justifiees=Count('id', filter=Q(statut='absent_non_justifie')),
         )
+        nb_hors_kourel_par_membre = {
+            row['membre']: row['nb']
+            for row in qs_hors_kourel.values('membre').annotate(nb=Count('id'))
+        }
+        justifications_par_membre = {}
+        for p in qs_propre.filter(statut='absent_justifie').exclude(remarque='').select_related('seance'):
+            justifications_par_membre.setdefault(p.membre_id, []).append({
+                'seance': str(p.seance), 'date': p.seance.date_heure, 'justification': p.remarque,
+            })
+
         result = []
-        for row in qs:
+        for row in agg:
             user = User.objects.filter(id=row['membre']).first()
             if not user:
                 continue
@@ -498,9 +532,29 @@ class PresenceSeanceViewSet(AuditedModelViewSet):
                 'membre_id': row['membre'],
                 'membre_nom': user.get_full_name() or user.username,
                 'nb_presents': nb_presents,
+                'nb_retards': row['nb_retards'] or 0,
                 'nb_absents': nb_absents,
+                'nb_abs_justifiees': row['nb_abs_justifiees'] or 0,
+                'nb_abs_non_justifiees': row['nb_abs_non_justifiees'] or 0,
+                'justifications': justifications_par_membre.get(row['membre'], []),
                 'nb_total': nb_total,
                 'pourcentage': pourcentage,
+                'nb_hors_kourel': nb_hors_kourel_par_membre.get(row['membre'], 0),
+            })
+        # Les membres présents UNIQUEMENT en hors-kourel dans ce contexte (aucune présence
+        # propre) apparaissent quand même, avec un taux propre à 0/0, pour ne pas les masquer.
+        membres_deja_listes = {r['membre_id'] for r in result}
+        for mid, nb in nb_hors_kourel_par_membre.items():
+            if mid in membres_deja_listes:
+                continue
+            user = User.objects.filter(id=mid).first()
+            if not user:
+                continue
+            result.append({
+                'membre_id': mid, 'membre_nom': user.get_full_name() or user.username,
+                'nb_presents': 0, 'nb_retards': 0, 'nb_absents': 0,
+                'nb_abs_justifiees': 0, 'nb_abs_non_justifiees': 0, 'justifications': [],
+                'nb_total': 0, 'pourcentage': 0, 'nb_hors_kourel': nb,
             })
         result.sort(key=lambda x: -x['pourcentage'])
         return Response(result)

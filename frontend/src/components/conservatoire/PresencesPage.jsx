@@ -8,6 +8,7 @@ import { ArrowBack, GetApp, Person, Event, Search, FilterList, CheckCircle, Canc
 import api from '../../services/api'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
+const STATUTS_PRESENT = ['present', 'present_retard', 'present_hors_kourel']
 
 function StatCard({ label, value, color, icon }) {
   return (
@@ -63,7 +64,22 @@ export default function PresencesPage({ onBack }) {
     ]).finally(() => setLoading(false))
   }, [])
 
+  // Index membre -> ensemble des kourels dont il est RÉELLEMENT membre, pour ne compter la
+  // répartition répétitions/prestations que sur ses propres séances (jamais hors kourel).
+  const kourelMembresIndex = useMemo(() => {
+    const idx = {}
+    kourels.forEach(k => {
+      const ids = (k.membres || []).map(x => (typeof x === 'object' ? x?.id : x)).filter(Boolean)
+      ids.forEach(id => { if (!idx[id]) idx[id] = new Set(); idx[id].add(k.id) })
+    })
+    return idx
+  }, [kourels])
+
   const enrichedStats = useMemo(() => {
+    // Les totaux (présents, retards, absences, taux, justifications, hors-kourel) viennent
+    // directement du backend (stats_membres), déjà scopés au(x) kourel(s) propre(s) du
+    // membre — on ne les recalcule plus ici, pour ne pas réintroduire le mélange entre
+    // kourels. Seule la répartition répétitions/prestations est recalculée localement.
     const byId = {}
     statsMembres.forEach(m => {
       byId[m.membre_id] = { ...m, rep_presents: 0, rep_total: 0, prest_presents: 0, prest_total: 0 }
@@ -71,24 +87,31 @@ export default function PresencesPage({ onBack }) {
     seances.forEach(s => {
       const type = s.type_seance
       ;(s.presences || []).forEach(p => {
-        if (!byId[p.membre]) byId[p.membre] = { membre_id: p.membre, membre_nom: p.membre_nom || `#${p.membre}`, nb_presents: 0, nb_absents: 0, nb_total: 0, pourcentage: 0, rep_presents: 0, rep_total: 0, prest_presents: 0, prest_total: 0 }
+        if (!byId[p.membre]) {
+          byId[p.membre] = {
+            membre_id: p.membre, membre_nom: p.membre_nom || `#${p.membre}`,
+            nb_presents: 0, nb_retards: 0, nb_absents: 0, nb_abs_justifiees: 0, nb_abs_non_justifiees: 0,
+            justifications: [], nb_total: 0, pourcentage: 0, nb_hors_kourel: 0,
+            rep_presents: 0, rep_total: 0, prest_presents: 0, prest_total: 0,
+          }
+        }
         const e = byId[p.membre]
-        const present = p.statut === 'present'
+        // Hors kourel, ou kourel de cette séance différent de ses propres kourels : exclu
+        // de la répartition répétitions/prestations (même logique que le backend).
+        const estPropre = p.statut !== 'present_hors_kourel' && kourelMembresIndex[p.membre]?.has(s.kourel)
+        if (!estPropre) return
+        const present = STATUTS_PRESENT.includes(p.statut)
         const absent = p.statut === 'absent_non_justifie' || p.statut === 'absent_justifie'
-        if (present) e.nb_presents += 1
-        if (absent) e.nb_absents += 1
-        if (present || absent) e.nb_total += 1
         if (type === 'repetition') { if (present) e.rep_presents += 1; if (present || absent) e.rep_total += 1 }
         else if (type === 'prestation') { if (present) e.prest_presents += 1; if (present || absent) e.prest_total += 1 }
       })
     })
     return Object.values(byId).map(m => ({
       ...m,
-      pourcentage: m.nb_total > 0 ? Math.round(m.nb_presents / m.nb_total * 100) : (m.pourcentage || 0),
       rep_pct: m.rep_total > 0 ? Math.round(m.rep_presents / m.rep_total * 100) : 0,
       prest_pct: m.prest_total > 0 ? Math.round(m.prest_presents / m.prest_total * 100) : 0,
     })).sort((a, b) => b.pourcentage - a.pourcentage)
-  }, [statsMembres, seances])
+  }, [statsMembres, seances, kourelMembresIndex])
 
   const filteredSeances = useMemo(() => seances.filter(s => {
     const q = search.toLowerCase()
@@ -118,8 +141,8 @@ export default function PresencesPage({ onBack }) {
     finally { setExporting(false) }
   }
 
-  const totalPresents = seances.reduce((acc, s) => acc + (s.presences || []).filter(p => p.statut === 'present').length, 0)
-  const totalAbsents = seances.reduce((acc, s) => acc + (s.presences || []).filter(p => p.statut !== 'present').length, 0)
+  const totalPresents = seances.reduce((acc, s) => acc + (s.presences || []).filter(p => STATUTS_PRESENT.includes(p.statut)).length, 0)
+  const totalAbsents = seances.reduce((acc, s) => acc + (s.presences || []).filter(p => !STATUTS_PRESENT.includes(p.statut)).length, 0)
 
   return (
     <Box>
@@ -205,8 +228,8 @@ export default function PresencesPage({ onBack }) {
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                     {filteredSeances.map(s => {
                       const presences = s.presences || []
-                      const nbP = presences.filter(p => p.statut === 'present').length
-                      const nbA = presences.filter(p => p.statut !== 'present').length
+                      const nbP = presences.filter(p => STATUTS_PRESENT.includes(p.statut)).length
+                      const nbA = presences.filter(p => !STATUTS_PRESENT.includes(p.statut)).length
                       const pct = presences.length > 0 ? Math.round(nbP / presences.length * 100) : null
                       const isExpanded = expandedSeance === s.id
                       return (
@@ -256,21 +279,21 @@ export default function PresencesPage({ onBack }) {
                                 <Grid container spacing={2}>
                                   <Grid item xs={12} sm={6}>
                                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.main', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                                      <CheckCircle sx={{ fontSize: 14 }} /> Présents ({nbP})
+                                      <CheckCircle sx={{ fontSize: 14 }} /> Présents ({presences.filter(p => p.statut === 'present' || p.statut === 'present_retard').length})
                                     </Typography>
-                                    {presences.filter(p => p.statut === 'present').map(p => (
+                                    {presences.filter(p => p.statut === 'present' || p.statut === 'present_retard').map(p => (
                                       <Box key={p.id || p.membre} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
                                         <Avatar sx={{ width: 22, height: 22, fontSize: '0.6rem', bgcolor: C.vert }}>{(p.membre_nom || '?')[0]}</Avatar>
-                                        <Typography variant="caption">{p.membre_nom || `#${p.membre}`}</Typography>
+                                        <Typography variant="caption">{p.membre_nom || `#${p.membre}`}{p.statut === 'present_retard' ? ' (retard)' : ''}</Typography>
                                       </Box>
                                     ))}
-                                    {nbP === 0 && <Typography variant="caption" color="text.secondary">—</Typography>}
+                                    {presences.filter(p => p.statut === 'present' || p.statut === 'present_retard').length === 0 && <Typography variant="caption" color="text.secondary">—</Typography>}
                                   </Grid>
                                   <Grid item xs={12} sm={6}>
                                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'error.main', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                                      <Cancel sx={{ fontSize: 14 }} /> Absents ({nbA})
+                                      <Cancel sx={{ fontSize: 14 }} /> Absents ({presences.filter(p => p.statut === 'absent_justifie' || p.statut === 'absent_non_justifie').length})
                                     </Typography>
-                                    {presences.filter(p => p.statut !== 'present').map(p => (
+                                    {presences.filter(p => p.statut === 'absent_justifie' || p.statut === 'absent_non_justifie').map(p => (
                                       <Box key={p.id || p.membre} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
                                         <Avatar sx={{ width: 22, height: 22, fontSize: '0.6rem', bgcolor: p.statut === 'absent_justifie' ? '#EF6C00' : '#C62828' }}>{(p.membre_nom || '?')[0]}</Avatar>
                                         <Box>
@@ -281,8 +304,21 @@ export default function PresencesPage({ onBack }) {
                                         </Box>
                                       </Box>
                                     ))}
-                                    {nbA === 0 && <Typography variant="caption" color="text.secondary">—</Typography>}
+                                    {presences.filter(p => p.statut === 'absent_justifie' || p.statut === 'absent_non_justifie').length === 0 && <Typography variant="caption" color="text.secondary">—</Typography>}
                                   </Grid>
+                                  {presences.some(p => p.statut === 'present_hors_kourel') && (
+                                    <Grid item xs={12}>
+                                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#1565C0', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+                                        Invités hors kourel ({presences.filter(p => p.statut === 'present_hors_kourel').length})
+                                      </Typography>
+                                      {presences.filter(p => p.statut === 'present_hors_kourel').map(p => (
+                                        <Box key={p.id || p.membre} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
+                                          <Avatar sx={{ width: 22, height: 22, fontSize: '0.6rem', bgcolor: '#1565C0' }}>{(p.membre_nom || '?')[0]}</Avatar>
+                                          <Typography variant="caption">{p.membre_nom || `#${p.membre}`}</Typography>
+                                        </Box>
+                                      ))}
+                                    </Grid>
+                                  )}
                                 </Grid>
                               </Box>
                             )}
@@ -317,9 +353,29 @@ export default function PresencesPage({ onBack }) {
                             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
                               <Box>
                                 <PresenceBadge pct={m.pourcentage} />
-                                <Typography variant="caption" color="text.secondary">
-                                  Global : {m.nb_presents} présent(s) / {m.nb_absents} absent(s)
+                                <Typography variant="caption" color="text.secondary" display="block">
+                                  Global : {m.nb_presents} présent(s){m.nb_retards > 0 ? ` (dont ${m.nb_retards} retard)` : ''} / {m.nb_absents} absent(s)
                                 </Typography>
+                                {(m.nb_abs_justifiees > 0 || m.nb_abs_non_justifiees > 0) && (
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.68rem' }}>
+                                    dont {m.nb_abs_justifiees} justifiée(s), {m.nb_abs_non_justifiees} non justifiée(s)
+                                  </Typography>
+                                )}
+                                {m.nb_hors_kourel > 0 && (
+                                  <Chip
+                                    size="small" label={`+${m.nb_hors_kourel} présence(s) hors kourel`}
+                                    sx={{ mt: 0.5, bgcolor: '#E3F2FD', color: '#1565C0', fontSize: '0.65rem', height: 20 }}
+                                  />
+                                )}
+                                {m.justifications?.length > 0 && (
+                                  <Box sx={{ mt: 0.5 }}>
+                                    {m.justifications.map((j, i) => (
+                                      <Typography key={i} variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.65rem', fontStyle: 'italic' }}>
+                                        • {j.date ? new Date(j.date).toLocaleDateString('fr-FR') : ''} : {j.justification}
+                                      </Typography>
+                                    ))}
+                                  </Box>
+                                )}
                               </Box>
 
                               {m.rep_total > 0 && (

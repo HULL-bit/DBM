@@ -285,13 +285,21 @@ class PresenceSeance(models.Model):
     """
     STATUT_CHOICES = [
         ('present', 'Présent'),
+        ('present_retard', 'Présent (retard)'),
+        ('present_hors_kourel', 'Présent (hors kourel)'),
         ('absent_non_justifie', 'Absent non justifié'),
         ('absent_justifie', 'Absent justifié'),
     ]
+    # Statuts qui comptent comme une présence effective (retard inclus) pour les taux.
+    STATUTS_PRESENT = ('present', 'present_retard', 'present_hors_kourel')
+
     seance = models.ForeignKey(SeanceConservatoire, on_delete=models.CASCADE, related_name='presences')
     membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='presences_seances')
     statut = models.CharField(max_length=30, choices=STATUT_CHOICES, default='present')
-    remarque = models.TextField(blank=True, help_text="Justification ou remarque si absent justifié")
+    remarque = models.TextField(
+        blank=True,
+        help_text="Justification (facultative) si absent justifié, ou remarque générale"
+    )
 
     class Meta:
         verbose_name = 'Présence à une séance'
