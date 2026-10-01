@@ -48,6 +48,7 @@ import {
 import api from '../../services/api'
 import { getMediaUrl } from '../../services/media'
 import { useAuth } from '../../context/AuthContext'
+import ImageLightbox from '../ui/ImageLightbox'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
@@ -69,6 +70,7 @@ function Bulle({ msg, estMoi, peutSupprimerPourTous, onSupprimerPourMoi, onSuppr
   const url = msg.fichier ? getMediaUrl(msg.fichier) : null
   const photoUrl = msg.expediteur_photo ? getMediaUrl(msg.expediteur_photo) : null
   const [menuAnchor, setMenuAnchor] = useState(null)
+  const [imageAgrandie, setImageAgrandie] = useState(null)
   return (
     <Box
       className="bulle-canal"
@@ -118,7 +120,10 @@ function Bulle({ msg, estMoi, peutSupprimerPourTous, onSupprimerPourMoi, onSuppr
           }}
         >
           {msg.type_message === 'image' && url && (
-            <Box component="img" src={url} alt="image" sx={{ maxWidth: '100%', maxHeight: 260, borderRadius: 1.5, display: 'block', mb: msg.contenu ? 1 : 0 }} />
+            <Box
+              component="img" src={url} alt="image" onClick={() => setImageAgrandie(url)}
+              sx={{ maxWidth: '100%', maxHeight: 260, borderRadius: 1.5, display: 'block', mb: msg.contenu ? 1 : 0, cursor: 'pointer' }}
+            />
           )}
           {msg.type_message === 'video' && url && (
             <Box component="video" src={url} controls sx={{ maxWidth: '100%', maxHeight: 260, borderRadius: 1.5, display: 'block', mb: msg.contenu ? 1 : 0 }} />
@@ -145,6 +150,7 @@ function Bulle({ msg, estMoi, peutSupprimerPourTous, onSupprimerPourMoi, onSuppr
           {new Date(msg.date_envoi).toLocaleTimeString('fr-FR', { hour: '2-digit', minute: '2-digit' })}
         </Typography>
       </Box>
+      <ImageLightbox src={imageAgrandie} onClose={() => setImageAgrandie(null)} />
     </Box>
   )
 }
@@ -660,7 +666,7 @@ export default function Canaux() {
                       }}
                     >
                       <Checkbox size="small" checked={checked} sx={{ color: COLORS.vert, '&.Mui-checked': { color: COLORS.vert }, p: 0 }} onChange={() => {}} />
-                      <Avatar sx={{ width: 28, height: 28, fontSize: '0.65rem', bgcolor: checked ? COLORS.vert : `${COLORS.vert}40` }}>{initials(`${m.first_name} ${m.last_name}`)}</Avatar>
+                      <Avatar src={m.photo ? getMediaUrl(m.photo) : null} sx={{ width: 28, height: 28, fontSize: '0.65rem', bgcolor: checked ? COLORS.vert : `${COLORS.vert}40` }}>{initials(`${m.first_name} ${m.last_name}`)}</Avatar>
                       <Typography variant="body2">{`${m.first_name || ''} ${m.last_name || ''}`.trim() || m.username}</Typography>
                     </Box>
                   )
@@ -707,7 +713,7 @@ export default function Canaux() {
             {(canalSelectionne?.membres || []).map((m) => (
               <Box key={m.id} sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', py: 0.5 }}>
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Avatar sx={{ width: 28, height: 28, bgcolor: COLORS.vert, fontSize: '0.7rem' }}>{initials(m.membre_nom)}</Avatar>
+                  <Avatar src={m.membre_photo ? getMediaUrl(m.membre_photo) : null} sx={{ width: 28, height: 28, bgcolor: COLORS.vert, fontSize: '0.7rem' }}>{initials(m.membre_nom)}</Avatar>
                   <Typography variant="body2">{m.membre_nom}</Typography>
                   {m.est_admin_canal && <Chip label="Admin" size="small" sx={{ bgcolor: `${COLORS.or}30`, fontSize: '0.65rem' }} />}
                 </Box>

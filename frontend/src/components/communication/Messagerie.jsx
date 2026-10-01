@@ -31,6 +31,7 @@ import { Send, Search, AttachFile, Image as ImageIcon, Delete, MoreVert, ArrowBa
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { getMediaUrl } from '../../services/media'
+import ImageLightbox from '../ui/ImageLightbox'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
@@ -52,6 +53,7 @@ export default function Messagerie() {
   const [messageMenuAnchor, setMessageMenuAnchor] = useState(null)
   const [selectedMessageForDelete, setSelectedMessageForDelete] = useState(null)
   const [deletingMessage, setDeletingMessage] = useState(false)
+  const [imageAgrandie, setImageAgrandie] = useState(null)
   const conversationsRef = useRef([])
   const lastLoadTimeRef = useRef(0)
   const searchTimeoutRef = useRef(null)
@@ -897,6 +899,7 @@ export default function Messagerie() {
                                         component="img"
                                         src={getMediaUrl(msg.fichier_joint)}
                                         alt="Pièce jointe"
+                                        onClick={() => setImageAgrandie(getMediaUrl(msg.fichier_joint))}
                                         onError={(e) => {
                                           // Si l'image ne charge pas (404), afficher un message
                                           const parent = e.target.parentNode
@@ -905,7 +908,7 @@ export default function Messagerie() {
                                           errorBox.textContent = 'Image non disponible'
                                           parent.replaceChild(errorBox, e.target)
                                         }}
-                                        sx={{ maxWidth: '100%', borderRadius: 1, maxHeight: 300, display: 'block' }}
+                                        sx={{ maxWidth: '100%', borderRadius: 1, maxHeight: 300, display: 'block', cursor: 'pointer' }}
                                       />
                                     ) : (
                                       <Button
@@ -1038,6 +1041,8 @@ export default function Messagerie() {
           {deletingMessage ? 'Suppression...' : 'Supprimer le message'}
         </MenuItem>
       </Menu>
+
+      <ImageLightbox src={imageAgrandie} onClose={() => setImageAgrandie(null)} />
     </Box>
   )
 }
