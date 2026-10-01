@@ -3,11 +3,11 @@ import {
   Box, Typography, Grid, Button, IconButton,
   Table, TableBody, TableCell, TableContainer, TableHead, TableRow,
   Dialog, DialogTitle, DialogContent, DialogActions, TextField, MenuItem,
-  Alert, CircularProgress, Chip, Divider, Paper, Tabs, Tab,
+  Alert, CircularProgress, Chip, Divider, Paper, Tabs, Tab, Card, CardContent,
 } from '@mui/material'
 import {
   ArrowBack, Add, Edit, Delete, Event, HowToReg, GetApp, AccessTime,
-  LocationOn, MusicNote, Group, Visibility, Image as ImageIcon,
+  LocationOn, MusicNote, Group, Visibility, Image as ImageIcon, CalendarMonth,
 } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
@@ -19,6 +19,27 @@ const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 const TYPE_CHIP = {
   repetition: { label: 'Répétition', color: '#1565C0', bg: '#E3F2FD' },
   prestation: { label: 'Prestation', color: '#6A1B9A', bg: '#F3E5F5' },
+}
+
+const MOIS = [
+  'Janvier', 'Février', 'Mars', 'Avril', 'Mai', 'Juin',
+  'Juillet', 'Août', 'Septembre', 'Octobre', 'Novembre', 'Décembre',
+]
+
+function StatCard({ label, value, color, icon }) {
+  return (
+    <Card sx={{ borderRadius: 2.5, borderTop: `4px solid ${color}`, height: '100%' }}>
+      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5, py: 1.5, '&:last-child': { pb: 1.5 } }}>
+        <Box sx={{ width: 40, height: 40, borderRadius: 2, bgcolor: `${color}15`, display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+          {React.cloneElement(icon, { sx: { color, fontSize: 20 } })}
+        </Box>
+        <Box sx={{ minWidth: 0 }}>
+          <Typography variant="h6" sx={{ fontWeight: 700, color, lineHeight: 1.1 }}>{value}</Typography>
+          <Typography variant="caption" color="text.secondary" noWrap>{label}</Typography>
+        </Box>
+      </CardContent>
+    </Card>
+  )
 }
 
 const STATUTS_PRESENT = ['present', 'present_retard', 'present_hors_kourel']
@@ -203,6 +224,10 @@ export default function SeancesPage({ onBack }) {
   const [saving, setSaving] = useState(false)
   const [filterType, setFilterType] = useState('')
   const [filterKourel, setFilterKourel] = useState('')
+  const [filterAnnee, setFilterAnnee] = useState('')
+  const [filterMois, setFilterMois] = useState('')
+  const [filterDateDebut, setFilterDateDebut] = useState('')
+  const [filterDateFin, setFilterDateFin] = useState('')
   const [openForm, setOpenForm] = useState(false)
   const [editId, setEditId] = useState(null)
   const [form, setForm] = useState({
@@ -330,12 +355,36 @@ export default function SeancesPage({ onBack }) {
     const k = [...f.khassidas]; k[i] = { ...k[i], [field]: val }; return { ...f, khassidas: k }
   })
 
-  const filtered = seances.filter(s =>
-    (!filterType || s.type_seance === filterType) &&
-    (!filterKourel || s.kourel === Number(filterKourel))
-  ).sort((a, b) => new Date(b.date_heure) - new Date(a.date_heure))
+  const anneesDisponibles = [...new Set(
+    seances.filter(s => s.date_heure).map(s => new Date(s.date_heure).getFullYear())
+  )].sort((a, b) => b - a)
+
+  const filtered = seances.filter(s => {
+    if (filterType && s.type_seance !== filterType) return false
+    if (filterKourel && s.kourel !== Number(filterKourel)) return false
+    if (filterAnnee || filterMois || filterDateDebut || filterDateFin) {
+      if (!s.date_heure) return false
+      const jourStr = s.date_heure.slice(0, 10)
+      const d = new Date(s.date_heure)
+      if (filterAnnee && d.getFullYear() !== Number(filterAnnee)) return false
+      if (filterMois && (d.getMonth() + 1) !== Number(filterMois)) return false
+      if (filterDateDebut && jourStr < filterDateDebut) return false
+      if (filterDateFin && jourStr > filterDateFin) return false
+    }
+    return true
+  }).sort((a, b) => new Date(b.date_heure) - new Date(a.date_heure))
 
   const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage, paginate } = usePagination(filtered.length)
+
+  const nbRepetitions = seances.filter(s => s.type_seance === 'repetition').length
+  const nbPrestations = seances.filter(s => s.type_seance === 'prestation').length
+  const nbAVenir = seances.filter(s => s.date_heure && new Date(s.date_heure) >= new Date()).length
+
+  const filtresActifs = filterType || filterKourel || filterAnnee || filterMois || filterDateDebut || filterDateFin
+  const resetFiltres = () => {
+    setFilterType(''); setFilterKourel(''); setFilterAnnee(''); setFilterMois('')
+    setFilterDateDebut(''); setFilterDateFin('')
+  }
 
   const getUserName = (id) => {
     const u = allUsers.find(u => u.id === Number(id))
@@ -382,6 +431,22 @@ export default function SeancesPage({ onBack }) {
 
       {msg.text && <Alert severity={msg.type === 'error' ? 'error' : 'success'} sx={{ mb: 2 }} onClose={() => setMsg({ type: '', text: '' })}>{msg.text}</Alert>}
 
+      {/* Stats résumé */}
+      <Grid container spacing={2} sx={{ mb: 3 }}>
+        <Grid item xs={6} sm={3}>
+          <StatCard label="Séances au total" value={seances.length} color={C.vert} icon={<Event />} />
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <StatCard label="Répétitions" value={nbRepetitions} color="#1565C0" icon={<MusicNote />} />
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <StatCard label="Prestations" value={nbPrestations} color="#6A1B9A" icon={<HowToReg />} />
+        </Grid>
+        <Grid item xs={6} sm={3}>
+          <StatCard label="À venir" value={nbAVenir} color={C.or} icon={<AccessTime />} />
+        </Grid>
+      </Grid>
+
       {/* Filtre par kourel — vu le rythme hebdomadaire des répétitions, les séances s'accumulent vite */}
       <Tabs
         value={filterKourel}
@@ -400,32 +465,51 @@ export default function SeancesPage({ onBack }) {
       </Tabs>
 
       {/* Filters */}
-      <Box sx={{ display: 'flex', gap: 2, mb: 3, flexWrap: 'wrap' }}>
-        <TextField select size="small" label="Type" value={filterType} onChange={e => setFilterType(e.target.value)} sx={{ minWidth: 160 }}>
-          <MenuItem value="">Tous types</MenuItem>
-          <MenuItem value="repetition">Répétitions</MenuItem>
-          <MenuItem value="prestation">Prestations</MenuItem>
-        </TextField>
-        {(filterType || filterKourel) && (
-          <Button size="small" onClick={() => { setFilterType(''); setFilterKourel('') }} sx={{ color: C.vert }}>
-            Réinitialiser
-          </Button>
-        )}
-      </Box>
+      <Paper variant="outlined" sx={{ p: 2, mb: 3, borderRadius: 2, borderColor: `${C.or}40`, bgcolor: `${C.or}06` }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, mb: 1.5 }}>
+          <CalendarMonth sx={{ fontSize: 18, color: C.vert }} />
+          <Typography variant="subtitle2" sx={{ color: C.vertFonce, fontWeight: 700 }}>Filtrer par période</Typography>
+        </Box>
+        <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+          <TextField select size="small" label="Type" value={filterType} onChange={e => setFilterType(e.target.value)} sx={{ minWidth: 150 }}>
+            <MenuItem value="">Tous types</MenuItem>
+            <MenuItem value="repetition">Répétitions</MenuItem>
+            <MenuItem value="prestation">Prestations</MenuItem>
+          </TextField>
+          <TextField select size="small" label="Année" value={filterAnnee} onChange={e => setFilterAnnee(e.target.value)} sx={{ minWidth: 120 }}>
+            <MenuItem value="">Toutes</MenuItem>
+            {anneesDisponibles.map(a => <MenuItem key={a} value={a}>{a}</MenuItem>)}
+          </TextField>
+          <TextField select size="small" label="Mois" value={filterMois} onChange={e => setFilterMois(e.target.value)} sx={{ minWidth: 150 }}>
+            <MenuItem value="">Tous</MenuItem>
+            {MOIS.map((m, i) => <MenuItem key={i} value={i + 1}>{m}</MenuItem>)}
+          </TextField>
+          <TextField size="small" type="date" label="Du" value={filterDateDebut} onChange={e => setFilterDateDebut(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 150 }} />
+          <TextField size="small" type="date" label="Au" value={filterDateFin} onChange={e => setFilterDateFin(e.target.value)} InputLabelProps={{ shrink: true }} sx={{ width: 150 }} />
+          {filtresActifs && (
+            <Button size="small" onClick={resetFiltres} sx={{ color: C.vert }}>
+              Réinitialiser
+            </Button>
+          )}
+        </Box>
+      </Paper>
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress sx={{ color: C.vert }} /></Box>
       ) : filtered.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <Event sx={{ fontSize: 64, color: 'action.disabled', mb: 2 }} />
-          <Typography color="text.secondary" variant="h6">{seances.length === 0 ? 'Aucune séance' : 'Aucun résultat'}</Typography>
+          <Typography color="text.secondary" variant="h6">{seances.length === 0 ? 'Aucune séance' : 'Aucun résultat pour ces filtres'}</Typography>
           {canManage && kourels.length === 0 && <Typography color="text.secondary" variant="body2">Créez d'abord un Kourel.</Typography>}
+          {seances.length > 0 && filtresActifs && (
+            <Button size="small" onClick={resetFiltres} sx={{ color: C.vert, mt: 1 }}>Réinitialiser les filtres</Button>
+          )}
         </Box>
       ) : (
-        <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${C.or}30` }}>
+        <TableContainer component={Paper} sx={{ borderRadius: 2, border: `1px solid ${C.or}30`, boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
           <Table size="small">
             <TableHead>
-              <TableRow sx={{ '& th': { fontWeight: 700, color: C.vertFonce, bgcolor: `${C.vert}08`, whiteSpace: 'nowrap' } }}>
+              <TableRow sx={{ '& th': { fontWeight: 700, color: C.vertFonce, bgcolor: `${C.vert}0D`, whiteSpace: 'nowrap', borderBottom: `2px solid ${C.or}40`, py: 1.25 } }}>
                 <TableCell>Type</TableCell>
                 <TableCell>Titre</TableCell>
                 <TableCell>Kourel</TableCell>
@@ -436,27 +520,46 @@ export default function SeancesPage({ onBack }) {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginate(filtered).map(s => {
+              {paginate(filtered).map((s, idx) => {
                 const type = TYPE_CHIP[s.type_seance] || { label: s.type_seance, color: C.vert, bg: `${C.vert}15` }
                 const { presences, nbPresents, nbAbsents } = seanceCounts(s)
+                const pct = presences.length > 0 ? Math.round(nbPresents / presences.length * 100) : null
+                const pctColor = pct === null ? C.vert : pct >= 80 ? '#2E7D32' : pct >= 50 ? '#EF6C00' : '#C62828'
+                const estPassee = s.date_heure && new Date(s.date_heure) < new Date()
                 return (
-                  <TableRow key={s.id} hover onClick={() => setDetailSeance(s)} sx={{ cursor: 'pointer' }}>
+                  <TableRow
+                    key={s.id} hover onClick={() => setDetailSeance(s)}
+                    sx={{ cursor: 'pointer', bgcolor: idx % 2 === 1 ? `${C.or}05` : 'transparent' }}
+                  >
                     <TableCell>
                       <Chip label={type.label} size="small" sx={{ bgcolor: type.bg, color: type.color, fontWeight: 600, fontSize: '0.7rem' }} />
                     </TableCell>
                     <TableCell sx={{ fontWeight: 600, color: C.vert }}>{s.titre}</TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{s.kourel_nom || '—'}</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>
-                      {s.date_heure ? new Date(s.date_heure).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                      <Chip label={s.kourel_nom || '—'} size="small" variant="outlined" sx={{ borderColor: `${C.or}60`, fontSize: '0.7rem' }} />
                     </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{s.lieu || '—'}</TableCell>
-                    <TableCell align="center">
-                      {presences.length > 0 ? (
-                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', flexWrap: 'wrap' }}>
-                          <Chip label={nbPresents} size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem', minWidth: 32 }} />
-                          {nbAbsents > 0 && <Chip label={nbAbsents} size="small" color="error" variant="outlined" sx={{ fontSize: '0.65rem', minWidth: 32 }} />}
+                    <TableCell sx={{ whiteSpace: 'nowrap', opacity: estPassee ? 0.7 : 1 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                        <AccessTime sx={{ fontSize: 14, color: 'text.secondary' }} />
+                        {s.date_heure ? new Date(s.date_heure).toLocaleString('fr-FR', { dateStyle: 'medium', timeStyle: 'short' }) : '—'}
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                      {s.lieu ? (
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                          <LocationOn sx={{ fontSize: 14, color: 'text.secondary' }} />
+                          {s.lieu}
                         </Box>
                       ) : '—'}
+                    </TableCell>
+                    <TableCell align="center">
+                      {presences.length > 0 ? (
+                        <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap' }}>
+                          <Chip label={`${pct}%`} size="small" sx={{ bgcolor: `${pctColor}18`, color: pctColor, fontWeight: 700, fontSize: '0.68rem', minWidth: 44 }} />
+                          <Chip label={nbPresents} size="small" color="success" variant="outlined" sx={{ fontSize: '0.65rem', minWidth: 30 }} />
+                          {nbAbsents > 0 && <Chip label={nbAbsents} size="small" color="error" variant="outlined" sx={{ fontSize: '0.65rem', minWidth: 30 }} />}
+                        </Box>
+                      ) : <Typography variant="caption" color="text.secondary">Non renseigné</Typography>}
                     </TableCell>
                     <TableCell align="right" onClick={(e) => e.stopPropagation()}>
                       <Box sx={{ display: 'flex', gap: 0.25, justifyContent: 'flex-end' }}>
