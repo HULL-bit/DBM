@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Box,
   Typography,
@@ -33,7 +33,6 @@ import {
 import { Add, Edit, Delete, Payment, TableChart } from '@mui/icons-material'
 import api from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
-import usePagination from '../../hooks/usePagination'
 import TablePaginationFr from '../ui/TablePaginationFr'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
@@ -84,7 +83,13 @@ export default function Cotisations() {
   // Admin global, jewrin général, chargé de finance (jewrine_finance), ou exception accordée
   // par l'admin via Rôles & Permissions — pas seulement un rôle codé en dur.
   const isAdmin = user?.role === 'admin' || user?.role === 'jewrin' || user?.role === 'jewrine_finance' || peut('finance', 'gerer')
+  // Seule la page courante est chargée : filtres et pagination sont appliqués par le
+  // serveur, et les totaux viennent de /resume/ (calculés en base).
   const [list, setList] = useState([])
+  const [count, setCount] = useState(0)
+  const [resume, setResume] = useState(null)
+  const [page, setPage] = useState(0)
+  const [rowsPerPage, setRowsPerPage] = useState(25)
   const [users, setUsers] = useState([])
   const [loading, setLoading] = useState(true)
   const [message, setMessage] = useState({ type: '', text: '' })
@@ -106,6 +111,8 @@ export default function Cotisations() {
     notes: '',
   })
   const [saving, setSaving] = useState(false)
+  // Validation groupée : ids sélectionnés (conservés d'une page à l'autre du même filtre).
+  const [selection, setSelection] = useState([])
   const [editingId, setEditingId] = useState(null)
   const [openRapportExport, setOpenRapportExport] = useState(false)
   const [rapportExport, setRapportExport] = useState({ format: 'excel', annee: '', mois: '' })
@@ -113,33 +120,55 @@ export default function Cotisations() {
   const [formErrors, setFormErrors] = useState({})
   const [typeFilter, setTypeFilter] = useState('')
   const [objetAssignationFilter, setObjetAssignationFilter] = useState('')
-  const [moisFilter, setMoisFilter] = useState('')
-  const [anneeFilter, setAnneeFilter] = useState('')
+  // Par défaut : le mois en cours seulement, pour ne pas charger tout l'historique.
+  const [moisFilter, setMoisFilter] = useState(new Date().getMonth() + 1)
+  const [anneeFilter, setAnneeFilter] = useState(new Date().getFullYear())
   const [membreFilter, setMembreFilter] = useState('')
   const [statutFilter, setStatutFilter] = useState('')
 
-  const loadList = () => {
-    setLoading(true)
-    const accumulate = (acc, data) => {
-      const results = data.results || data || []
-      return [...acc, ...(Array.isArray(results) ? results : [])]
-    }
-    api
-      .get('/finance/cotisations/', { params: { page_size: 500 } })
-      .then(async ({ data }) => {
-        let all = accumulate([], data)
-        let nextUrl = data.next
-        while (nextUrl) {
-          const { data: nextData } = await api.get(nextUrl)
-          all = accumulate(all, nextData)
-          nextUrl = nextData?.next
-        }
-        setList(all)
+  const filtres = useMemo(() => {
+    const params = {}
+    if (typeFilter) params.type_cotisation = typeFilter
+    if (objetAssignationFilter) params.objet_assignation = objetAssignationFilter
+    if (moisFilter) params.mois = moisFilter
+    if (anneeFilter && String(anneeFilter).length === 4) params.annee = anneeFilter
+    if (membreFilter) params.membre = membreFilter
+    if (statutFilter) params.statut = statutFilter
+    return params
+  }, [typeFilter, objetAssignationFilter, moisFilter, anneeFilter, membreFilter, statutFilter])
+
+  // Nouveau filtre → retour à la première page et sélection vidée.
+  useEffect(() => { setPage(0); setSelection([]) }, [filtres])
+
+  // `silencieux` : rechargement après une action, sans remplacer le tableau par un spinner.
+  const loadList = useCallback((silencieux = false) => {
+    if (!silencieux) setLoading(true)
+    const pageReq = api
+      .get('/finance/cotisations/', { params: { ...filtres, page: page + 1, page_size: rowsPerPage } })
+      .then(({ data }) => {
+        setList(data?.results || [])
+        setCount(data?.count || 0)
       })
-      .catch(() => setList([]))
-      .finally(() => setLoading(false))
-  }
-  useEffect(() => { loadList() }, [])
+      .catch((err) => {
+        // Page devenue vide (ex : dernière ligne supprimée) → revenir à la précédente.
+        if (err.response?.status === 404 && page > 0) setPage((p) => p - 1)
+        else if (!silencieux) { setList([]); setCount(0) }
+      })
+    const resumeReq = api
+      .get('/finance/cotisations/resume/', { params: filtres })
+      .then(({ data }) => setResume(data))
+      .catch(() => { if (!silencieux) setResume(null) })
+    return Promise.all([pageReq, resumeReq]).finally(() => setLoading(false))
+  }, [filtres, page, rowsPerPage])
+
+  // Petit délai pour ne pas lancer une requête à chaque frappe (champ Année, etc.).
+  useEffect(() => {
+    const t = setTimeout(() => loadList(), 250)
+    return () => clearTimeout(t)
+  }, [loadList])
+
+  const handleChangePage = (_e, p) => setPage(p)
+  const handleChangeRowsPerPage = (e) => { setRowsPerPage(parseInt(e.target.value, 10)); setPage(0) }
   useEffect(() => {
     if (isAdmin) api.get('/auth/users/').then(({ data }) => setUsers(data.results || data)).catch(() => setUsers([]))
   }, [isAdmin])
@@ -273,7 +302,7 @@ export default function Cotisations() {
         }
       }
       
-      loadList()
+      loadList(true)
       setOpenForm(false)
       setEditingId(null)
     } catch (err) {
@@ -306,7 +335,9 @@ export default function Cotisations() {
     try {
       await api.delete(`/finance/cotisations/${openDelete.id}/`)
       setMessage({ type: 'success', text: 'Cotisation supprimée.' })
-      loadList()
+      const idSupprime = openDelete.id
+      setSelection((prev) => prev.filter((id) => id !== idSupprime))
+      loadList(true)
       setOpenDelete(null)
     } catch (err) {
       setMessage({ type: 'error', text: err.response?.data?.detail || 'Erreur.' })
@@ -327,7 +358,7 @@ export default function Cotisations() {
       await api.post(`/finance/cotisations/${openPayer.id}/payer/`, { mode_paiement: 'liquide' })
       setMessage({ type: 'success', text: 'Paiement déclaré. Il est en attente de confirmation par le chargé de finance.' })
       setOpenPayer(null)
-      loadList()
+      loadList(true)
     } catch (err) {
       const d = err.response?.data?.detail || 'Erreur'
       setMessage({ type: 'error', text: typeof d === 'string' ? d : 'Erreur lors de l\'enregistrement du paiement.' })
@@ -339,22 +370,24 @@ export default function Cotisations() {
   // --- Validation groupée par l'admin / le chargé de finance ---
   // Un membre peut être marqué payé même s'il n'a rien déclaré : seules les cotisations
   // déjà payées ou annulées ne sont plus proposées à la validation.
-  const [selection, setSelection] = useState([])
-  const confirmables = filteredList => filteredList.filter((c) => c.statut !== 'payee' && c.statut !== 'annulee')
+  const selectionSet = useMemo(() => new Set(selection), [selection])
 
-  const toggleSelection = (id) => {
+  const toggleSelection = useCallback((id) => {
     setSelection((prev) => (prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]))
-  }
+  }, [])
 
+  // Une seule requête pour toute la sélection (au lieu d'un PATCH par cotisation, qui
+  // saturait le navigateur et le serveur avec des centaines de lignes), puis mise à jour
+  // locale de la liste sans tout recharger.
   const handleConfirmerSelection = async () => {
     if (selection.length === 0) return
     setSaving(true)
     setMessage({ type: '', text: '' })
     try {
-      await Promise.all(selection.map((id) => api.patch(`/finance/cotisations/${id}/`, { statut: 'payee' })))
-      setMessage({ type: 'success', text: `${selection.length} paiement(s) validé(s).` })
+      const { data } = await api.post('/finance/cotisations/valider-multiple/', { ids: selection })
+      setMessage({ type: 'success', text: `${data?.validees ?? selection.length} paiement(s) validé(s).` })
       setSelection([])
-      loadList()
+      loadList(true)
     } catch (err) {
       setMessage({ type: 'error', text: 'Erreur lors de la validation groupée.' })
     } finally {
@@ -402,94 +435,43 @@ export default function Cotisations() {
     }
   }
 
-  // Statistiques globales (admin ou membre)
-  const totalMontant = list.reduce((sum, c) => sum + Number(c.montant || 0), 0)
-  const totalPayee = list
-    .filter((c) => c.statut === 'payee')
-    .reduce((sum, c) => sum + Number(c.montant || 0), 0)
-  const resteGlobal = totalMontant - totalPayee
-  const pourcentageGlobal = totalMontant > 0 ? Math.round((totalPayee / totalMontant) * 100) : 0
-  const nbEnAttente = list.filter((c) => c.statut === 'en_attente').length
-  const nbRetard = list.filter((c) => c.statut === 'retard').length
-  const nbPayees = list.filter((c) => c.statut === 'payee').length
-  const pourcentageAssignationsPayees = list.length > 0 ? Math.round((nbPayees / list.length) * 100) : 0
-
-  // Statistiques séparées Mensualités / Assignations
-  const mensualites = list.filter((c) => c.type_cotisation === 'mensualite')
-  const assignations = list.filter((c) => c.type_cotisation === 'assignation')
-
-  const totalMensualites = mensualites.reduce((sum, c) => sum + Number(c.montant || 0), 0)
-  const totalMensualitesPayees = mensualites
-    .filter((c) => c.statut === 'payee')
-    .reduce((sum, c) => sum + Number(c.montant || 0), 0)
+  const r = resume || {}
+  const totalMontant = r.montant_total || 0
+  const totalMensualites = r.mensualites_total || 0
+  const totalMensualitesPayees = r.mensualites_payees || 0
   const pourcentageMensualites = totalMensualites > 0 ? Math.round((totalMensualitesPayees / totalMensualites) * 100) : 0
-
-  const totalAssignationsMontant = assignations.reduce((sum, c) => sum + Number(c.montant || 0), 0)
-  const totalAssignationsPayees = assignations
-    .filter((c) => c.statut === 'payee')
-    .reduce((sum, c) => sum + Number(c.montant || 0), 0)
+  const totalAssignationsMontant = r.assignations_total || 0
+  const totalAssignationsPayees = r.assignations_payees || 0
   const pourcentageAssignationsMontant =
     totalAssignationsMontant > 0 ? Math.round((totalAssignationsPayees / totalAssignationsMontant) * 100) : 0
 
-  const filteredList = list.filter((c) => {
-    const typeOk = !typeFilter || c.type_cotisation === typeFilter
-    const objetOk =
-      !objetAssignationFilter ||
-      (c.type_cotisation === 'assignation' &&
-        (c.objet_assignation || '').toLowerCase() === objetAssignationFilter.toLowerCase())
-    const moisOk = !moisFilter || Number(c.mois) === Number(moisFilter)
-    const anneeOk = !anneeFilter || Number(c.annee) === Number(anneeFilter)
-    const membreOk = !membreFilter || Number(c.membre) === Number(membreFilter)
-    const statutOk = !statutFilter || c.statut === statutFilter
-    return typeOk && objetOk && moisOk && anneeOk && membreOk && statutOk
-  })
-
-  const { page, rowsPerPage, handleChangePage, handleChangeRowsPerPage, paginate } = usePagination(filteredList.length)
-
-  // Détails assignations par objet selon les filtres — chaque objet réellement utilisé (y
-  // compris un nom personnalisé tapé à la création) apparaît sous son propre libellé ; seules
-  // les assignations sans objet précisé tombent dans "AUTRES".
-  const assignationsFiltrees = filteredList.filter((c) => c.type_cotisation === 'assignation')
-  const assignationSums = assignationsFiltrees.reduce((acc, c) => {
-    const key = (c.objet_assignation || '').toString().trim().toUpperCase() || 'AUTRES'
-    acc[key] = (acc[key] || 0) + Number(c.montant || 0)
-    return acc
-  }, {})
-  const labelsAssignations = ordonnerObjetsAssignation(Object.keys(assignationSums))
-
-  // Options du filtre "Assignation" : les suggestions courantes + tout objet personnalisé déjà
-  // utilisé dans les cotisations existantes, pour qu'il devienne filtrable comme les autres.
-  const objetsAssignationDisponibles = ordonnerObjetsAssignation(
-    Array.from(
-      new Set([
-        ...OBJETS_ASSIGNATION_COURANTS,
-        'AUTRES',
-        ...list
-          .filter((c) => c.type_cotisation === 'assignation')
-          .map((c) => (c.objet_assignation || '').toString().trim().toUpperCase())
-          .filter(Boolean),
-      ]),
-    ),
+  // Options du filtre "Assignation" : suggestions courantes + objets déjà utilisés.
+  const objetsAssignationDisponibles = useMemo(
+    () => ordonnerObjetsAssignation(Array.from(new Set([...OBJETS_ASSIGNATION_COURANTS, 'AUTRES', ...(resume?.objets_disponibles || [])]))),
+    [resume],
   )
 
-  // Détails mensualités par mois (toutes années) selon les filtres
-  const mensualitesFiltrees = filteredList.filter((c) => c.type_cotisation === 'mensualite')
-  const mensualitesParMois = Object.values(
-    mensualitesFiltrees.reduce((acc, c) => {
-      const mois = Number(c.mois)
-      const annee = Number(c.annee)
-      const key = `${annee}-${mois}`
-      if (!acc[key]) {
-        acc[key] = {
-          annee,
-          mois,
-          total: 0,
-        }
-      }
-      acc[key].total += Number(c.montant || 0)
-      return acc
-    }, {}),
-  ).sort((a, b) => (a.annee === b.annee ? a.mois - b.mois : a.annee - b.annee))
+  // Détail par objet (MAGAL, GAMOU, ..., AUTRES) et mensualités par mois, pour le filtre courant.
+  const assignationSums = useMemo(
+    () => Object.fromEntries((resume?.par_objet || []).map((o) => [o.objet, o.total])),
+    [resume],
+  )
+  const labelsAssignations = useMemo(() => ordonnerObjetsAssignation(Object.keys(assignationSums)), [assignationSums])
+  const nbAssignationsFiltrees = labelsAssignations.length
+  const mensualitesParMois = resume?.par_mois || []
+
+  const confirmablesPage = useMemo(
+    () => list.filter((c) => c.statut !== 'payee' && c.statut !== 'annulee'),
+    [list],
+  )
+  const tousPageSelectionnes = confirmablesPage.length > 0 && confirmablesPage.every((c) => selectionSet.has(c.id))
+  const certainsPageSelectionnes = confirmablesPage.some((c) => selectionSet.has(c.id))
+  const toggleSelectionPage = (coche) => {
+    const idsPage = confirmablesPage.map((c) => c.id)
+    setSelection((prev) => (coche
+      ? Array.from(new Set([...prev, ...idsPage]))
+      : prev.filter((id) => !idsPage.includes(id))))
+  }
 
   return (
     <Box>
@@ -510,7 +492,7 @@ export default function Cotisations() {
         )}
       </Box>
 
-      {!loading && list.length > 0 && (
+      {(
         <>
           <Box sx={{ mb: 2 }}>
             <Tabs
@@ -569,20 +551,20 @@ export default function Cotisations() {
                 sx={{ minWidth: 260 }}
               />
             )}
-            {(moisFilter || anneeFilter || membreFilter || statutFilter) && (
-              <Button size="small" onClick={() => { setMoisFilter(''); setAnneeFilter(''); setMembreFilter(''); setStatutFilter('') }} sx={{ color: COLORS.vert }}>
-                Réinitialiser
+            {(Number(moisFilter) !== new Date().getMonth() + 1 || Number(anneeFilter) !== new Date().getFullYear() || membreFilter || statutFilter) && (
+              <Button size="small" onClick={() => { setMoisFilter(new Date().getMonth() + 1); setAnneeFilter(new Date().getFullYear()); setMembreFilter(''); setStatutFilter('') }} sx={{ color: COLORS.vert }}>
+                Mois en cours
               </Button>
             )}
           </Box>
           <Box sx={{ mb: 3, display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2 }}>
             <Paper sx={{ p: 2, borderLeft: `4px solid ${COLORS.vert}`, borderRadius: 2 }}>
-              <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce }}>Montant total (toutes cotisations)</Typography>
+              <Typography variant="subtitle2" sx={{ color: COLORS.vertFonce }}>Montant total (filtre actuel)</Typography>
               <Typography variant="h6" sx={{ fontWeight: 700, color: COLORS.vert }}>
                 {totalMontant.toLocaleString('fr-FR')} FCFA
               </Typography>
               <Typography variant="caption" color="text.secondary">
-                {list.length} cotisation(s)
+                {(resume?.nb ?? count)} cotisation(s) — filtre actuel
               </Typography>
             </Paper>
             <Paper sx={{ p: 2, borderLeft: `4px solid ${COLORS.or}`, borderRadius: 2 }}>
@@ -613,7 +595,7 @@ export default function Cotisations() {
               <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                 Somme totale par type d’assignation (MAGAL, GAMOU, …) en fonction des filtres ci-dessus.
               </Typography>
-              {assignationsFiltrees.length === 0 ? (
+              {nbAssignationsFiltrees === 0 ? (
                 <Typography variant="body2" color="text.secondary">
                   Aucune assignation pour ce filtre.
                 </Typography>
@@ -698,14 +680,15 @@ export default function Cotisations() {
 
       {loading ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
-      ) : filteredList.length === 0 ? (
+      ) : list.length === 0 ? (
         <Box sx={{ textAlign: 'center', py: 8 }}>
           <Payment sx={{ fontSize: 56, color: 'action.disabled', mb: 2 }} />
-          <Typography color="text.secondary" variant="h6">Aucune cotisation</Typography>
+          <Typography color="text.secondary" variant="h6">Aucune cotisation pour ce filtre</Typography>
+          <Typography color="text.secondary" variant="body2">Changez le mois, l'année ou le membre ci-dessus.</Typography>
         </Box>
       ) : (
         <>
-          {isAdmin && confirmables(filteredList).length > 0 && (
+          {isAdmin && (confirmablesPage.length > 0 || selection.length > 0) && (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 1.5 }}>
               <Button
                 size="small"
@@ -729,9 +712,10 @@ export default function Cotisations() {
                   <TableCell padding="checkbox">
                     <Checkbox
                       size="small"
-                      indeterminate={selection.length > 0 && selection.length < confirmables(filteredList).length}
-                      checked={confirmables(filteredList).length > 0 && selection.length === confirmables(filteredList).length}
-                      onChange={(e) => setSelection(e.target.checked ? confirmables(filteredList).map((c) => c.id) : [])}
+                      indeterminate={certainsPageSelectionnes && !tousPageSelectionnes}
+                      checked={tousPageSelectionnes}
+                      disabled={confirmablesPage.length === 0}
+                      onChange={(e) => toggleSelectionPage(e.target.checked)}
                     />
                   </TableCell>
                 )}
@@ -745,7 +729,7 @@ export default function Cotisations() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginate(filteredList).map((c) => {
+              {list.map((c) => {
                 const isAssignation = c.type_cotisation === 'assignation'
                 const isPaid = String(c.statut || '').toLowerCase() === 'payee'
                 const canPay = canPayCotisation(c)
@@ -753,11 +737,11 @@ export default function Cotisations() {
                 const isMine = Number(c.membre) === Number(user?.id)
                 const estConfirmable = c.statut !== 'payee' && c.statut !== 'annulee'
                 return (
-                  <TableRow key={c.id} hover selected={selection.includes(c.id)}>
+                  <TableRow key={c.id} hover selected={selectionSet.has(c.id)}>
                     {isAdmin && (
                       <TableCell padding="checkbox">
                         {estConfirmable && (
-                          <Checkbox size="small" checked={selection.includes(c.id)} onChange={() => toggleSelection(c.id)} />
+                          <Checkbox size="small" checked={selectionSet.has(c.id)} onChange={() => toggleSelection(c.id)} />
                         )}
                       </TableCell>
                     )}
@@ -821,9 +805,10 @@ export default function Cotisations() {
             </TableBody>
           </Table>
           <TablePaginationFr
-            count={filteredList.length}
+            count={count}
             page={page}
             rowsPerPage={rowsPerPage}
+            rowsPerPageOptions={[25, 50, 100]}
             onPageChange={handleChangePage}
             onRowsPerPageChange={handleChangeRowsPerPage}
           />

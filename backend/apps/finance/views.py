@@ -1,8 +1,9 @@
 from rest_framework import viewsets, status
 from rest_framework.decorators import action, api_view, permission_classes
 from rest_framework.response import Response
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, IsAdminUser
-from django.db.models import Sum, Q
+from django.db.models import Count, Sum, Q
 from django.utils import timezone
 from decimal import Decimal
 from apps.accounts.permissions import (
@@ -14,22 +15,47 @@ from .models import CotisationMensuelle, LeveeFonds, Transaction, Don, Parametre
 from .serializers import CotisationMensuelleSerializer, LeveeFondsSerializer, TransactionSerializer, DonSerializer, ParametresFinanciersSerializer, DepenseSerializer
 
 
+class CotisationPagination(PageNumberPagination):
+    # La pagination par défaut (20, sans page_size) forçait le client à enchaîner des
+    # dizaines de requêtes pour charger quelques centaines de cotisations (SAAS YI).
+    page_size = 20
+    page_size_query_param = 'page_size'
+    max_page_size = 2000
+
+
 class CotisationMensuelleViewSet(AuditedModelViewSet):
     queryset = CotisationMensuelle.objects.all().order_by('-annee', '-mois')
     serializer_class = CotisationMensuelleSerializer
     permission_classes = [IsAuthenticated]
-    filterset_fields = ['membre', 'mois', 'annee', 'statut']
+    pagination_class = CotisationPagination
+    filterset_fields = ['membre', 'mois', 'annee', 'statut', 'type_cotisation']
     audit_rubrique = 'finance'
     audit_label = 'Cotisation'
 
     def get_queryset(self):
-        qs = CotisationMensuelle.objects.select_related('membre').order_by('-annee', '-mois')
+        # Ordre stable (nom du membre, id) : indispensable pour que la pagination côté
+        # serveur ne saute ni ne duplique de lignes entre deux pages.
+        qs = CotisationMensuelle.objects.select_related('membre').order_by(
+            '-annee', '-mois', 'membre__last_name', 'membre__first_name', 'id'
+        )
         if not has_admin_access(self.request.user, 'finance'):
             qs = qs.filter(membre=self.request.user)
         return qs
 
+    def filter_queryset(self, queryset):
+        queryset = super().filter_queryset(queryset)
+        # Objet d'assignation (MAGAL, GAMOU, ...) insensible à la casse ; "AUTRES"
+        # regroupe aussi les assignations sans objet précisé.
+        objet = (self.request.query_params.get('objet_assignation') or '').strip()
+        if objet:
+            q = Q(objet_assignation__iexact=objet)
+            if objet.upper() == 'AUTRES':
+                q |= Q(objet_assignation='')
+            queryset = queryset.filter(Q(type_cotisation='assignation') & q)
+        return queryset
+
     def get_permissions(self):
-        if self.action in ['create', 'update', 'partial_update', 'destroy', 'create_multiple']:
+        if self.action in ['create', 'update', 'partial_update', 'destroy', 'create_multiple', 'valider_multiple']:
             return [IsAdminOrJewrinFinance()]
         return [IsAuthenticated()]
 
@@ -91,63 +117,63 @@ class CotisationMensuelleViewSet(AuditedModelViewSet):
         created_cotisations = []
         skipped_count = 0
         errors = []
-        
+
+        # Membres et cotisations déjà existantes chargés en 2 requêtes au lieu de 2 par
+        # membre : avec des centaines de membres, la création en masse était très lente.
+        # L'objet d'assignation fait partie de la clé d'unicité : un MAGAL et un GAMOU
+        # le même mois ne sont pas des doublons.
+        membres_par_id = CustomUser.objects.filter(pk__in=membres_ids, is_active=True).in_bulk()
+        type_cotisation = cotisation_data.get('type_cotisation', 'mensualite')
+        objet = (cotisation_data.get('objet_assignation') or '') if type_cotisation == 'assignation' else ''
+        deja_existants = set(
+            CotisationMensuelle.objects.filter(
+                membre_id__in=list(membres_par_id.keys()),
+                mois=cotisation_data.get('mois'),
+                annee=cotisation_data.get('annee'),
+                type_cotisation=type_cotisation,
+                objet_assignation=objet,
+            ).values_list('membre_id', flat=True)
+        )
+
         for membre_id in membres_ids:
             try:
-                # Vérifier que le membre existe
-                membre = CustomUser.objects.get(pk=membre_id, is_active=True)
-                
-                # Préparer les données pour ce membre
-                data_for_membre = {**cotisation_data, 'membre': membre_id}
-                membre_serializer = self.get_serializer(data=data_for_membre)
-                
-                if membre_serializer.is_valid():
-                    try:
-                        # Vérifier si une cotisation existe déjà pour ce membre/mois/année/type
-                        existing = CotisationMensuelle.objects.filter(
-                            membre=membre,
-                            mois=cotisation_data.get('mois'),
-                            annee=cotisation_data.get('annee'),
-                            type_cotisation=cotisation_data.get('type_cotisation', 'mensualite')
-                        ).first()
-                        
-                        if existing:
-                            # Déjà une cotisation pour ce mois - on la skip
-                            skipped_count += 1
-                            errors.append({
-                                'membre_id': membre_id,
-                                'membre_nom': membre.get_full_name(),
-                                'error': f'Déjà une cotisation pour le mois {cotisation_data.get("mois")}/{cotisation_data.get("annee")}'
-                            })
-                        else:
-                            # Créer nouvelle cotisation
-                            membre_serializer.save()
-                            created_cotisations.append(membre_serializer.instance)
-                    except IntegrityError as e:
-                        # Gérer les erreurs de contrainte unique
-                        skipped_count += 1
-                        errors.append({
-                            'membre_id': membre_id,
-                            'membre_nom': membre.get_full_name(),
-                            'error': 'Une cotisation existe déjà pour cette période'
-                        })
-                else:
-                    errors.append({
-                        'membre_id': membre_id,
-                        'membre_nom': membre.get_full_name(),
-                        'errors': membre_serializer.errors
-                    })
-            except CustomUser.DoesNotExist:
+                membre = membres_par_id.get(int(membre_id))
+            except (TypeError, ValueError):
+                membre = None
+            if membre is None:
+                errors.append({'membre_id': membre_id, 'error': 'Membre non trouvé'})
+                continue
+
+            if membre.pk in deja_existants:
+                skipped_count += 1
                 errors.append({
                     'membre_id': membre_id,
-                    'error': 'Membre non trouvé'
+                    'membre_nom': membre.get_full_name(),
+                    'error': f'Déjà une cotisation pour le mois {cotisation_data.get("mois")}/{cotisation_data.get("annee")}'
+                })
+                continue
+
+            membre_serializer = self.get_serializer(data={**cotisation_data, 'membre': membre.pk})
+            if not membre_serializer.is_valid():
+                errors.append({
+                    'membre_id': membre_id,
+                    'membre_nom': membre.get_full_name(),
+                    'errors': membre_serializer.errors
+                })
+                continue
+            try:
+                membre_serializer.save()
+                created_cotisations.append(membre_serializer.instance)
+            except IntegrityError:
+                skipped_count += 1
+                errors.append({
+                    'membre_id': membre_id,
+                    'membre_nom': membre.get_full_name(),
+                    'error': 'Une cotisation existe déjà pour cette période'
                 })
             except Exception as e:
-                errors.append({
-                    'membre_id': membre_id,
-                    'error': str(e)
-                })
-        
+                errors.append({'membre_id': membre_id, 'error': str(e)})
+
         if created_cotisations:
             log_audit(
                 request, 'creation', rubrique='finance',
@@ -189,6 +215,24 @@ class CotisationMensuelleViewSet(AuditedModelViewSet):
                 self.request, 'modification', rubrique='finance', objet=instance,
                 description=f"Cotisation modifiée : {instance.membre.get_full_name()} — {instance.montant} FCFA ({instance.mois}/{instance.annee})",
             )
+
+    @action(detail=False, methods=['post'], url_path='valider-multiple')
+    def valider_multiple(self, request):
+        """Marque plusieurs cotisations comme payées en une seule requête (validation
+        groupée SAAS YI) — au lieu d'un PATCH par cotisation côté client."""
+        ids = request.data.get('ids', [])
+        if not isinstance(ids, list) or not ids:
+            return Response({'detail': 'Aucune cotisation sélectionnée.'}, status=status.HTTP_400_BAD_REQUEST)
+        qs = CotisationMensuelle.objects.filter(pk__in=ids).exclude(statut__in=['payee', 'annulee'])
+        maintenant = timezone.now()
+        nb = qs.filter(date_paiement__isnull=True).update(statut='payee', date_paiement=maintenant)
+        nb += qs.update(statut='payee')
+        if nb:
+            log_audit(
+                request, 'validation_paiement', rubrique='finance',
+                description=f"{nb} paiement(s) de cotisation validé(s) en masse",
+            )
+        return Response({'validees': nb, 'date_paiement': maintenant})
 
     def perform_destroy(self, instance):
         log_audit(
@@ -263,6 +307,57 @@ class CotisationMensuelleViewSet(AuditedModelViewSet):
             'montant_total_assigne': float(montant_total_assigne),
             'montant_total_paye': float(montant_total_paye),
             'pourcentage_montant_paye': float(round(pourcentage_montant_paye, 2)),
+        })
+
+    @action(detail=False, methods=['get'])
+    def resume(self, request):
+        """Totaux SAAS YI pour les filtres courants (mêmes paramètres que la liste),
+        calculés en base : la page n'a plus besoin de charger toutes les cotisations
+        pour afficher les montants, pourcentages et regroupements."""
+        qs = self.filter_queryset(self.get_queryset()).order_by()
+        payee = Q(statut='payee')
+        mensualite = Q(type_cotisation='mensualite')
+        assignation = Q(type_cotisation='assignation')
+        agg = qs.aggregate(
+            nb=Count('id'),
+            nb_payees=Count('id', filter=payee),
+            nb_confirmables=Count('id', filter=~Q(statut__in=['payee', 'annulee'])),
+            montant_total=Sum('montant'),
+            montant_paye=Sum('montant', filter=payee),
+            mensualites_total=Sum('montant', filter=mensualite),
+            mensualites_payees=Sum('montant', filter=mensualite & payee),
+            assignations_total=Sum('montant', filter=assignation),
+            assignations_payees=Sum('montant', filter=assignation & payee),
+        )
+        par_objet = {}
+        for ligne in qs.filter(assignation).values('objet_assignation').annotate(total=Sum('montant')):
+            cle = (ligne['objet_assignation'] or '').strip().upper() or 'AUTRES'
+            par_objet[cle] = par_objet.get(cle, 0) + float(ligne['total'] or 0)
+        par_mois = [
+            {'annee': l['annee'], 'mois': l['mois'], 'total': float(l['total'] or 0)}
+            for l in qs.filter(mensualite).values('annee', 'mois').annotate(total=Sum('montant')).order_by('annee', 'mois')
+        ]
+        # Options du filtre "Assignation" : tous les objets déjà utilisés (hors filtres).
+        objets = sorted({
+            (o or '').strip().upper()
+            for o in self.get_queryset().filter(assignation).order_by()
+                .values_list('objet_assignation', flat=True).distinct()
+            if (o or '').strip()
+        })
+        f = lambda v: float(v or 0)
+        return Response({
+            'nb': agg['nb'],
+            'nb_payees': agg['nb_payees'],
+            'nb_confirmables': agg['nb_confirmables'],
+            'montant_total': f(agg['montant_total']),
+            'montant_paye': f(agg['montant_paye']),
+            'mensualites_total': f(agg['mensualites_total']),
+            'mensualites_payees': f(agg['mensualites_payees']),
+            'assignations_total': f(agg['assignations_total']),
+            'assignations_payees': f(agg['assignations_payees']),
+            'par_objet': [{'objet': k, 'total': v} for k, v in par_objet.items()],
+            'par_mois': par_mois,
+            'objets_disponibles': objets,
         })
 
     @action(detail=True, methods=['post'])

@@ -23,7 +23,8 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
 
   // Filtres (miroir des filtres web : type, mois, membre)
   String _typeFilter = '';
-  int? _moisFilter;
+  // Par défaut : le mois en cours uniquement, pour ne pas tout charger d'un coup.
+  int? _moisFilter = DateTime.now().month;
   int? _membreFilter;
   List<Map<String, dynamic>> _usersFiltre = [];
 
@@ -145,37 +146,86 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
     _fetchUsers().then((u) { if (mounted) setState(() => _usersFiltre = u); });
   }
 
+  // Chargement page par page, filtré par le serveur (année, mois, type, membre) :
+  // on n'a jamais toutes les cotisations en mémoire. Les totaux viennent de /resume/.
+  static const _pageSize = 30;
+  int _page = 1;
+  bool _hasMore = false;
+  bool _loadingMore = false;
+  Map<String, dynamic> _resume = {};
+  // Ignore les réponses d'un ancien filtre arrivées après celles du nouveau.
+  int _requete = 0;
+
+  String get _query {
+    final p = <String>['annee=$_annee'];
+    if (_moisFilter != null) p.add('mois=$_moisFilter');
+    if (_typeFilter.isNotEmpty) p.add('type_cotisation=$_typeFilter');
+    if (_membreFilter != null) p.add('membre=$_membreFilter');
+    return p.join('&');
+  }
+
   Future<void> _load() async {
+    final requete = ++_requete;
     try {
-      final data = await _api.get('${ApiEndpoints.cotisations}?annee=$_annee');
-      Map<String, dynamic> statsData = {};
-      try {
-        statsData = await _api.get('${ApiEndpoints.cotisations}statistiques/') ?? {};
-      } catch (_) {}
-      if (mounted) {
-        setState(() {
-          _cotisations = data['results'] ?? data ?? [];
-          _loading = false;
-        });
-      }
+      final results = await Future.wait([
+        _api.get('${ApiEndpoints.cotisations}?$_query&page=1&page_size=$_pageSize'),
+        _api.get('${ApiEndpoints.cotisations}resume/?$_query').catchError((_) => <String, dynamic>{}),
+      ]);
+      if (!mounted || requete != _requete) return;
+      final data = results[0];
+      setState(() {
+        final liste = data['results'];
+        _cotisations = liste is List ? List<dynamic>.from(liste) : [];
+        _hasMore = data['next'] != null;
+        _page = 1;
+        _resume = results[1];
+        _loading = false;
+      });
     } catch (_) {
-      if (mounted) setState(() => _loading = false);
+      if (mounted && requete == _requete) setState(() => _loading = false);
     }
   }
 
-  List<dynamic> get _filtered => _cotisations.where((c) {
-        final typeOk = _typeFilter.isEmpty || c['type_cotisation'] == _typeFilter;
-        final moisOk = _moisFilter == null || (int.tryParse(c['mois']?.toString() ?? '') ?? -1) == _moisFilter;
-        final membreOk = _membreFilter == null || (c['membre'] is int ? c['membre'] : int.tryParse(c['membre']?.toString() ?? '')) == _membreFilter;
-        return typeOk && moisOk && membreOk;
-      }).toList();
+  Future<void> _loadMore() async {
+    if (_loadingMore || !_hasMore) return;
+    final requete = _requete;
+    setState(() => _loadingMore = true);
+    try {
+      final data = await _api.get('${ApiEndpoints.cotisations}?$_query&page=${_page + 1}&page_size=$_pageSize');
+      if (!mounted || requete != _requete) return;
+      setState(() {
+        final liste = data['results'];
+        _cotisations = [..._cotisations, ...(liste is List ? liste : const [])];
+        _hasMore = data['next'] != null;
+        _page++;
+      });
+    } catch (_) {
+      // On réessaiera au prochain défilement.
+    } finally {
+      if (mounted) setState(() => _loadingMore = false);
+    }
+  }
+
+  /// Applique un changement de filtre puis recharge depuis la première page.
+  void _filtrer(VoidCallback fn) {
+    setState(() {
+      fn();
+      _loading = true;
+      _selection.clear();
+    });
+    _load();
+  }
+
+  List<dynamic> get _filtered => _cotisations;
 
   bool _estConfirmable(dynamic c) => c['statut'] != 'payee' && c['statut'] != 'annulee';
 
-  List<dynamic> get _confirmables => _filtered.where(_estConfirmable).toList();
+  List<dynamic> get _confirmables => _cotisations.where(_estConfirmable).toList();
+
+  double _num(String cle) => (_resume[cle] as num?)?.toDouble() ?? 0;
 
   void _resetFiltres() {
-    setState(() { _typeFilter = ''; _moisFilter = null; _membreFilter = null; });
+    _filtrer(() { _typeFilter = ''; _moisFilter = DateTime.now().month; _membreFilter = null; });
   }
 
   void _toggleSelection(int id) {
@@ -192,7 +242,8 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
     if (_selection.isEmpty) return;
     final ids = _selection.toList();
     try {
-      await Future.wait(ids.map((id) => _api.patch('${ApiEndpoints.cotisations}$id/', {'statut': 'payee'})));
+      // Une seule requête pour toute la sélection (au lieu d'un PATCH par cotisation).
+      await _api.post('${ApiEndpoints.cotisations}valider-multiple/', {'ids': ids});
       setState(() { _selection.clear(); _selectionMode = false; });
       _load();
       if (mounted) {
@@ -208,31 +259,15 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
     }
   }
 
-  double get _total => _cotisations.fold(
-      0.0, (s, c) => s + (double.tryParse(c['montant']?.toString() ?? '0') ?? 0));
-
-  int get _payees =>
-      _cotisations.where((c) => c['statut'] == 'payee').length;
-
-  double get _totalMensualite => _cotisations
-      .where((c) => c['type_cotisation'] == 'mensualite')
-      .fold(0.0, (s, c) => s + (double.tryParse(c['montant']?.toString() ?? '0') ?? 0));
-
-  double get _totalAssignation => _cotisations
-      .where((c) => c['type_cotisation'] == 'assignation')
-      .fold(0.0, (s, c) => s + (double.tryParse(c['montant']?.toString() ?? '0') ?? 0));
-
-  double get _pourcentagePaiement {
-    if (_cotisations.isEmpty) return 0;
-    return (_payees / _cotisations.length) * 100;
-  }
-
   @override
   Widget build(BuildContext context) {
     final user = context.read<AuthProvider>().user;
     final fmt = NumberFormat('#,##0', 'fr_FR');
 
     final isJewrinFinance = user?.isJewrinFinance == true;
+    final filtered = _filtered;
+    final nb = (_resume['nb'] as num?)?.toInt() ?? filtered.length;
+    final pourcentagePaiement = nb > 0 ? ((_resume['nb_payees'] as num?) ?? 0) / nb * 100 : 0.0;
 
     return Scaffold(
       appBar: AppBar(
@@ -279,8 +314,7 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                       ))
                   .toList(),
               onChanged: (y) {
-                if (y != null) setState(() { _annee = y; _loading = true; });
-                _load();
+                if (y != null) _filtrer(() => _annee = y);
               },
             ),
           ),
@@ -323,7 +357,7 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
         color: AppColors.primaryGreen,
         child: ListView.builder(
                     padding: EdgeInsets.zero,
-                    itemCount: _filtered.isEmpty ? 2 : _filtered.length + 1,
+                    itemCount: filtered.isEmpty ? 2 : filtered.length + (_hasMore ? 2 : 1),
                     itemBuilder: (_, i) {
                       // Item 0: stats cards row
                       if (i == 0) {
@@ -336,7 +370,7 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                                 width: 160,
                                 child: StatCard(
                                   title: 'Mensualités',
-                                  value: '${fmt.format(_totalMensualite)} F',
+                                  value: '${fmt.format(_num('mensualites_total'))} F',
                                   icon: Icons.calendar_month,
                                   color: AppColors.primaryGreen,
                                 ),
@@ -346,7 +380,7 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                                 width: 160,
                                 child: StatCard(
                                   title: 'Assignations',
-                                  value: '${fmt.format(_totalAssignation)} F',
+                                  value: '${fmt.format(_num('assignations_total'))} F',
                                   icon: Icons.assignment,
                                   color: AppColors.primaryGold,
                                 ),
@@ -356,7 +390,7 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                                 width: 160,
                                 child: StatCard(
                                   title: 'Total',
-                                  value: '${fmt.format(_total)} F',
+                                  value: '${fmt.format(_num('montant_total'))} F',
                                   icon: Icons.account_balance_wallet,
                                   color: AppColors.success,
                                 ),
@@ -366,7 +400,7 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                                 width: 160,
                                 child: StatCard(
                                   title: 'Taux paiement',
-                                  value: '${_pourcentagePaiement.toStringAsFixed(1)}%',
+                                  value: '${pourcentagePaiement.toStringAsFixed(1)}%',
                                   icon: Icons.percent,
                                   color: AppColors.info,
                                 ),
@@ -376,18 +410,26 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                         );
                       }
                       // Item 1 when empty
-                      if (_filtered.isEmpty) {
+                      if (filtered.isEmpty) {
                         return Padding(
                           padding: const EdgeInsets.all(40),
                           child: Center(child: Text(
-                            _cotisations.isEmpty ? 'Aucune cotisation' : 'Aucune cotisation ne correspond aux filtres',
+                            'Aucune cotisation pour ce filtre',
                             style: const TextStyle(color: AppColors.textGrey),
                           )),
                         );
                       }
                       // Cotisation items
                       final i2 = i - 1;
-                      final c = _filtered[i2];
+                      // Dernier élément : indicateur de chargement de la page suivante.
+                      if (i2 >= filtered.length) {
+                        WidgetsBinding.instance.addPostFrameCallback((_) => _loadMore());
+                        return const Padding(
+                          padding: EdgeInsets.all(16),
+                          child: Center(child: CircularProgressIndicator(color: AppColors.primaryGreen)),
+                        );
+                      }
+                      final c = filtered[i2];
                       final isPaye = c['statut'] == 'payee';
                       final moisNum = int.tryParse(c['mois']?.toString() ?? '0') ?? 0;
                       final moisLabel = moisNum >= 1 && moisNum <= 12
@@ -609,7 +651,7 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
   }
 
   Widget _buildFiltres() {
-    final hasFilter = _typeFilter.isNotEmpty || _moisFilter != null || _membreFilter != null;
+    final hasFilter = _typeFilter.isNotEmpty || _moisFilter != DateTime.now().month || _membreFilter != null;
     final user = context.read<AuthProvider>().user;
     return Container(
       color: AppColors.primaryGreen,
@@ -621,19 +663,19 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
             ChoiceChip(
               label: const Text('Toutes'),
               selected: _typeFilter.isEmpty,
-              onSelected: (_) => setState(() => _typeFilter = ''),
+              onSelected: (_) => _filtrer(() => _typeFilter = ''),
             ),
             const SizedBox(width: 6),
             ChoiceChip(
               label: const Text('Mensualités'),
               selected: _typeFilter == 'mensualite',
-              onSelected: (_) => setState(() => _typeFilter = 'mensualite'),
+              onSelected: (_) => _filtrer(() => _typeFilter = 'mensualite'),
             ),
             const SizedBox(width: 6),
             ChoiceChip(
               label: const Text('Assignations'),
               selected: _typeFilter == 'assignation',
-              onSelected: (_) => setState(() => _typeFilter = 'assignation'),
+              onSelected: (_) => _filtrer(() => _typeFilter = 'assignation'),
             ),
           ]),
         ),
@@ -641,6 +683,7 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
         Row(children: [
           Expanded(
             child: DropdownButtonFormField<int>(
+              key: ValueKey('mois-$_moisFilter'),
               initialValue: _moisFilter,
               isExpanded: true,
               decoration: _filtreDeco('Mois'),
@@ -649,13 +692,14 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                 const DropdownMenuItem(value: null, child: Text('Tous')),
                 ...List.generate(12, (i) => DropdownMenuItem(value: i + 1, child: Text(_mois[i]))),
               ],
-              onChanged: (v) => setState(() => _moisFilter = v),
+              onChanged: (v) => _filtrer(() => _moisFilter = v),
             ),
           ),
           if (user?.isJewrinFinance == true) ...[
             const SizedBox(width: 8),
             Expanded(
               child: DropdownButtonFormField<int>(
+                key: ValueKey('membre-$_membreFilter'),
                 initialValue: _membreFilter,
                 isExpanded: true,
                 decoration: _filtreDeco('Membre'),
@@ -664,14 +708,14 @@ class _CotisationsScreenState extends State<CotisationsScreen> {
                   const DropdownMenuItem(value: null, child: Text('Tous')),
                   ..._usersFiltre.map((u) => DropdownMenuItem(value: u['id'] as int, child: Text(u['nom'] as String, overflow: TextOverflow.ellipsis))),
                 ],
-                onChanged: (v) => setState(() => _membreFilter = v),
+                onChanged: (v) => _filtrer(() => _membreFilter = v),
               ),
             ),
           ],
           if (hasFilter) ...[
             const SizedBox(width: 4),
             IconButton(
-              tooltip: 'Réinitialiser',
+              tooltip: 'Revenir au mois en cours',
               icon: const Icon(Icons.filter_alt_off, color: AppColors.white, size: 20),
               onPressed: _resetFiltres,
             ),

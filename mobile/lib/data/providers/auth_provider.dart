@@ -17,6 +17,10 @@ class AuthProvider extends ChangeNotifier {
   AuthStatus get status => _status;
   UserModel? get user => _user;
   String? get error => _error;
+  // Erreurs de champ de la dernière inscription ratée ({"email": ["..."]}), pour les
+  // afficher sous le champ concerné plutôt que seulement dans un message global.
+  Map<String, dynamic>? _fieldErrors;
+  Map<String, dynamic>? get fieldErrors => _fieldErrors;
   bool get isAuthenticated => _status == AuthStatus.authenticated;
   bool get isLoading => _status == AuthStatus.unknown;
 
@@ -138,11 +142,13 @@ class AuthProvider extends ChangeNotifier {
 
   Future<bool> register(Map<String, dynamic> data) async {
     _error = null;
+    _fieldErrors = null;
     try {
       await _api.post(ApiEndpoints.register, data, auth: false);
       return true;
     } catch (e) {
-      _error = e is ApiException ? e.message : 'Erreur lors de l\'inscription';
+      _error = e is ApiException ? e.message : 'Connexion impossible. Vérifiez votre connexion internet et réessayez.';
+      if (e is ApiException) _fieldErrors = e.errors;
       notifyListeners();
       return false;
     }

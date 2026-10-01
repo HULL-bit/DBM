@@ -83,7 +83,10 @@ class _CarteMembreScreenState extends State<CarteMembreScreen> {
   }
 
   Future<Uint8List> _capture(GlobalKey key) async {
-    final boundary = key.currentContext!.findRenderObject() as RenderRepaintBoundary;
+    final boundary = key.currentContext?.findRenderObject() as RenderRepaintBoundary?;
+    if (boundary == null) throw Exception('carte non affichée');
+    // Attendre la fin du rendu en cours (photo réseau tout juste chargée) avant la capture.
+    await WidgetsBinding.instance.endOfFrame;
     final image = await boundary.toImage(pixelRatio: 3);
     final byteData = await image.toByteData(format: ui.ImageByteFormat.png);
     return byteData!.buffer.asUint8List();
@@ -136,16 +139,26 @@ class _CarteMembreScreenState extends State<CarteMembreScreen> {
           children: [
             const Text('Recto', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textGrey)),
             const SizedBox(height: 8),
-            RepaintBoundary(
-              key: _rectoKey,
-              child: _CarteRecto(membre: widget.membre, identifiant: _identifiant),
+            // FittedBox : la carte fait 360 de large (format CR80), plus que l'écran
+            // de nombreux téléphones une fois les marges retirées → débordement
+            // (bandes jaunes/noires). On la réduit à l'affichage ; la capture PDF
+            // (RepaintBoundary, sous le FittedBox) reste en taille réelle.
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: RepaintBoundary(
+                key: _rectoKey,
+                child: _CarteRecto(membre: widget.membre, identifiant: _identifiant),
+              ),
             ),
             const SizedBox(height: 24),
             const Text('Verso', style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.textGrey)),
             const SizedBox(height: 8),
-            RepaintBoundary(
-              key: _versoKey,
-              child: _CarteVerso(membre: widget.membre, vCard: _vCard),
+            FittedBox(
+              fit: BoxFit.scaleDown,
+              child: RepaintBoundary(
+                key: _versoKey,
+                child: _CarteVerso(membre: widget.membre, vCard: _vCard),
+              ),
             ),
             const SizedBox(height: 24),
             OutlinedButton.icon(
@@ -227,8 +240,8 @@ class _CarteRecto extends StatelessWidget {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text('Nom : ${m.lastName?.isNotEmpty == true ? m.lastName! : '—'}', style: const TextStyle(fontWeight: FontWeight.bold, color: _vertFonce, fontSize: 13)),
-                      Text('Prénom : ${m.firstName?.isNotEmpty == true ? m.firstName! : '—'}', style: const TextStyle(fontWeight: FontWeight.bold, color: _vertFonce, fontSize: 13)),
+                      Text('Nom : ${m.lastName?.isNotEmpty == true ? m.lastName! : '—'}', style: const TextStyle(fontWeight: FontWeight.bold, color: _vertFonce, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
+                      Text('Prénom : ${m.firstName?.isNotEmpty == true ? m.firstName! : '—'}', style: const TextStyle(fontWeight: FontWeight.bold, color: _vertFonce, fontSize: 13), maxLines: 1, overflow: TextOverflow.ellipsis),
                       const SizedBox(height: 2),
                       Text(m.roleDisplay ?? m.role, style: const TextStyle(color: _vert, fontWeight: FontWeight.w600, fontSize: 11)),
                       Text('Matricule : $identifiant', style: const TextStyle(color: AppColors.textGrey, fontSize: 10)),
@@ -273,6 +286,8 @@ class _CarteRecto extends StatelessWidget {
   Widget _ligne(String label, String valeur) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 1),
         child: RichText(
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           text: TextSpan(
             style: const TextStyle(fontSize: 10, color: _noir),
             children: [
@@ -317,20 +332,29 @@ class _CarteVerso extends StatelessWidget {
                     child: Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(color: Colors.white, borderRadius: BorderRadius.circular(8), border: Border.all(color: _or.withValues(alpha: 0.3))),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        mainAxisAlignment: MainAxisAlignment.start,
-                        children: [
-                          if (m.profession?.isNotEmpty == true) _ligne('Profession', m.profession!),
-                          if (m.groupeSanguin?.isNotEmpty == true) _ligne('Groupe sanguin', m.groupeSanguin!),
-                          if (m.telephone?.isNotEmpty == true) _ligne('Contact', m.telephone!),
-                          const SizedBox(height: 6),
-                          const Text(
-                            'Cette carte est strictement personnelle et ne peut être cédée à un tiers. '
-                            'En cas de perte, merci de la remettre à la Daara Barakatul Mahaahidi.',
-                            style: TextStyle(fontSize: 8, color: AppColors.textGrey),
+                      // Hauteur de carte fixe : si les infos sont longues, on les réduit
+                      // plutôt que de déborder.
+                      child: FittedBox(
+                        fit: BoxFit.scaleDown,
+                        alignment: Alignment.topLeft,
+                        child: SizedBox(
+                          width: 180,
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              if (m.profession?.isNotEmpty == true) _ligne('Profession', m.profession!),
+                              if (m.groupeSanguin?.isNotEmpty == true) _ligne('Groupe sanguin', m.groupeSanguin!),
+                              if (m.telephone?.isNotEmpty == true) _ligne('Contact', m.telephone!),
+                              const SizedBox(height: 6),
+                              const Text(
+                                'Cette carte est strictement personnelle et ne peut être cédée à un tiers. '
+                                'En cas de perte, merci de la remettre à la Daara Barakatul Mahaahidi.',
+                                style: TextStyle(fontSize: 8, color: AppColors.textGrey),
+                              ),
+                            ],
                           ),
-                        ],
+                        ),
                       ),
                     ),
                   ),
@@ -361,6 +385,8 @@ class _CarteVerso extends StatelessWidget {
   Widget _ligne(String label, String valeur) => Padding(
         padding: const EdgeInsets.symmetric(vertical: 1),
         child: RichText(
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
           text: TextSpan(
             style: const TextStyle(fontSize: 10, color: _noir),
             children: [

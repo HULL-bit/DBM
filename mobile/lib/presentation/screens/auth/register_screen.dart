@@ -13,8 +13,17 @@ class RegisterScreen extends StatefulWidget {
 }
 
 class _RegisterScreenState extends State<RegisterScreen> {
-  final _formKey = GlobalKey<FormState>();
+  // Un formulaire par étape : avec un seul Form partagé, Flutter réutilisait l'état
+  // (et donc les messages d'erreur) des champs d'une étape pour ceux de l'étape
+  // suivante, d'où des « Requis » affichés sur des champs encore jamais touchés.
+  final _stepFormKeys = List.generate(3, (_) => GlobalKey<FormState>());
   int _step = 0;
+  // Validation en direct activée seulement après un premier clic sur « Suivant »
+  // raté : avant ça, aucune erreur ne s'affiche pendant que l'utilisateur remplit.
+  bool _autoValidate = false;
+  // Erreurs renvoyées par le serveur (doublon d'email, nom d'utilisateur pris...),
+  // affichées sous le champ concerné jusqu'à ce que l'utilisateur le modifie.
+  final Map<String, String> _serverErrors = {};
   bool _obscure = true;
   bool _loading = false;
 
@@ -62,11 +71,48 @@ class _RegisterScreenState extends State<RegisterScreen> {
     );
   }
 
-  Future<void> _register() async {
-    if (!_formKey.currentState!.validate()) {
+  static const _champsParEtape = [
+    {'username', 'email', 'password', 'first_name', 'last_name'},
+    {'telephone', 'adresse', 'sexe', 'categorie', 'profession'},
+    {'cellule', 'groupe_sanguin', 'niveau_alquran', 'niveau_majalis', 'numero_carte'},
+  ];
+
+  static final _emailRegex = RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$');
+
+  String? _requis(String? v) => v == null || v.trim().isEmpty ? 'Requis' : null;
+
+  /// Validator combinant l'erreur serveur éventuelle et la validation locale.
+  FormFieldValidator<String> _validator(String champ, [FormFieldValidator<String>? local]) =>
+      (v) => _serverErrors[champ] ?? local?.call(v);
+
+  void _effacerErreurServeur(String champ) {
+    if (_serverErrors.remove(champ) != null) setState(() {});
+  }
+
+  void _allerA(int step) {
+    FocusScope.of(context).unfocus();
+    setState(() {
+      _step = step;
+      _autoValidate = false;
+    });
+  }
+
+  void _suivant() {
+    final form = _stepFormKeys[_step].currentState;
+    if (form == null || !form.validate()) {
+      setState(() => _autoValidate = true);
       _signalerChampsInvalides();
       return;
     }
+    if (_step < 2) {
+      _allerA(_step + 1);
+    } else {
+      _register();
+    }
+  }
+
+  Future<void> _register() async {
+    FocusScope.of(context).unfocus();
     setState(() => _loading = true);
 
     final auth = context.read<AuthProvider>();
@@ -100,6 +146,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
         context.go('/login');
       } else {
+        _afficherErreursServeur(auth.fieldErrors);
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             content: Text(auth.error ?? "Erreur lors de l'inscription"),
@@ -108,6 +155,23 @@ class _RegisterScreenState extends State<RegisterScreen> {
         );
       }
     }
+  }
+
+  /// Place les erreurs de champ du serveur sous les bons champs et revient à la
+  /// première étape concernée (ex: email déjà utilisé → retour à l'étape 1).
+  void _afficherErreursServeur(Map<String, dynamic>? erreurs) {
+    _serverErrors.clear();
+    if (erreurs == null) return;
+    erreurs.forEach((champ, valeur) {
+      final texte = valeur is List ? valeur.join('\n') : valeur.toString();
+      _serverErrors[champ] = texte;
+    });
+    final etape = _champsParEtape.indexWhere((champs) => champs.any(_serverErrors.containsKey));
+    if (etape < 0) return;
+    setState(() {
+      _step = etape;
+      _autoValidate = true;
+    });
   }
 
   @override
@@ -119,13 +183,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
         title: const LogoDaara(height: 32, dark: true),
         leading: IconButton(
           icon: const Icon(Icons.arrow_back, color: AppColors.white),
-          onPressed: _step > 0 ? () => setState(() => _step--) : () => context.pop(),
+          onPressed: _step > 0 ? () => _allerA(_step - 1) : () => context.pop(),
         ),
       ),
       body: SafeArea(
         child: Form(
-          key: _formKey,
-          autovalidateMode: AutovalidateMode.onUserInteraction,
+          key: _stepFormKeys[_step],
+          autovalidateMode: _autoValidate ? AutovalidateMode.always : AutovalidateMode.disabled,
           child: Column(
             children: [
               // Indicateur d'étape
@@ -189,17 +253,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                         width: double.infinity,
                         height: 50,
                         child: ElevatedButton(
-                          onPressed: _loading ? null : () {
-                            if (!_formKey.currentState!.validate()) {
-                              _signalerChampsInvalides();
-                              return;
-                            }
-                            if (_step < 2) {
-                              setState(() => _step++);
-                            } else {
-                              _register();
-                            }
-                          },
+                          onPressed: _loading ? null : _suivant,
                           child: _loading
                               ? const SizedBox(height: 22, width: 22, child: CircularProgressIndicator(strokeWidth: 2, color: AppColors.white))
                               : Text(_step < 2 ? 'Suivant →' : "S'inscrire", style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
@@ -207,7 +261,7 @@ class _RegisterScreenState extends State<RegisterScreen> {
                       ),
                       if (_step == 0) ...[
                         const SizedBox(height: 16),
-                        Row(mainAxisAlignment: MainAxisAlignment.center, children: [
+                        Wrap(alignment: WrapAlignment.center, children: [
                           Text('Déjà un compte ? ', style: Theme.of(context).textTheme.bodyMedium),
                           GestureDetector(
                             onTap: () => context.pop(),
@@ -231,14 +285,18 @@ class _RegisterScreenState extends State<RegisterScreen> {
       Expanded(child: TextFormField(
         controller: _firstNameCtrl,
         decoration: const InputDecoration(labelText: 'Prénom *'),
-        validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+        validator: _validator('first_name', _requis),
+        onChanged: (_) => _effacerErreurServeur('first_name'),
+        textCapitalization: TextCapitalization.words,
         textInputAction: TextInputAction.next,
       )),
       const SizedBox(width: 12),
       Expanded(child: TextFormField(
         controller: _lastNameCtrl,
         decoration: const InputDecoration(labelText: 'Nom *'),
-        validator: (v) => v == null || v.isEmpty ? 'Requis' : null,
+        validator: _validator('last_name', _requis),
+        onChanged: (_) => _effacerErreurServeur('last_name'),
+        textCapitalization: TextCapitalization.words,
         textInputAction: TextInputAction.next,
       )),
     ]),
@@ -250,13 +308,16 @@ class _RegisterScreenState extends State<RegisterScreen> {
         helperText: 'Sans espace : lettres, chiffres, . _ - + uniquement',
         prefixIcon: Icon(Icons.person_outline, color: AppColors.primaryGreen),
       ),
-      validator: (v) {
-        if (v == null || v.isEmpty) return 'Champ requis';
-        if (!RegExp(r'^[\w.@+-]+$', unicode: true).hasMatch(v)) {
+      autocorrect: false,
+      enableSuggestions: false,
+      validator: _validator('username', (v) {
+        if (v == null || v.trim().isEmpty) return 'Champ requis';
+        if (!RegExp(r'^[\w.@+-]+$', unicode: true).hasMatch(v.trim())) {
           return "Pas d'espace ni de caractère spécial (lettres, chiffres, . _ - + uniquement)";
         }
         return null;
-      },
+      }),
+      onChanged: (_) => _effacerErreurServeur('username'),
       textInputAction: TextInputAction.next,
     ),
     const SizedBox(height: 16),
@@ -264,11 +325,13 @@ class _RegisterScreenState extends State<RegisterScreen> {
       controller: _emailCtrl,
       keyboardType: TextInputType.emailAddress,
       decoration: const InputDecoration(labelText: 'Email *', prefixIcon: Icon(Icons.email_outlined, color: AppColors.primaryGreen)),
-      validator: (v) {
-        if (v == null || v.isEmpty) return 'Champ requis';
-        if (!v.contains('@')) return 'Email invalide';
+      autocorrect: false,
+      validator: _validator('email', (v) {
+        if (v == null || v.trim().isEmpty) return 'Champ requis';
+        if (!_emailRegex.hasMatch(v.trim())) return 'Email invalide';
         return null;
-      },
+      }),
+      onChanged: (_) => _effacerErreurServeur('email'),
       textInputAction: TextInputAction.next,
     ),
     const SizedBox(height: 16),
@@ -283,11 +346,14 @@ class _RegisterScreenState extends State<RegisterScreen> {
           onPressed: () => setState(() => _obscure = !_obscure),
         ),
       ),
-      validator: (v) {
+      validator: _validator('password', (v) {
         if (v == null || v.isEmpty) return 'Champ requis';
         if (v.length < 8) return 'Minimum 8 caractères';
         return null;
-      },
+      }),
+      onChanged: (_) => _effacerErreurServeur('password'),
+      textInputAction: TextInputAction.done,
+      onFieldSubmitted: (_) => _suivant(),
     ),
   ];
 
@@ -295,12 +361,17 @@ class _RegisterScreenState extends State<RegisterScreen> {
     TextFormField(
       controller: _telephoneCtrl,
       keyboardType: TextInputType.phone,
+      maxLength: 20,
+      validator: _validator('telephone'),
+      onChanged: (_) => _effacerErreurServeur('telephone'),
       decoration: const InputDecoration(labelText: 'Téléphone', prefixIcon: Icon(Icons.phone_outlined, color: AppColors.primaryGreen)),
       textInputAction: TextInputAction.next,
     ),
     const SizedBox(height: 16),
     TextFormField(
       controller: _adresseCtrl,
+      validator: _validator('adresse'),
+      onChanged: (_) => _effacerErreurServeur('adresse'),
       decoration: const InputDecoration(labelText: 'Adresse', prefixIcon: Icon(Icons.location_on_outlined, color: AppColors.primaryGreen)),
       textInputAction: TextInputAction.next,
     ),
@@ -323,6 +394,9 @@ class _RegisterScreenState extends State<RegisterScreen> {
     const SizedBox(height: 16),
     TextFormField(
       controller: _professionCtrl,
+      maxLength: 100,
+      validator: _validator('profession'),
+      onChanged: (_) => _effacerErreurServeur('profession'),
       decoration: const InputDecoration(labelText: 'Profession', prefixIcon: Icon(Icons.work_outline, color: AppColors.primaryGreen)),
       textInputAction: TextInputAction.next,
     ),
@@ -361,9 +435,12 @@ class _RegisterScreenState extends State<RegisterScreen> {
       icon: Icons.mosque_outlined,
     ),
     const SizedBox(height: 16),
-    const SizedBox(height: 16),
     TextFormField(
       controller: _numeroCarteCtrl,
+      maxLength: 50,
+      validator: _validator('numero_carte'),
+      onChanged: (_) => _effacerErreurServeur('numero_carte'),
+      onFieldSubmitted: (_) => _suivant(),
       decoration: const InputDecoration(labelText: 'Numéro de Carte', prefixIcon: Icon(Icons.credit_card_outlined, color: AppColors.primaryGreen)),
       textInputAction: TextInputAction.done,
     ),
