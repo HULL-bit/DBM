@@ -1,13 +1,15 @@
 import { useState } from 'react'
-import { Outlet } from 'react-router-dom'
+import { Outlet, useLocation } from 'react-router-dom'
 import { Box, useMediaQuery, useTheme } from '@mui/material'
 import Header from './Header'
 import Sidebar, { SIDEBAR_WIDTH, SIDEBAR_COLLAPSED } from './Sidebar'
 import Footer from './Footer'
+import ErrorBoundary from '../ui/ErrorBoundary'
 
 export default function Layout() {
   const theme = useTheme()
   const isMobile = useMediaQuery(theme.breakpoints.down('md'))
+  const location = useLocation()
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
 
@@ -57,7 +59,11 @@ export default function Layout() {
           transition: 'margin-left 0.35s cubic-bezier(0.4, 0, 0.2, 1), padding 0.3s ease',
         }}
       >
-        <Outlet />
+        {/* Une page qui plante n'emporte plus tout l'écran : le menu reste utilisable,
+            et changer de page (key) efface l'erreur. */}
+        <ErrorBoundary key={location.pathname}>
+          <Outlet />
+        </ErrorBoundary>
       </Box>
       <Footer sidebarWidth={mainMarginLeft} />
     </Box>

@@ -1,0 +1,66 @@
+# Surveillance externe du backend DBM (Render).
+# Le serveur ne peut pas envoyer d'alerte quand il est lui-même en panne : ce workflow
+# l'interroge toutes les 15 minutes depuis GitHub. En cas d'échec, il ouvre une issue
+# « Serveur DBM injoignable » (GitHub envoie alors un email au propriétaire du dépôt),
+# et la ferme automatiquement au retour à la normale (nouvel email de rétablissement).
+name: Surveillance serveur
+
+on:
+  schedule:
+    - cron: '*/15 * * * *'
+  workflow_dispatch:
+
+permissions:
+  issues: write
+
+env:
+  HEALTH_URL: https://dbm-8ym4.onrender.com/api/health/
+  TITRE_ISSUE: '🔴 Serveur DBM injoignable'
+
+jobs:
+  verifier:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Interroger /api/health/
+        id: health
+        run: |
+          # Render (offre gratuite) peut mettre ~1 min à se réveiller : 3 essais, 90 s max chacun.
+          for essai in 1 2 3; do
+            code=$(curl -s -o reponse.json -w '%{http_code}' --max-time 90 "$HEALTH_URL" || echo 000)
+            echo "Essai $essai : HTTP $code"
+            if [ "$code" = "200" ]; then echo "ok=true" >> "$GITHUB_OUTPUT"; exit 0; fi
+            sleep 20
+          done
+          echo "ok=false" >> "$GITHUB_OUTPUT"
+          echo "code=$code" >> "$GITHUB_OUTPUT"
+          echo "corps=$(head -c 500 reponse.json 2>/dev/null | tr -d '\n\r')" >> "$GITHUB_OUTPUT"
+
+      - name: Ouvrir / mettre à jour l'issue d'alerte
+        if: steps.health.outputs.ok == 'false'
+        uses: actions/github-script@v7
+        env:
+          CODE: ${{ steps.health.outputs.code }}
+          CORPS: ${{ steps.health.outputs.corps }}
+        with:
+          script: |
+            const titre = process.env.TITRE_ISSUE
+            const { data: ouvertes } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: 'surveillance' })
+            const existante = ouvertes.find((i) => i.title === titre)
+            const message = `Échec de ${process.env.HEALTH_URL} à ${new Date().toISOString()}\n\n- Code HTTP : ${process.env.CODE} (000 = pas de réponse / délai dépassé ; 503 = base de données indisponible)\n- Réponse : \`${process.env.CORPS || '(vide)'}\`\n\nÀ vérifier : tableau de bord Render (logs, déploiement en échec, quota), base de données.`
+            if (existante) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: existante.number, body: message })
+            } else {
+              await github.rest.issues.create({ ...context.repo, title: titre, body: message, labels: ['surveillance'], assignees: [context.repo.owner] })
+            }
+            core.setFailed('Serveur injoignable')
+
+      - name: Fermer l'issue d'alerte si le serveur est revenu
+        if: steps.health.outputs.ok == 'true'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const { data: ouvertes } = await github.rest.issues.listForRepo({ ...context.repo, state: 'open', labels: 'surveillance' })
+            for (const issue of ouvertes.filter((i) => i.title === process.env.TITRE_ISSUE)) {
+              await github.rest.issues.createComment({ ...context.repo, issue_number: issue.number, body: `✅ Serveur de nouveau joignable (${new Date().toISOString()}).` })
+              await github.rest.issues.update({ ...context.repo, issue_number: issue.number, state: 'closed' })
+            }

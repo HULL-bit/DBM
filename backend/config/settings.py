@@ -31,11 +31,14 @@ INSTALLED_APPS = [
     'apps.scientifique',
     'apps.organisation',
     'apps.bibliotheque',
+    'apps.monitoring',
 ]
 
 AUTH_USER_MODEL = 'accounts.CustomUser'
 
 MIDDLEWARE = [
+    # En premier : identifiant de requête + durée + trace de chaque appel API.
+    'apps.monitoring.middleware.TracabiliteRequeteMiddleware',
     'django.middleware.security.SecurityMiddleware',
     'corsheaders.middleware.CorsMiddleware',
     'config.middleware.MediaCorsMiddleware',
@@ -231,6 +234,37 @@ REST_FRAMEWORK = {
     # fait échouer la négociation de contenu avec un Http404 — avant même la
     # vérification des permissions. On désactive ce mécanisme globalement.
     'URL_FORMAT_OVERRIDE': None,
+}
+
+# Surveillance / alertes
+# Destinataires des emails d'alerte (erreurs serveur, erreurs web/mobile, base
+# indisponible). Plusieurs adresses séparées par des virgules. Les emails ne partent
+# réellement que si EMAIL_HOST_USER / EMAIL_HOST_PASSWORD sont configurés (sinon ils
+# s'affichent dans les logs) — voir la section Email ci-dessus.
+ALERT_EMAILS = [e.strip() for e in os.environ.get('ALERT_EMAILS', 'suleimaanjaw@gmail.com').split(',') if e.strip()]
+ALERT_EMAIL_INTERVALLE_MINUTES = int(os.environ.get('ALERT_EMAIL_INTERVALLE_MINUTES', '60'))
+ALERT_EMAIL_MAX_PAR_HEURE = int(os.environ.get('ALERT_EMAIL_MAX_PAR_HEURE', '15'))
+
+# Logs lisibles dans le tableau de bord Render (sortie console) ; toute erreur serveur
+# devient en plus un incident technique (journal + email, voir apps/monitoring).
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'simple': {'format': '%(asctime)s %(levelname)s [%(name)s] %(message)s'},
+    },
+    'handlers': {
+        'console': {'class': 'logging.StreamHandler', 'formatter': 'simple'},
+        'incident': {'class': 'apps.monitoring.logging_handler.IncidentHandler', 'level': 'ERROR'},
+    },
+    'root': {'handlers': ['console', 'incident'], 'level': 'WARNING'},
+    'loggers': {
+        'django': {'handlers': ['console', 'incident'], 'level': 'INFO', 'propagate': False},
+        'django.server': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'dbm.requetes': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'dbm.monitoring': {'handlers': ['console'], 'level': 'INFO', 'propagate': False},
+        'apps': {'handlers': ['console', 'incident'], 'level': 'INFO', 'propagate': False},
+    },
 }
 
 # JWT

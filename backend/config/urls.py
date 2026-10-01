@@ -112,6 +112,7 @@ urlpatterns = [
     path('api/', include('apps.scientifique.urls')),
     path('api/', include('apps.organisation.urls')),
     path('api/', include('apps.bibliotheque.urls')),
+    path('api/', include('apps.monitoring.urls')),
 ]
 
 def _serve_media(request, path, document_root=None, show_indexes=False):

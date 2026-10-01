@@ -6,15 +6,21 @@ import { AuthProvider } from './context/AuthContext'
 import theme from './styles/theme'
 import App from './App'
 import './styles/global.css'
+import ErrorBoundary from './components/ui/ErrorBoundary'
+import { installerSurveillanceGlobale } from './services/signalement'
+
+installerSurveillanceGlobale()
 
 ReactDOM.createRoot(document.getElementById('root')).render(
   <React.StrictMode>
     <HashRouter>
       <ThemeProvider theme={theme}>
         <CssBaseline />
-        <AuthProvider>
-          <App />
-        </AuthProvider>
+        <ErrorBoundary>
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </ErrorBoundary>
       </ThemeProvider>
     </HashRouter>
   </React.StrictMode>,

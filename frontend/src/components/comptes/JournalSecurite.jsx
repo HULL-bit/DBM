@@ -23,9 +23,13 @@ import {
   DialogContent,
   DialogActions,
   Alert,
+  Tabs,
+  Tab,
+  Badge,
 } from '@mui/material'
 import { History, Download, DeleteSweep } from '@mui/icons-material'
 import api from '../../services/api'
+import IncidentsTechniques from './IncidentsTechniques'
 
 const COLORS = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 
@@ -65,7 +69,7 @@ const actionColor = (action) => {
   return 'default'
 }
 
-export default function JournalSecurite() {
+function JournalActions() {
   const [entries, setEntries] = useState([])
   const [count, setCount] = useState(0)
   const [page, setPage] = useState(1)
@@ -273,6 +277,41 @@ export default function JournalSecurite() {
           </Button>
         </DialogActions>
       </Dialog>
+    </Box>
+  )
+}
+
+// Deux journaux : les actions des utilisateurs (audit) et les incidents techniques
+// (erreurs serveur, site web, appli mobile, panne de base de données).
+export default function JournalSecurite() {
+  const [onglet, setOnglet] = useState('actions')
+  const [nbIncidents, setNbIncidents] = useState(0)
+
+  useEffect(() => {
+    api.get('/monitoring/incidents/', { params: { resolu: 'false' } })
+      .then(({ data }) => setNbIncidents(data?.non_resolus || 0))
+      .catch(() => {})
+  }, [onglet])
+
+  return (
+    <Box>
+      <Tabs
+        value={onglet}
+        onChange={(_e, v) => setOnglet(v)}
+        sx={{ mb: 2, '& .Mui-selected': { color: `${COLORS.vert} !important` }, '& .MuiTabs-indicator': { bgcolor: COLORS.vert } }}
+      >
+        <Tab value="actions" label="Actions des utilisateurs" sx={{ textTransform: 'none', fontWeight: 600 }} />
+        <Tab
+          value="incidents"
+          sx={{ textTransform: 'none', fontWeight: 600 }}
+          label={
+            <Badge color="error" badgeContent={nbIncidents} max={99} sx={{ pr: nbIncidents ? 1.5 : 0 }}>
+              Incidents techniques
+            </Badge>
+          }
+        />
+      </Tabs>
+      {onglet === 'actions' ? <JournalActions /> : <IncidentsTechniques onChange={setNbIncidents} />}
     </Box>
   )
 }

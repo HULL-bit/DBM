@@ -116,6 +116,26 @@ Si vous voyez l’erreur **« column nb_lectures of relation culturelle_kamil do
    ```
    Ainsi, après chaque déploiement, les nouvelles migrations (comme `nb_lectures` sur Kamil) seront appliquées avant le démarrage de l’app.
 
+## Surveillance, logs et alertes email
+
+- **Incidents techniques** (Journal de sécurité > onglet *Incidents techniques*) : toute erreur
+  serveur (500), tout plantage du site web ou de l'appli mobile et toute indisponibilité de la
+  base de données y est enregistré, avec la trace complète. Les occurrences d'une même erreur
+  sont regroupées.
+- **Email d'alerte** à chaque nouvel incident (au plus 1 par incident et par heure, 15 par
+  heure au total), envoyé à `ALERT_EMAILS` (par défaut l'adresse de l'administrateur).
+  **Pour que les emails partent vraiment**, définir sur Render : `EMAIL_HOST_USER` (adresse
+  Gmail d'envoi) et `EMAIL_HOST_PASSWORD` (*mot de passe d'application* Gmail, pas le mot de
+  passe du compte). Sans eux, les emails ne s'affichent que dans les logs. Le bouton
+  *Tester l'email d'alerte* de l'onglet Incidents vérifie la configuration.
+- **Logs Render** : une ligne par appel API (méthode, chemin, statut, durée, utilisateur, IP,
+  `rid`). L'identifiant `rid` est renvoyé dans l'en-tête `X-Request-ID` et repris dans les
+  emails, pour retrouver une erreur précise dans les logs.
+- **Serveur en panne** : le workflow GitHub `.github/workflows/surveillance.yml` interroge
+  `/api/health/` toutes les 15 min ; en cas d'échec il ouvre une issue *Serveur DBM
+  injoignable* (GitHub envoie un email), refermée automatiquement au retour du serveur.
+- Tests : `python manage.py test apps.monitoring`.
+
 ## Licence
 
 Projet Daara Barakatul Mahaahidi.
