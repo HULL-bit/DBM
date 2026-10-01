@@ -8,8 +8,10 @@ from .models import SeanceConservatoire, PresenceSeance, Kourel
 
 # ─────────────────────────────── Helpers ────────────────────────────────────
 
-def _get_queryset(date_debut=None, date_fin=None, kourel_id=None):
-    qs = SeanceConservatoire.objects.filter(type_seance='repetition')
+def _get_queryset(date_debut=None, date_fin=None, kourel_id=None, type_seance='repetition'):
+    qs = SeanceConservatoire.objects.all()
+    if type_seance:
+        qs = qs.filter(type_seance=type_seance)
     if date_debut:
         qs = qs.filter(date_heure__date__gte=date_debut)
     if date_fin:
@@ -111,6 +113,48 @@ def _get_stats_par_membre(qs):
     return sorted(result, key=lambda x: (-x['taux_presence'], x['nom']))
 
 
+def _get_stats_par_membre_combinees(qs_repetition, qs_prestation):
+    """Combine les stats de présence d'un membre pour les répétitions (comportement
+    historique, inchangé : nb_presents/nb_retards/taux_presence/justifications...) avec un
+    taux GLOBAL séparé pour les prestations, calculé sur le(s) même(s) kourel(s) dont il est
+    membre. Les deux taux restent distincts (jamais mélangés) : répétition et prestation ne
+    mesurent pas la même pratique.
+    Ajoute à chaque dict : nb_prest_attendues, nb_prest_presents, taux_prestation (None si
+    aucune prestation sur la période) et taux_repetition (alias explicite de taux_presence,
+    pour que le rapport affiche sans ambiguïté les deux taux côte à côte).
+    """
+    stats_rep = _get_stats_par_membre(qs_repetition)
+    stats_prest_par_id = {s['membre_id']: s for s in _get_stats_par_membre(qs_prestation)}
+
+    for s in stats_rep:
+        p = stats_prest_par_id.get(s['membre_id'])
+        s['taux_repetition'] = s['taux_presence']
+        s['nb_prest_attendues'] = p['nb_seances_attendues'] if p else 0
+        s['nb_prest_presents'] = p['nb_presents'] if p else 0
+        s['taux_prestation'] = p['taux_presence'] if p else None
+        if p:
+            s['justifications'] = s['justifications'] + p['justifications']
+
+    # Membres qui n'ont QUE des prestations sur la période (aucune répétition) : à inclure
+    # aussi, avec les champs "répétition" à zéro plutôt que de les faire disparaître.
+    ids_deja_listes = {s['membre_id'] for s in stats_rep}
+    for mid, p in stats_prest_par_id.items():
+        if mid in ids_deja_listes:
+            continue
+        stats_rep.append({
+            'membre_id': mid, 'membre': p['membre'], 'nom': p['nom'], 'kourel': p['kourel'],
+            'nb_seances_attendues': 0, 'nb_presents': 0, 'nb_retards': 0,
+            'nb_hors_kourel_sanction': 0, 'nb_abs_just': 0, 'nb_abs_non_just': 0,
+            'justifications': p['justifications'], 'taux_presence': None,
+            'nb_hors_kourel': p['nb_hors_kourel'],
+            'taux_repetition': None,
+            'nb_prest_attendues': p['nb_seances_attendues'], 'nb_prest_presents': p['nb_presents'],
+            'taux_prestation': p['taux_presence'],
+        })
+
+    return sorted(stats_rep, key=lambda x: (-(x['taux_presence'] or x['taux_prestation'] or 0), x['nom']))
+
+
 def _get_invites_hors_kourel(qs):
     """Présences 'invité' (membre d'un AUTRE kourel venu assister, present_invite)
     enregistrées sur les séances de `qs`, regroupées par kourel ACCUEILLANT (celui de la
@@ -169,8 +213,10 @@ def _build_detail_par_kourel(kourel_qs, qs, stats_membres):
                 'nb_hors_kourel_sanction': 0,
                 'nb_abs_just': 0, 'nb_abs_non_just': 0, 'justifications': [],
                 'taux_presence': 0, 'nb_hors_kourel': 0,
+                'taux_repetition': 0, 'nb_prest_attendues': 0, 'nb_prest_presents': 0,
+                'taux_prestation': None,
             })
-        membres_stats.sort(key=lambda x: (-x['taux_presence'], x['nom']))
+        membres_stats.sort(key=lambda x: (-(x['taux_presence'] or x.get('taux_prestation') or 0), x['nom']))
         blocs.append({
             'kourel': k,
             'encadrement': _kourel_encadrement(k),
@@ -329,25 +375,33 @@ def export_rapport_excel(date_debut=None, date_fin=None, kourel_id=None):
     # ══════════════════════════════════════════════════
     # Feuille 3 : Taux de présence par membre
     # ══════════════════════════════════════════════════
-    stats_membres = _get_stats_par_membre(qs)
+    qs_prestations = _get_queryset(date_debut, date_fin, kourel_id, type_seance='prestation')
+    stats_membres = _get_stats_par_membre_combinees(qs, qs_prestations)
     ws_membres = wb.create_sheet("Taux par membre")
     _write_header_row(ws_membres, 1, [
-        'Membre', 'Kourel', 'Séances attendues', 'Présents (dont retards)', 'dont retards',
+        'Membre', 'Kourel', 'Séances attendues (rép.)', 'Présents (dont retards)', 'dont retards',
         'dont hors kourel (sans prestation)',
-        'Abs. justifiés', 'Abs. non justifiés', 'Taux présence (%)', 'Invités (autre kourel)'
+        'Abs. justifiés', 'Abs. non justifiés', 'Taux répétitions (%)',
+        'Prestations attendues', 'Prestations présent', 'Taux prestations (%)',
+        'Invités (autre kourel)'
     ])
     for i, s in enumerate(stats_membres, 2):
-        taux_val = s['taux_presence']
+        taux_rep = s['taux_repetition']
+        taux_prest = s['taux_prestation']
         row_data = [
             s['nom'], s['kourel'], s['nb_seances_attendues'],
             s['nb_presents'], s['nb_retards'], s['nb_hors_kourel_sanction'],
             s['nb_abs_just'], s['nb_abs_non_just'],
-            f"{taux_val}%", s['nb_hors_kourel'],
+            f"{taux_rep}%" if taux_rep is not None else '—',
+            s['nb_prest_attendues'], s['nb_prest_presents'],
+            f"{taux_prest}%" if taux_prest is not None else '—',
+            s['nb_hors_kourel'],
         ]
-        # Couleur selon taux
-        if taux_val >= 80:
+        # Couleur selon le meilleur taux disponible (répétition en priorité)
+        taux_ref = taux_rep if taux_rep is not None else (taux_prest or 0)
+        if taux_ref >= 80:
             row_bg = 'E8F5E9'
-        elif taux_val >= 50:
+        elif taux_ref >= 50:
             row_bg = 'FFF9E6'
         else:
             row_bg = 'FFEBEE'
@@ -356,7 +410,7 @@ def export_rapport_excel(date_debut=None, date_fin=None, kourel_id=None):
             c.border = border
             c.fill = fill(row_bg)
             c.alignment = Alignment(horizontal='center' if col > 1 else 'left')
-    _autofit(ws_membres, [28, 20, 16, 18, 12, 22, 16, 18, 16, 18])
+    _autofit(ws_membres, [28, 20, 18, 18, 12, 22, 16, 18, 16, 16, 16, 16, 18])
 
     # ══════════════════════════════════════════════════
     # Feuille 4 : Détail par Kourel — jamais par séance, cela mélangerait les kourels.
@@ -368,28 +422,34 @@ def export_rapport_excel(date_debut=None, date_fin=None, kourel_id=None):
     row = 1
     for bloc in blocs:
         k, enc = bloc['kourel'], bloc['encadrement']
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=11)
         c = ws.cell(row=row, column=1, value=f"KOUREL : {k.nom.upper()}  —  {bloc['nb_seances']} séance(s) sur la période")
         c.font = Font(bold=True, size=12, color='FFFFFF')
         c.fill = fill(_GREEN)
         row += 1
-        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
+        ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=11)
         infos = f"Responsable : {enc['responsable']}  |  1er MC : {enc['maitre_1']}  |  2ème MC : {enc['maitre_2']}  |  Jewrine : {enc['jewrine']}"
         ws.cell(row=row, column=1, value=infos).font = Font(italic=True, size=9)
         row += 1
 
         _write_header_row(ws, row, [
-            'Membre', 'Séances attendues', 'Présents (dont retards)', 'dont retards',
-            'dont hors kourel (sans prestation)', 'Abs. justifiées', 'Abs. non justifiées', 'Taux (%)'
+            'Membre', 'Séances attendues (rép.)', 'Présents (dont retards)', 'dont retards',
+            'dont hors kourel (sans prestation)', 'Abs. justifiées', 'Abs. non justifiées',
+            'Taux répétitions (%)', 'Prestations attendues', 'Prestations présent', 'Taux prestations (%)'
         ], bg_color=_GOLD, text_color='000000')
         row += 1
         for s in bloc['membres']:
-            taux_val = s['taux_presence']
+            taux_rep = s['taux_presence']
+            taux_prest = s.get('taux_prestation')
             row_data = [
                 s['nom'], s['nb_seances_attendues'], s['nb_presents'], s['nb_retards'],
-                s['nb_hors_kourel_sanction'], s['nb_abs_just'], s['nb_abs_non_just'], f"{taux_val}%"
+                s['nb_hors_kourel_sanction'], s['nb_abs_just'], s['nb_abs_non_just'],
+                f"{taux_rep}%" if taux_rep is not None else '—',
+                s.get('nb_prest_attendues', 0), s.get('nb_prest_presents', 0),
+                f"{taux_prest}%" if taux_prest is not None else '—',
             ]
-            row_bg = 'E8F5E9' if taux_val >= 80 else ('FFF9E6' if taux_val >= 50 else 'FFEBEE')
+            taux_ref = taux_rep if taux_rep is not None else (taux_prest or 0)
+            row_bg = 'E8F5E9' if taux_ref >= 80 else ('FFF9E6' if taux_ref >= 50 else 'FFEBEE')
             for col, val in enumerate(row_data, 1):
                 c = ws.cell(row=row, column=col, value=val)
                 c.border = border
@@ -398,7 +458,7 @@ def export_rapport_excel(date_debut=None, date_fin=None, kourel_id=None):
             row += 1
             # Détail des justifications d'absence de ce membre, s'il y en a.
             for j in s['justifications']:
-                ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=8)
+                ws.merge_cells(start_row=row, start_column=2, end_row=row, end_column=11)
                 date_str = j['date'].strftime('%d/%m/%Y') if j['date'] else ''
                 ws.cell(row=row, column=1, value='   ↳ Justification').font = Font(italic=True, size=8)
                 ws.cell(row=row, column=2, value=f"{date_str} — {j['seance']} : {j['justification']}").font = Font(italic=True, size=8)
@@ -406,20 +466,20 @@ def export_rapport_excel(date_debut=None, date_fin=None, kourel_id=None):
 
         if bloc['invites']:
             row += 1
-            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=8)
+            ws.merge_cells(start_row=row, start_column=1, end_row=row, end_column=11)
             ws.cell(row=row, column=1, value="Invités d'un autre kourel (venus assister à la répétition)").font = Font(bold=True, size=10, color=_GREEN)
             row += 1
-            _write_header_row(ws, row, ['Membre', 'Kourel d\'origine', 'Nb venues', '', '', '', '', ''], bg_color=_LIGHT, text_color='000000')
+            _write_header_row(ws, row, ['Membre', 'Kourel d\'origine', 'Nb venues'] + [''] * 8, bg_color=_LIGHT, text_color='000000')
             row += 1
             for inv in bloc['invites']:
-                row_data = [inv['nom'], inv['kourel_origine'], inv['nb_venues'], '', '', '', '', '']
+                row_data = [inv['nom'], inv['kourel_origine'], inv['nb_venues']] + [''] * 8
                 for col, val in enumerate(row_data, 1):
                     c = ws.cell(row=row, column=col, value=val)
                     c.border = border
                 row += 1
         row += 2  # espace entre kourels
 
-    _autofit(ws, [26, 18, 20, 12, 20, 16, 18, 12])
+    _autofit(ws, [26, 18, 20, 12, 20, 16, 18, 16, 16, 16, 16])
 
     from io import BytesIO
     buf = BytesIO()
@@ -548,23 +608,26 @@ def export_rapport_pdf(date_debut=None, date_fin=None, kourel_id=None):
     elements.append(Spacer(1, 0.8*cm))
 
     # ── Taux par membre ──
-    stats_membres = _get_stats_par_membre(qs)
+    qs_prestations = _get_queryset(date_debut, date_fin, kourel_id, type_seance='prestation')
+    stats_membres = _get_stats_par_membre_combinees(qs, qs_prestations)
     elements.append(Paragraph('Taux de présence par membre', h2_style))
     elements.append(Spacer(1, 0.3*cm))
     if stats_membres:
-        m_headers = [['Membre', 'Kourel', 'Attendues', 'Présents', 'Retards', 'Abs. just.', 'Abs. non just.', 'Taux (%)']]
+        m_headers = [['Membre', 'Kourel', 'Attendues', 'Présents', 'Retards', 'Abs. just.', 'Abs. non just.', 'Taux rép. (%)', 'Taux prest. (%)']]
         m_data = [
             [s['nom'], s['kourel'], str(s['nb_seances_attendues']), str(s['nb_presents']), str(s['nb_retards']),
-             str(s['nb_abs_just']), str(s['nb_abs_non_just']), f"{s['taux_presence']}%"]
+             str(s['nb_abs_just']), str(s['nb_abs_non_just']),
+             f"{s['taux_repetition']}%" if s['taux_repetition'] is not None else '—',
+             f"{s['taux_prestation']}%" if s['taux_prestation'] is not None else '—']
             for s in stats_membres
         ]
-        mt = Table(m_headers + m_data, colWidths=[4*cm, 3*cm, 1.8*cm, 1.8*cm, 1.8*cm, 2*cm, 2.2*cm, 1.8*cm])
+        mt = Table(m_headers + m_data, colWidths=[3.8*cm, 2.3*cm, 1.5*cm, 1.5*cm, 1.5*cm, 1.8*cm, 1.8*cm, 1.6*cm, 1.6*cm])
         style = tbl_style()
-        # Coloration conditionnelle du taux
+        # Coloration conditionnelle du meilleur taux disponible (répétition en priorité)
         for i, s in enumerate(stats_membres, 1):
-            taux = s['taux_presence']
+            taux = s['taux_repetition'] if s['taux_repetition'] is not None else (s['taux_prestation'] or 0)
             color = colors.HexColor('#E8F5E9') if taux >= 80 else (colors.HexColor('#FFF9E6') if taux >= 50 else colors.HexColor('#FFEBEE'))
-            style.add('BACKGROUND', (7, i), (7, i), color)
+            style.add('BACKGROUND', (7, i), (8, i), color)
         mt.setStyle(style)
         elements.append(mt)
     else:
@@ -593,18 +656,20 @@ def export_rapport_pdf(date_debut=None, date_fin=None, kourel_id=None):
         elements.append(Spacer(1, 0.2*cm))
 
         if bloc['membres']:
-            mh = [['Membre', 'Attendues', 'Présents', 'Retards', 'Abs. just.', 'Abs. non just.', 'Taux (%)']]
+            mh = [['Membre', 'Attendues', 'Présents', 'Retards', 'Abs. just.', 'Abs. non just.', 'Taux rép. (%)', 'Taux prest. (%)']]
             mrows = [
                 [s['nom'], str(s['nb_seances_attendues']), str(s['nb_presents']), str(s['nb_retards']),
-                 str(s['nb_abs_just']), str(s['nb_abs_non_just']), f"{s['taux_presence']}%"]
+                 str(s['nb_abs_just']), str(s['nb_abs_non_just']),
+                 f"{s['taux_presence']}%" if s['taux_presence'] is not None else '—',
+                 f"{s.get('taux_prestation')}%" if s.get('taux_prestation') is not None else '—']
                 for s in bloc['membres']
             ]
-            kt = Table(mh + mrows, colWidths=[4.5*cm, 2.2*cm, 2.2*cm, 1.8*cm, 2*cm, 2.2*cm, 1.8*cm])
+            kt = Table(mh + mrows, colWidths=[4*cm, 1.8*cm, 1.8*cm, 1.4*cm, 1.8*cm, 1.8*cm, 1.5*cm, 1.5*cm])
             kstyle = tbl_style(header_color=GOLD)
             for i, s in enumerate(bloc['membres'], 1):
-                taux = s['taux_presence']
+                taux = s['taux_presence'] if s['taux_presence'] is not None else (s.get('taux_prestation') or 0)
                 color = colors.HexColor('#E8F5E9') if taux >= 80 else (colors.HexColor('#FFF9E6') if taux >= 50 else colors.HexColor('#FFEBEE'))
-                kstyle.add('BACKGROUND', (6, i), (6, i), color)
+                kstyle.add('BACKGROUND', (6, i), (7, i), color)
             kt.setStyle(kstyle)
             elements.append(kt)
 
@@ -679,15 +744,22 @@ def export_rapport_csv(date_debut=None, date_fin=None, kourel_id=None):
     writer.writerow([])
 
     # Section taux par membre
-    stats_membres = _get_stats_par_membre(qs)
+    qs_prestations = _get_queryset(date_debut, date_fin, kourel_id, type_seance='prestation')
+    stats_membres = _get_stats_par_membre_combinees(qs, qs_prestations)
     writer.writerow(['=== TAUX DE PRESENCE PAR MEMBRE ==='])
-    writer.writerow(['Membre', 'Kourel', 'Séances attendues', 'Présents', 'Retards',
+    writer.writerow(['Membre', 'Kourel', 'Séances attendues (rép.)', 'Présents', 'Retards',
                       'Hors kourel (sans prestation)', 'Abs. justifiés', 'Abs. non justifiés',
-                      'Taux (%)', "Invités (autre kourel)"])
+                      'Taux répétitions (%)', 'Prestations attendues', 'Prestations présent',
+                      'Taux prestations (%)', "Invités (autre kourel)"])
     for s in stats_membres:
-        writer.writerow([s['nom'], s['kourel'], s['nb_seances_attendues'], s['nb_presents'], s['nb_retards'],
-                        s['nb_hors_kourel_sanction'], s['nb_abs_just'], s['nb_abs_non_just'],
-                        f"{s['taux_presence']}%", s['nb_hors_kourel']])
+        writer.writerow([
+            s['nom'], s['kourel'], s['nb_seances_attendues'], s['nb_presents'], s['nb_retards'],
+            s['nb_hors_kourel_sanction'], s['nb_abs_just'], s['nb_abs_non_just'],
+            f"{s['taux_repetition']}%" if s['taux_repetition'] is not None else '—',
+            s['nb_prest_attendues'], s['nb_prest_presents'],
+            f"{s['taux_prestation']}%" if s['taux_prestation'] is not None else '—',
+            s['nb_hors_kourel'],
+        ])
     writer.writerow([])
 
     # Section détail par kourel — jamais par séance, cela mélangerait les kourels entre eux.
@@ -706,10 +778,16 @@ def export_rapport_csv(date_debut=None, date_fin=None, kourel_id=None):
         writer.writerow([f"Responsable: {enc['responsable']} | 1er MC: {enc['maitre_1']} | "
                           f"2ème MC: {enc['maitre_2']} | Jewrine: {enc['jewrine']}"])
         writer.writerow(['Membre', 'Séances attendues', 'Présents', 'Retards',
-                          'Hors kourel (sans prestation)', 'Abs. justifiées', 'Abs. non justifiées', 'Taux (%)'])
+                          'Hors kourel (sans prestation)', 'Abs. justifiées', 'Abs. non justifiées',
+                          'Taux répétitions (%)', 'Prestations attendues', 'Prestations présent', 'Taux prestations (%)'])
         for s in bloc['membres']:
-            writer.writerow([s['nom'], s['nb_seances_attendues'], s['nb_presents'], s['nb_retards'],
-                              s['nb_hors_kourel_sanction'], s['nb_abs_just'], s['nb_abs_non_just'], f"{s['taux_presence']}%"])
+            writer.writerow([
+                s['nom'], s['nb_seances_attendues'], s['nb_presents'], s['nb_retards'],
+                s['nb_hors_kourel_sanction'], s['nb_abs_just'], s['nb_abs_non_just'],
+                f"{s['taux_presence']}%" if s['taux_presence'] is not None else '—',
+                s.get('nb_prest_attendues', 0), s.get('nb_prest_presents', 0),
+                f"{s.get('taux_prestation')}%" if s.get('taux_prestation') is not None else '—',
+            ])
             for j in s['justifications']:
                 date_str = j['date'].strftime('%d/%m/%Y') if j['date'] else ''
                 writer.writerow(['', f"↳ Justification ({date_str}, {j['seance']})", j['justification']])
