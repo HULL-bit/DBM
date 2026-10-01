@@ -286,12 +286,19 @@ class PresenceSeance(models.Model):
     STATUT_CHOICES = [
         ('present', 'Présent'),
         ('present_retard', 'Présent (retard)'),
+        # Membre DU KOUREL, présent à la séance, mais qui n'a pas presté/participé (sanction,
+        # mise à l'écart temporaire, etc.) — distinct de present_invite ci-dessous.
         ('present_hors_kourel', 'Présent (hors kourel)'),
+        # Membre d'un AUTRE kourel venu assister à cette répétition (voir le bouton "Membres
+        # hors kourel" côté frontend) — sa présence ne compte jamais dans SES statistiques
+        # propres (voir stats_membres), uniquement en surplus.
+        ('present_invite', "Présent (invité d'un autre kourel)"),
         ('absent_non_justifie', 'Absent non justifié'),
         ('absent_justifie', 'Absent justifié'),
     ]
-    # Statuts qui comptent comme une présence effective (retard inclus) pour les taux.
-    STATUTS_PRESENT = ('present', 'present_retard', 'present_hors_kourel')
+    # Statuts qui comptent comme une présence effective (retard et mise à l'écart inclus) pour
+    # les taux — seul present_invite est traité à part (jamais dans le taux propre du membre).
+    STATUTS_PRESENT = ('present', 'present_retard', 'present_hors_kourel', 'present_invite')
 
     seance = models.ForeignKey(SeanceConservatoire, on_delete=models.CASCADE, related_name='presences')
     membre = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='presences_seances')

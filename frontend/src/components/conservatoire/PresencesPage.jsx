@@ -8,7 +8,9 @@ import { ArrowBack, GetApp, Person, Event, Search, FilterList, CheckCircle, Canc
 import api from '../../services/api'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
-const STATUTS_PRESENT = ['present', 'present_retard', 'present_hors_kourel']
+// present_hors_kourel = membre DU kourel présent mais qui n'a pas presté (sanction, etc.).
+// present_invite = membre d'un AUTRE kourel venu assister (concept différent).
+const STATUTS_PRESENT = ['present', 'present_retard', 'present_hors_kourel', 'present_invite']
 
 function StatCard({ label, value, color, icon }) {
   return (
@@ -96,9 +98,10 @@ export default function PresencesPage({ onBack }) {
           }
         }
         const e = byId[p.membre]
-        // Hors kourel, ou kourel de cette séance différent de ses propres kourels : exclu
-        // de la répartition répétitions/prestations (même logique que le backend).
-        const estPropre = p.statut !== 'present_hors_kourel' && kourelMembresIndex[p.membre]?.has(s.kourel)
+        // Invité d'un autre kourel, ou kourel de cette séance différent de ses propres
+        // kourels : exclu de la répartition répétitions/prestations (même logique que le
+        // backend). "present_hors_kourel" (membre du kourel, pas de prestation) compte, lui.
+        const estPropre = p.statut !== 'present_invite' && kourelMembresIndex[p.membre]?.has(s.kourel)
         if (!estPropre) return
         const present = STATUTS_PRESENT.includes(p.statut)
         const absent = p.statut === 'absent_non_justifie' || p.statut === 'absent_justifie'
@@ -279,15 +282,19 @@ export default function PresencesPage({ onBack }) {
                                 <Grid container spacing={2}>
                                   <Grid item xs={12} sm={6}>
                                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'success.main', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                                      <CheckCircle sx={{ fontSize: 14 }} /> Présents ({presences.filter(p => p.statut === 'present' || p.statut === 'present_retard').length})
+                                      <CheckCircle sx={{ fontSize: 14 }} /> Présents ({presences.filter(p => p.statut === 'present' || p.statut === 'present_retard' || p.statut === 'present_hors_kourel').length})
                                     </Typography>
-                                    {presences.filter(p => p.statut === 'present' || p.statut === 'present_retard').map(p => (
+                                    {presences.filter(p => p.statut === 'present' || p.statut === 'present_retard' || p.statut === 'present_hors_kourel').map(p => (
                                       <Box key={p.id || p.membre} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
                                         <Avatar sx={{ width: 22, height: 22, fontSize: '0.6rem', bgcolor: C.vert }}>{(p.membre_nom || '?')[0]}</Avatar>
-                                        <Typography variant="caption">{p.membre_nom || `#${p.membre}`}{p.statut === 'present_retard' ? ' (retard)' : ''}</Typography>
+                                        <Typography variant="caption">
+                                          {p.membre_nom || `#${p.membre}`}
+                                          {p.statut === 'present_retard' ? ' (retard)' : ''}
+                                          {p.statut === 'present_hors_kourel' ? ' (hors kourel — n\'a pas presté)' : ''}
+                                        </Typography>
                                       </Box>
                                     ))}
-                                    {presences.filter(p => p.statut === 'present' || p.statut === 'present_retard').length === 0 && <Typography variant="caption" color="text.secondary">—</Typography>}
+                                    {presences.filter(p => p.statut === 'present' || p.statut === 'present_retard' || p.statut === 'present_hors_kourel').length === 0 && <Typography variant="caption" color="text.secondary">—</Typography>}
                                   </Grid>
                                   <Grid item xs={12} sm={6}>
                                     <Typography variant="caption" sx={{ fontWeight: 700, color: 'error.main', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
@@ -306,12 +313,12 @@ export default function PresencesPage({ onBack }) {
                                     ))}
                                     {presences.filter(p => p.statut === 'absent_justifie' || p.statut === 'absent_non_justifie').length === 0 && <Typography variant="caption" color="text.secondary">—</Typography>}
                                   </Grid>
-                                  {presences.some(p => p.statut === 'present_hors_kourel') && (
+                                  {presences.some(p => p.statut === 'present_invite') && (
                                     <Grid item xs={12}>
                                       <Typography variant="caption" sx={{ fontWeight: 700, color: '#1565C0', display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
-                                        Invités hors kourel ({presences.filter(p => p.statut === 'present_hors_kourel').length})
+                                        Invités d'un autre kourel ({presences.filter(p => p.statut === 'present_invite').length})
                                       </Typography>
-                                      {presences.filter(p => p.statut === 'present_hors_kourel').map(p => (
+                                      {presences.filter(p => p.statut === 'present_invite').map(p => (
                                         <Box key={p.id || p.membre} sx={{ display: 'flex', alignItems: 'center', gap: 0.75, py: 0.25 }}>
                                           <Avatar sx={{ width: 22, height: 22, fontSize: '0.6rem', bgcolor: '#1565C0' }}>{(p.membre_nom || '?')[0]}</Avatar>
                                           <Typography variant="caption">{p.membre_nom || `#${p.membre}`}</Typography>
@@ -361,9 +368,14 @@ export default function PresencesPage({ onBack }) {
                                     dont {m.nb_abs_justifiees} justifiée(s), {m.nb_abs_non_justifiees} non justifiée(s)
                                   </Typography>
                                 )}
+                                {m.nb_hors_kourel_sanction > 0 && (
+                                  <Typography variant="caption" color="text.secondary" display="block" sx={{ fontSize: '0.68rem' }}>
+                                    dont {m.nb_hors_kourel_sanction} présent(s) sans prestation (hors kourel)
+                                  </Typography>
+                                )}
                                 {m.nb_hors_kourel > 0 && (
                                   <Chip
-                                    size="small" label={`+${m.nb_hors_kourel} présence(s) hors kourel`}
+                                    size="small" label={`+${m.nb_hors_kourel} invité(s) d'un autre kourel`}
                                     sx={{ mt: 0.5, bgcolor: '#E3F2FD', color: '#1565C0', fontSize: '0.65rem', height: 20 }}
                                   />
                                 )}

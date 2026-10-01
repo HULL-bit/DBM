@@ -42,11 +42,13 @@ function StatCard({ label, value, color, icon }) {
   )
 }
 
-const STATUTS_PRESENT = ['present', 'present_retard', 'present_hors_kourel']
+// present_hors_kourel = membre DU kourel présent mais qui n'a pas presté (sanction, etc.).
+// present_invite = membre d'un AUTRE kourel venu assister (concept différent, voir plus bas).
+const STATUTS_PRESENT = ['present', 'present_retard', 'present_hors_kourel', 'present_invite']
 const STATUT_BG = {
   present: '#E8F5E9',
   present_retard: '#FFF8E1',
-  present_hors_kourel: '#E3F2FD',
+  present_hors_kourel: '#EDE7F6',
   absent_justifie: '#FFF3E0',
   absent_non_justifie: '#FFEBEE',
 }
@@ -155,11 +157,13 @@ function SeanceDetailDialog({ s, canManage, onClose, onEdit, onDelete, onPresenc
             <Grid container spacing={1}>
               <Grid item xs={6}>
                 <Typography variant="caption" sx={{ fontWeight: 600, color: 'success.main', display: 'block', mb: 0.5 }}>
-                  Présents ({presences.filter(p => p.statut === 'present' || p.statut === 'present_retard').length})
+                  Présents ({presences.filter(p => p.statut === 'present' || p.statut === 'present_retard' || p.statut === 'present_hors_kourel').length})
                 </Typography>
-                {presences.filter(p => p.statut === 'present' || p.statut === 'present_retard').map(p => (
+                {presences.filter(p => p.statut === 'present' || p.statut === 'present_retard' || p.statut === 'present_hors_kourel').map(p => (
                   <Typography key={p.id || p.membre} variant="caption" display="block" color="text.secondary">
-                    • {p.membre_nom || `#${p.membre}`}{p.statut === 'present_retard' ? ' (retard)' : ''}
+                    • {p.membre_nom || `#${p.membre}`}
+                    {p.statut === 'present_retard' ? ' (retard)' : ''}
+                    {p.statut === 'present_hors_kourel' ? ' (hors kourel — n\'a pas presté)' : ''}
                   </Typography>
                 ))}
               </Grid>
@@ -173,12 +177,12 @@ function SeanceDetailDialog({ s, canManage, onClose, onEdit, onDelete, onPresenc
                   </Typography>
                 ))}
               </Grid>
-              {presences.some(p => p.statut === 'present_hors_kourel') && (
+              {presences.some(p => p.statut === 'present_invite') && (
                 <Grid item xs={12}>
                   <Typography variant="caption" sx={{ fontWeight: 600, color: '#1565C0', display: 'block', mb: 0.5, mt: 0.5 }}>
-                    Invités hors kourel ({presences.filter(p => p.statut === 'present_hors_kourel').length})
+                    Invités d'un autre kourel ({presences.filter(p => p.statut === 'present_invite').length})
                   </Typography>
-                  {presences.filter(p => p.statut === 'present_hors_kourel').map(p => (
+                  {presences.filter(p => p.statut === 'present_invite').map(p => (
                     <Typography key={p.id || p.membre} variant="caption" display="block" color="text.secondary">
                       • {p.membre_nom || `#${p.membre}`}
                     </Typography>
@@ -400,7 +404,7 @@ export default function SeancesPage({ onBack }) {
 
   const handleAjouterExterne = () => {
     if (!externeMembre) return
-    setPresencesForm(p => ({ ...p, [externeMembre]: { statut: 'present_hors_kourel', remarque: '' } }))
+    setPresencesForm(p => ({ ...p, [externeMembre]: { statut: 'present_invite', remarque: '' } }))
     setOpenAjoutExterne(false); setExterneKourel(''); setExterneMembre('')
   }
 
@@ -709,7 +713,7 @@ export default function SeancesPage({ onBack }) {
                     {externes.map(([membreId]) => (
                       <Box key={membreId} sx={{ display: 'flex', gap: 2, alignItems: 'center', p: 1.5, bgcolor: '#E3F2FD', borderRadius: 2 }}>
                         <Typography variant="body2" sx={{ flex: 1, fontWeight: 500 }}>{getUserName(membreId)}</Typography>
-                        <Chip label="Présent — hors kourel" size="small" sx={{ bgcolor: '#BBDEFB', color: '#0D47A1', fontWeight: 600 }} />
+                        <Chip label="Invité d'un autre kourel" size="small" sx={{ bgcolor: '#BBDEFB', color: '#0D47A1', fontWeight: 600 }} />
                         <IconButton size="small" onClick={() => setPresencesForm(p => { const n = { ...p }; delete n[membreId]; return n })}>
                           <Delete fontSize="small" />
                         </IconButton>
