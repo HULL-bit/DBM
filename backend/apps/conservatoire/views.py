@@ -365,6 +365,9 @@ class SeanceConservatoireViewSet(AuditedModelViewSet):
         data = request.data.get('presences', [])
         kourel_membres = set(seance.kourel.membres.values_list('id', flat=True))
         statuts_valides = {s for s, _ in PresenceSeance.STATUT_CHOICES}
+        from django.contrib.auth import get_user_model
+        User = get_user_model()
+        noms_externes = []
         for item in data:
             mid = item.get('membre')
             statut = item.get('statut', 'present')
@@ -379,8 +382,15 @@ class SeanceConservatoireViewSet(AuditedModelViewSet):
                 membre_id=mid,
                 defaults={'statut': statut, 'remarque': item.get('remarque', '')}
             )
-        log_audit(request, 'modification', rubrique='conservatoire', objet=seance,
-                  description=f"Présences enregistrées : {seance} ({len(data)} membre(s))")
+            if statut == 'present_hors_kourel':
+                membre = User.objects.filter(id=mid).first()
+                if membre:
+                    noms_externes.append(membre.get_full_name())
+
+        description = f"Présences enregistrées : {seance} ({len(data)} membre(s))"
+        if noms_externes:
+            description += f" — invité(s) hors kourel : {', '.join(noms_externes)}"
+        log_audit(request, 'modification', rubrique='conservatoire', objet=seance, description=description)
         return Response(SeanceConservatoireSerializer(seance).data)
 
     @action(detail=True, methods=['post'], permission_classes=[IsAdminOrJewrinConservatoire()])
