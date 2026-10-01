@@ -46,6 +46,7 @@ const STATUTS_PRESENT = ['present', 'present_retard', 'present_hors_kourel']
 const STATUT_BG = {
   present: '#E8F5E9',
   present_retard: '#FFF8E1',
+  present_hors_kourel: '#E3F2FD',
   absent_justifie: '#FFF3E0',
   absent_non_justifie: '#FFEBEE',
 }
@@ -686,6 +687,7 @@ export default function SeancesPage({ onBack }) {
                     <TextField select size="small" value={v.statut} onChange={e => setPresencesForm(p => ({ ...p, [membreId]: { ...p[membreId], statut: e.target.value } }))} sx={{ minWidth: 190 }}>
                       <MenuItem value="present">Présent</MenuItem>
                       <MenuItem value="present_retard">Présent (retard)</MenuItem>
+                      <MenuItem value="present_hors_kourel">Présent (hors kourel)</MenuItem>
                       <MenuItem value="absent_justifie">Absent justifié</MenuItem>
                       <MenuItem value="absent_non_justifie">Absent non justifié</MenuItem>
                     </TextField>
