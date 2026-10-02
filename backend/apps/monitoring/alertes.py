@@ -27,7 +27,10 @@ logger = logging.getLogger('dbm.monitoring')
 # loggée, ce qui redéclencherait le handler, etc.
 _local = threading.local()
 
-NIVEAUX_AVEC_EMAIL = {'critique', 'erreur'}
+# Seuls les incidents 'critique' (ex: base de données indisponible) envoient un email : les
+# erreurs 500 courantes ('erreur') sont trop fréquentes/peu pertinentes par email et restent
+# de toute façon consultables dans Journal de sécurité > Incidents techniques.
+NIVEAUX_AVEC_EMAIL = {'critique'}
 
 
 def _normaliser_chemin(chemin):

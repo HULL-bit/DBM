@@ -37,7 +37,10 @@ class ErreurServeurTests(TestCase):
     def setUp(self):
         self.client = APIClient(raise_request_exception=False)
 
-    def test_erreur_500_cree_incident_et_email(self):
+    def test_erreur_500_cree_incident_sans_email(self):
+        """Une erreur 500 courante (niveau 'erreur') crée bien un incident consultable dans
+        le tableau de bord, mais n'envoie plus d'email — trop fréquent/peu pertinent par
+        email (voir NIVEAUX_AVEC_EMAIL dans alertes.py)."""
         r = self.client.get('/plante/1/')
         self.assertEqual(r.status_code, 500)
         incident = IncidentSysteme.objects.get()
@@ -46,30 +49,43 @@ class ErreurServeurTests(TestCase):
         self.assertEqual(incident.chemin, '/plante/1/')
         self.assertEqual(incident.statut_http, 500)
         self.assertTrue(incident.request_id)
-        self.assertEqual(len(mail.outbox), 1)
-        self.assertEqual(mail.outbox[0].to, ['alerte@test.sn'])
-        self.assertIn('boum', mail.outbox[0].subject)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_meme_erreur_regroupee_sans_spam(self):
         for pk in (1, 2, 3):
             self.client.get(f'/plante/{pk}/')
         incident = IncidentSysteme.objects.get()
         self.assertEqual(incident.occurrences, 3)
-        self.assertEqual(len(mail.outbox), 1)
+        self.assertEqual(len(mail.outbox), 0)
 
     def test_request_id_renvoye(self):
         r = self.client.get('/ok/', HTTP_X_REQUEST_ID='abc123')
         self.assertEqual(r['X-Request-ID'], 'abc123')
 
+    def test_meme_incident_critique_regroupe_sans_spam_email(self):
+        """Le dédoublonnage (1 email max par incident et par intervalle) s'applique aux
+        incidents qui envoient effectivement un email, c'est-à-dire 'critique'."""
+        for _ in range(3):
+            signaler_incident('base de données injoignable', niveau='critique')
+        incident = IncidentSysteme.objects.get()
+        self.assertEqual(incident.occurrences, 3)
+        self.assertEqual(len(mail.outbox), 1)
+
     def test_plafond_emails_par_heure(self):
         with self.settings(ALERT_EMAIL_MAX_PAR_HEURE=2):
             for i in range(5):
-                signaler_incident(f'erreur distincte {chr(65 + i)}')
+                signaler_incident(f'incident critique distinct {chr(65 + i)}', niveau='critique')
         self.assertEqual(IncidentSysteme.objects.count(), 5)
         self.assertEqual(len(mail.outbox), 2)
 
     def test_avertissement_sans_email(self):
         signaler_incident('lent', niveau='avertissement')
+        self.assertEqual(len(mail.outbox), 0)
+
+    def test_erreur_sans_email(self):
+        """Niveau 'erreur' (défaut) : incident enregistré, pas d'email (voir
+        NIVEAUX_AVEC_EMAIL)."""
+        signaler_incident('erreur ponctuelle')
         self.assertEqual(len(mail.outbox), 0)
 
     def test_incident_resolu_puis_reapparu(self):
@@ -97,10 +113,15 @@ class EndpointsTests(TestCase):
         }, format='json')
         self.assertEqual(r.status_code, 201)
         self.client.force_authenticate(self.membre)
-        self.client.post('/api/monitoring/erreur-client/', {'source': 'web', 'message': 'TypeError x'}, format='json')
+        self.client.post('/api/monitoring/erreur-client/', {
+            'source': 'web', 'message': 'TypeError x', 'niveau': 'critique',
+        }, format='json')
         self.assertEqual(IncidentSysteme.objects.filter(source='mobile').count(), 1)
         self.assertEqual(IncidentSysteme.objects.get(source='web').utilisateur, self.membre)
-        self.assertEqual(len(mail.outbox), 2)
+        # Seul le signalement explicitement 'critique' envoie un email (voir NIVEAUX_AVEC_EMAIL) ;
+        # l'erreur 'mobile' par défaut (niveau 'erreur') n'en envoie pas.
+        self.assertEqual(len(mail.outbox), 1)
+        self.assertIn('TypeError x', mail.outbox[0].subject)
 
     def test_incidents_reserves_admin(self):
         signaler_incident('erreur Y')
