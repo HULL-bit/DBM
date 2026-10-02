@@ -21,6 +21,20 @@ def send_webpush_to_user(user, titre, message, lien=''):
         logger.warning("pywebpush non installé : notifications push navigateur désactivées.")
         return
 
+    # La clé VAPID est une config globale, fixe pour tout le process : si elle est mal
+    # formée, ça échouera de façon identique pour CHAQUE abonné et CHAQUE notification —
+    # autant le détecter une seule fois ici plutôt que de spammer le journal d'incidents
+    # d'une erreur par abonné à chaque envoi.
+    try:
+        from py_vapid import Vapid
+        Vapid.from_string(vapid_private_key)
+    except Exception:
+        logger.warning(
+            "VAPID_PRIVATE_KEY mal formée : notifications push navigateur désactivées "
+            "jusqu'à correction de la variable d'environnement."
+        )
+        return
+
     from .models import AbonnementPush
 
     abonnements = AbonnementPush.objects.filter(user=user)
