@@ -274,10 +274,14 @@ LOGGING = {
     },
 }
 
-# JWT
+# JWT — sessions longues façon WhatsApp : les membres veulent rester connectés en
+# permanence pour recevoir les notifications, pas se reconnecter sans cesse. Avec
+# ROTATE_REFRESH_TOKENS, un refresh token est réémis à chaque rafraîchissement : tant que
+# l'appli est utilisée au moins une fois par REFRESH_TOKEN_LIFETIME, la session ne se
+# termine jamais vraiment (jusqu'à déconnexion explicite).
 SIMPLE_JWT = {
-    'ACCESS_TOKEN_LIFETIME': timedelta(hours=24),
-    'REFRESH_TOKEN_LIFETIME': timedelta(days=7),
+    'ACCESS_TOKEN_LIFETIME': timedelta(days=30),
+    'REFRESH_TOKEN_LIFETIME': timedelta(days=180),
     'ROTATE_REFRESH_TOKENS': True,
     'AUTH_HEADER_TYPES': ('Bearer',),
 }
