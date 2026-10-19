@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "1034794833511",
+    "project_id": "dbm-wksm",
+    "storage_bucket": "dbm-wksm.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:1034794833511:android:59ef929cdc0ae1ad62e6c2",
+        "android_client_info": {
+          "package_name": "com.dbm.dbm_mobile"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAHwHvQyE4HtGlEun_auD2A9Y7duZH8izg"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

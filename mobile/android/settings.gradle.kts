@@ -24,7 +24,7 @@ plugins {
     // Notifications push (FCM) : déclaré ici pour résolution, mais appliqué seulement si
     // google-services.json est présent (voir app/build.gradle.kts) — le build continue de
     // fonctionner normalement tant que Firebase n'est pas encore configuré.
-    id("com.google.gms.google-services") version "4.4.2" apply false
+    id("com.google.gms.google-services") version "4.5.0" apply false
 }
 
 include(":app")
