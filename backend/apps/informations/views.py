@@ -158,7 +158,14 @@ class EvenementViewSet(AuditedModelViewSet):
     @action(detail=True, methods=['post'])
     def like(self, request, pk=None):
         evt = self.get_object()
-        EvenementLike.objects.get_or_create(evenement=evt, membre=request.user)
+        _, created = EvenementLike.objects.get_or_create(evenement=evt, membre=request.user)
+        if created and evt.cree_par_id and evt.cree_par_id != request.user.id:
+            from apps.communication.notifications import creer_notifications
+            creer_notifications(
+                [evt.cree_par_id], 'evenement',
+                f"{request.user.get_full_name()} a aimé votre événement",
+                evt.titre, lien='/informations/xew-xew-yi'
+            )
         return Response({'detail': 'OK'})
 
     @action(detail=True, methods=['post'])
@@ -182,6 +189,14 @@ class EvenementViewSet(AuditedModelViewSet):
             return Response({'detail': 'Texte requis.'}, status=400)
         parent = EvenementComment.objects.filter(id=parent_id, evenement=evt).first() if parent_id else None
         c = EvenementComment.objects.create(evenement=evt, membre=request.user, parent=parent, texte=texte)
+        destinataires = {uid for uid in [evt.cree_par_id, parent.membre_id if parent else None] if uid and uid != request.user.id}
+        if destinataires:
+            from apps.communication.notifications import creer_notifications
+            creer_notifications(
+                destinataires, 'evenement',
+                f"{request.user.get_full_name()} a commenté {'votre réponse sur ' if parent else ''}votre événement" if parent else f"{request.user.get_full_name()} a commenté votre événement",
+                texte[:200], lien='/informations/xew-xew-yi'
+            )
         return Response(EvenementCommentSerializer(c).data, status=201)
 
 
@@ -302,7 +317,14 @@ class NewsPostViewSet(AuditedModelViewSet):
     @action(detail=True, methods=['post'])
     def like(self, request, pk=None):
         post = self.get_object()
-        NewsLike.objects.get_or_create(post=post, membre=request.user)
+        _, created = NewsLike.objects.get_or_create(post=post, membre=request.user)
+        if created and post.auteur_id and post.auteur_id != request.user.id:
+            from apps.communication.notifications import creer_notifications
+            creer_notifications(
+                [post.auteur_id], 'info',
+                f"{request.user.get_full_name()} a aimé votre publication",
+                post.titre or post.contenu[:100], lien='/informations/xew-xew-yi'
+            )
         return Response({'detail': 'OK'})
 
     @action(detail=True, methods=['post'])
@@ -340,4 +362,12 @@ class NewsPostViewSet(AuditedModelViewSet):
         if parent_id:
             parent = NewsComment.objects.filter(id=parent_id, post=post).first()
         c = NewsComment.objects.create(post=post, membre=request.user, parent=parent, texte=texte)
+        destinataires = {uid for uid in [post.auteur_id, parent.membre_id if parent else None] if uid and uid != request.user.id}
+        if destinataires:
+            from apps.communication.notifications import creer_notifications
+            titre_notif = (
+                f"{request.user.get_full_name()} a commenté votre réponse"
+                if parent else f"{request.user.get_full_name()} a commenté votre publication"
+            )
+            creer_notifications(destinataires, 'info', titre_notif, texte[:200], lien='/informations/xew-xew-yi')
         return Response(NewsCommentSerializer(c).data, status=201)
