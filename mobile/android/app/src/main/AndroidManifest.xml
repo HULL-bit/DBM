@@ -17,7 +17,7 @@
              les messages FCM reçus app au premier plan (voir push_notification_service.dart). -->
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_channel_id"
-            android:value="dbm_notifications" />
+            android:value="dbm_notifications_v2" />
         <meta-data
             android:name="com.google.firebase.messaging.default_notification_icon"
             android:resource="@mipmap/ic_launcher" />

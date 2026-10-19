@@ -9,11 +9,17 @@ import 'package:permission_handler/permission_handler.dart';
 import '../../core/constants/api_endpoints.dart';
 import 'api_service.dart';
 
+// v2 : nouvel identifiant de canal — les propriétés d'un canal Android (son, vibration...)
+// sont figées dès sa première création et ne peuvent plus être changées après coup ; un
+// appareil ayant déjà l'ancien canal "dbm_notifications" (sans son explicite) resterait
+// silencieux malgré cette mise à jour sans ce changement d'identifiant.
 const _canalNotifications = AndroidNotificationChannel(
-  'dbm_notifications',
+  'dbm_notifications_v2',
   'Notifications DBM',
   description: 'Messages, événements, LAAJ et autres notifications de la plateforme',
   importance: Importance.high,
+  playSound: true,
+  enableVibration: true,
 );
 
 /// Gère une notification FCM reçue pendant que l'appli est en arrière-plan ou fermée.
@@ -84,8 +90,9 @@ class PushNotificationService {
               _canalNotifications.id, _canalNotifications.name,
               channelDescription: _canalNotifications.description,
               importance: Importance.high, priority: Priority.high,
+              playSound: true, enableVibration: true,
             ),
-            iOS: const DarwinNotificationDetails(),
+            iOS: const DarwinNotificationDetails(presentSound: true, presentAlert: true, presentBadge: true),
           ),
         );
       });
