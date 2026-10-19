@@ -65,3 +65,8 @@ android/key.properties
 android/app/upload-keystore.jks
 *.jks
 *.keystore
+
+# Clé de compte de service Firebase (accès admin complet) — ne jamais committer ; elle doit
+# être collée dans la variable d'environnement FIREBASE_CREDENTIALS_JSON sur Render, jamais
+# déposée dans le dépôt. google-services.json (client, sans risque) reste suivi par Git.
+*firebase-adminsdk*.json
