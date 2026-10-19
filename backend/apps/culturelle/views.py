@@ -50,18 +50,27 @@ class KamilViewSet(AuditedModelViewSet):
         """Assigner les membres aux JUKKIs. Payload: { "assignations": { "1": membre_id, "2": membre_id, ... } }"""
         kamil = self.get_object()
         assignations = request.data.get('assignations', {})
+        # Les membres référencés doivent réellement exister (un membre supprimé/désactivé
+        # entre le chargement de la page et l'enregistrement ferait planter la mise à jour
+        # avec une erreur de contrainte de clé étrangère) : on vérifie leur existence d'abord
+        # et on ignore silencieusement les références invalides plutôt que de faire 500.
+        ids_demandes = {int(mid) for mid in assignations.values() if mid}
+        ids_valides = set(User.objects.filter(id__in=ids_demandes).values_list('id', flat=True))
+
         membres_notifies = set()
         for numero_str, membre_id in assignations.items():
             try:
                 numero = int(numero_str)
-                if 1 <= numero <= 30:
-                    Jukki.objects.filter(kamil=kamil, numero=numero).update(
-                        membre_id=membre_id if membre_id else None
-                    )
-                    if membre_id:
-                        membres_notifies.add(int(membre_id))
             except (ValueError, TypeError):
                 continue
+            if not (1 <= numero <= 30):
+                continue
+            membre_id_int = int(membre_id) if membre_id else None
+            if membre_id_int is not None and membre_id_int not in ids_valides:
+                continue
+            Jukki.objects.filter(kamil=kamil, numero=numero).update(membre_id=membre_id_int)
+            if membre_id_int:
+                membres_notifies.add(membre_id_int)
         kamil.refresh_from_db()
 
         if membres_notifies:

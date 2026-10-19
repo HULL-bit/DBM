@@ -370,12 +370,19 @@ class SeanceConservatoireViewSet(AuditedModelViewSet):
         statuts_valides = {s for s, _ in PresenceSeance.STATUT_CHOICES}
         from django.contrib.auth import get_user_model
         User = get_user_model()
+        # Un membre hors kourel ("invité") n'est pas forcément dans kourel_membres : il faut
+        # vérifier qu'il existe réellement, sinon la mise à jour plante (contrainte de clé
+        # étrangère) si l'ID est périmé/invalide (membre supprimé entre-temps, etc.).
+        ids_demandes = {item.get('membre') for item in data if item.get('membre')}
+        ids_existants = set(User.objects.filter(id__in=ids_demandes).values_list('id', flat=True))
         noms_externes = []
         for item in data:
             mid = item.get('membre')
             statut = item.get('statut', 'present')
             if statut not in statuts_valides:
                 statut = 'present'
+            if mid not in ids_existants:
+                continue
             # Un membre absent du kourel ne peut être marqué que "invité" ;
             # sinon on ignore la ligne pour ne pas créer de présence incohérente.
             if mid not in kourel_membres and statut != 'present_invite':
