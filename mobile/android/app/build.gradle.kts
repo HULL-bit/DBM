@@ -25,6 +25,8 @@ android {
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17
+        // Requis par flutter_local_notifications (notifications push).
+        isCoreLibraryDesugaringEnabled = true
     }
 
     kotlinOptions {
@@ -66,4 +68,16 @@ android {
 
 flutter {
     source = "../.."
+}
+
+dependencies {
+    // Requis par flutter_local_notifications (notifications push).
+    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.4")
+}
+
+// Notifications push (FCM) : n'applique le plugin Google Services que si google-services.json
+// est présent (téléchargé depuis la console Firebase). Tant qu'il n'y est pas, le build reste
+// fonctionnel sans Firebase — comme pour key.properties ci-dessus.
+if (rootProject.file("app/google-services.json").exists()) {
+    apply(plugin = "com.google.gms.google-services")
 }

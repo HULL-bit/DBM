@@ -13,3 +13,4 @@ boto3>=1.34
 flask
 requests
 pywebpush>=2.0
+firebase-admin>=6.5

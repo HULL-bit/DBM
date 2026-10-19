@@ -7,6 +7,7 @@ import 'core/routes/app_router.dart';
 import 'core/theme/app_theme.dart';
 import 'data/providers/auth_provider.dart';
 import 'data/services/signalement_service.dart';
+import 'data/services/push_notification_service.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -46,6 +47,8 @@ class _MyAppState extends State<MyApp> {
     super.initState();
     _authProvider = AuthProvider()..checkAuth();
     _appRouter = AppRouter(_authProvider);
+    PushNotificationService().attacherRouter(_appRouter.router);
+    PushNotificationService().initialiser();
   }
 
   @override

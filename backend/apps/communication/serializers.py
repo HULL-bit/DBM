@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal, AbonnementPush
+from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal, AbonnementPush, AppareilFCM
 
 
 class MessageSerializer(serializers.ModelSerializer):
@@ -104,6 +104,13 @@ class AbonnementPushSerializer(serializers.ModelSerializer):
         model = AbonnementPush
         fields = ['id', 'endpoint', 'cle_p256dh', 'cle_auth', 'date_creation']
         read_only_fields = ['date_creation']
+
+
+class AppareilFCMSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = AppareilFCM
+        fields = ['id', 'token', 'plateforme', 'date_creation', 'derniere_utilisation']
+        read_only_fields = ['date_creation', 'derniere_utilisation']
 
 
 class NotificationSerializer(serializers.ModelSerializer):

@@ -51,6 +51,7 @@ class ApiEndpoints {
   static const String forums = '/communication/forums/sujets/';
   static const String canaux = '/communication/canaux/';
   static const String messagesCanaux = '/communication/messages-canaux/';
+  static const String pushFcm = '/communication/push/fcm/';
 
   // Sociale
   static const String projetsSociaux = '/sociale/projets-entraide/';

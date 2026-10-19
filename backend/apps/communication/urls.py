@@ -14,5 +14,6 @@ router.register(r'messages-canaux', views.MessageCanalViewSet, basename='message
 urlpatterns = [
     path('communication/push/cle-publique/', views.cle_publique_push),
     path('communication/push/abonnement/', views.abonnement_push),
+    path('communication/push/fcm/', views.appareil_fcm),
     path('communication/', include(router.urls)),
 ]

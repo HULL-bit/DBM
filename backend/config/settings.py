@@ -196,6 +196,13 @@ VAPID_PUBLIC_KEY = os.environ.get('VAPID_PUBLIC_KEY', '')
 VAPID_PRIVATE_KEY = os.environ.get('VAPID_PRIVATE_KEY', '')
 VAPID_CLAIMS_EMAIL = os.environ.get('VAPID_CLAIMS_EMAIL', 'mailto:contact@daara-barakatul-mahaahidi.local')
 
+# Notifications push mobile (Firebase Cloud Messaging) : notification système dans la barre
+# du téléphone (Android/iOS), même appli fermée — équivalent mobile du Web Push ci-dessus.
+# FIREBASE_CREDENTIALS_JSON contient le JSON COMPLET du compte de service Firebase (Project
+# Settings > Service accounts > Generate new private key), collé tel quel dans la variable
+# d'environnement (pas de fichier à déployer, le disque Render étant éphémère).
+FIREBASE_CREDENTIALS_JSON = os.environ.get('FIREBASE_CREDENTIALS_JSON', '')
+
 # Limite d'upload (PDF bibliothèque, pièces jointes de canaux : images/documents/audio/vidéo)
 DATA_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024
 FILE_UPLOAD_MAX_MEMORY_SIZE = 50 * 1024 * 1024

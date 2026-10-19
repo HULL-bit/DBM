@@ -2,6 +2,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/user_model.dart';
 import '../services/api_service.dart';
+import '../services/push_notification_service.dart';
 import '../../core/constants/api_endpoints.dart';
 
 enum AuthStatus { unknown, authenticated, unauthenticated }
@@ -56,6 +57,7 @@ class AuthProvider extends ChangeNotifier {
       _user = UserModel.fromJson(data);
       _status = AuthStatus.authenticated;
       unawaited(_chargerPermissions());
+      unawaited(PushNotificationService().enregistrerApresConnexion());
     } catch (e) {
       _status = AuthStatus.unauthenticated;
       await _api.clearTokens();
@@ -85,6 +87,7 @@ class AuthProvider extends ChangeNotifier {
       }
       _status = AuthStatus.authenticated;
       unawaited(_chargerPermissions());
+      unawaited(PushNotificationService().enregistrerApresConnexion());
       notifyListeners();
       return true;
     } on ApiException catch (e) {
@@ -155,6 +158,7 @@ class AuthProvider extends ChangeNotifier {
   }
 
   Future<void> logout() async {
+    await PushNotificationService().desenregistrerADeconnexion();
     await _api.clearTokens();
     _user = null;
     _permissions = null;

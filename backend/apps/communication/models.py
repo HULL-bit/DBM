@@ -169,6 +169,26 @@ class AbonnementPush(models.Model):
         return f"Abonnement push de {self.user.get_full_name()}"
 
 
+class AppareilFCM(models.Model):
+    """Token Firebase Cloud Messaging d'un appareil mobile (Android/iOS) pour un utilisateur :
+    équivalent mobile d'AbonnementPush, pour les notifications dans la barre système du
+    téléphone, même appli fermée."""
+    PLATEFORME_CHOICES = [('android', 'Android'), ('ios', 'iOS')]
+
+    user = models.ForeignKey(CustomUser, on_delete=models.CASCADE, related_name='appareils_fcm')
+    token = models.CharField(max_length=300, unique=True)
+    plateforme = models.CharField(max_length=10, choices=PLATEFORME_CHOICES, default='android')
+    date_creation = models.DateTimeField(auto_now_add=True)
+    derniere_utilisation = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        verbose_name = 'Appareil FCM'
+        verbose_name_plural = 'Appareils FCM'
+
+    def __str__(self):
+        return f"Appareil {self.plateforme} de {self.user.get_full_name()}"
+
+
 class Notification(models.Model):
     TYPE_CHOICES = [
         ('info', 'Information'),

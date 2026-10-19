@@ -10,11 +10,11 @@ from apps.accounts.permissions import (
     AuditedModelViewSet,
 )
 
-from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal, AbonnementPush
+from .models import Message, CategorieForum, SujetForum, ReponseForum, Notification, Canal, MembreCanal, MessageCanal, AbonnementPush, AppareilFCM
 from .push import send_push_to_user
 from .serializers import (
     MessageSerializer, CategorieForumSerializer, SujetForumSerializer, ReponseForumSerializer, NotificationSerializer,
-    CanalSerializer, MembreCanalSerializer, MessageCanalSerializer, AbonnementPushSerializer,
+    CanalSerializer, MembreCanalSerializer, MessageCanalSerializer, AbonnementPushSerializer, AppareilFCMSerializer,
 )
 
 
@@ -48,6 +48,31 @@ def abonnement_push(request):
         defaults={'user': request.user, 'cle_p256dh': cle_p256dh, 'cle_auth': cle_auth},
     )
     return Response(AbonnementPushSerializer(abo).data, status=status.HTTP_201_CREATED)
+
+
+@api_view(['POST', 'DELETE'])
+@permission_classes([IsAuthenticated])
+def appareil_fcm(request):
+    """POST : enregistre (ou met à jour) le token FCM de l'appareil mobile courant, pour
+    les notifications système (barre de notification du téléphone, appli fermée incluse).
+    DELETE : désenregistre cet appareil (envoyer `token` dans le corps — à la déconnexion)."""
+    token = request.data.get('token')
+    if not token:
+        return Response({'detail': 'token requis.'}, status=status.HTTP_400_BAD_REQUEST)
+
+    if request.method == 'DELETE':
+        AppareilFCM.objects.filter(token=token).delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
+
+    plateforme = request.data.get('plateforme') or 'android'
+    if plateforme not in ('android', 'ios'):
+        plateforme = 'android'
+
+    appareil, _ = AppareilFCM.objects.update_or_create(
+        token=token,
+        defaults={'user': request.user, 'plateforme': plateforme},
+    )
+    return Response(AppareilFCMSerializer(appareil).data, status=status.HTTP_201_CREATED)
 
 
 class MessageViewSet(viewsets.ModelViewSet):
