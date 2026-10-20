@@ -209,7 +209,12 @@ export default function Canaux() {
       const nouveaux = data.results || data
       if (nouveaux.length > 0) {
         derniereMajRef.current = nouveaux[nouveaux.length - 1].id
-        setMessages((prev) => (incremental ? [...prev, ...nouveaux] : nouveaux))
+        setMessages((prev) => {
+          if (!incremental) return nouveaux
+          const idsExistants = new Set(prev.map((m) => m.id))
+          const aAjouter = nouveaux.filter((m) => !idsExistants.has(m.id))
+          return aAjouter.length > 0 ? [...prev, ...aAjouter] : prev
+        })
       } else if (!incremental) {
         setMessages([])
       }
