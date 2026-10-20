@@ -78,8 +78,10 @@ def send_webpush_to_user(user, titre, message, lien=''):
             )
         except WebPushException as e:
             status = getattr(e.response, 'status_code', None)
-            if status in (404, 410):
-                # Abonnement expiré/révoqué côté navigateur : on le supprime.
+            if status in (404, 410, 401, 403):
+                # Abonnement expiré/révoqué, ou rejeté car signé avec une clé VAPID différente
+                # de celle utilisée à l'abonnement (ex. rotation de VAPID_PRIVATE_KEY) : dans
+                # les deux cas l'abonnement est définitivement mort, on le supprime.
                 abo.delete()
             else:
                 logger.warning("Échec envoi push à %s: %s", user.username, e)

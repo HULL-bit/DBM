@@ -33,19 +33,30 @@ export async function initPush() {
     }
     if (permission !== 'granted') return
 
-    const existing = await registration.pushManager.getSubscription()
-    if (existing) {
-      await envoyerAbonnement(existing)
-      return
-    }
-
     const { data } = await api.get('/communication/push/cle-publique/')
     if (!data.cle_publique) return
+    const cleActuelle = urlBase64ToUint8Array(data.cle_publique)
 
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: urlBase64ToUint8Array(data.cle_publique),
-    })
+    let subscription = await registration.pushManager.getSubscription()
+    if (subscription) {
+      const cleAbonnement = new Uint8Array(subscription.options?.applicationServerKey || [])
+      const memeCle = cleAbonnement.length === cleActuelle.length
+        && cleAbonnement.every((octet, i) => octet === cleActuelle[i])
+      if (!memeCle) {
+        // La clé VAPID a été changée côté serveur (rotation de clé) : cet abonnement, créé
+        // avec l'ancienne clé, est rejeté silencieusement par le service de push du navigateur
+        // (401/403) — il faut se désabonner puis se réabonner avec la nouvelle clé.
+        await subscription.unsubscribe()
+        subscription = null
+      }
+    }
+
+    if (!subscription) {
+      subscription = await registration.pushManager.subscribe({
+        userVisibleOnly: true,
+        applicationServerKey: cleActuelle,
+      })
+    }
     await envoyerAbonnement(subscription)
   } catch (err) {
     console.warn('Notifications push non disponibles :', err)
