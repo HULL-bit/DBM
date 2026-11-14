@@ -5,6 +5,7 @@ from django.utils.encoding import smart_str
 
 from rest_framework import viewsets
 from rest_framework.decorators import action
+from rest_framework.pagination import PageNumberPagination
 from rest_framework.permissions import IsAuthenticated, BasePermission
 from rest_framework.response import Response
 from apps.accounts.permissions import (
@@ -28,6 +29,11 @@ class IsAdminUserOrRole(BasePermission):
     """Autorise is_staff OU role='admin' (CustomUser) OU jewrin conservatoire."""
     def has_permission(self, request, view):
         return has_admin_access(request.user, 'conservatoire')
+
+
+class SeancePagination(PageNumberPagination):
+    page_size_query_param = 'page_size'
+    max_page_size = 1000
 
 
 def _parse_date(value):
@@ -328,6 +334,7 @@ class KourelViewSet(AuditedModelViewSet):
 class SeanceConservatoireViewSet(AuditedModelViewSet):
     serializer_class = SeanceConservatoireSerializer
     permission_classes = [IsAuthenticated]
+    pagination_class = SeancePagination
     filterset_fields = ['kourel', 'type_seance']
     audit_rubrique = 'conservatoire'
     audit_label = 'Séance'

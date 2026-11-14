@@ -36,7 +36,7 @@ export default function Conservatoire() {
       api.get('/conservatoire/albums/').catch(() => ({ data: [] })),
     ]).then(([docs, arch, kou, sea, alb]) => {
       const len = (r) => (r.data?.results || r.data || []).length
-      setCounts({ documents: len(docs), repertoire: len(arch), kourels: len(kou), seances: len(sea), galerie: len(alb) })
+      setCounts({ documents: len(docs), repertoire: len(arch), kourels: len(kou), seances: sea.data?.count ?? len(sea), galerie: len(alb) })
       setLoading(false)
     }).catch(() => setLoading(false))
   }, [])

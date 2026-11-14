@@ -65,4 +65,24 @@ api.interceptors.response.use(
   }
 )
 
+export async function getAllPages(url, config) {
+  const allResults = []
+  let nextUrl = url
+  let requestConfig = config
+
+  while (nextUrl) {
+    const { data } = await api.get(nextUrl, requestConfig)
+    const results = Array.isArray(data) ? data : data?.results
+    if (!Array.isArray(results)) {
+      throw new TypeError('Expected a list or a paginated list response')
+    }
+
+    allResults.push(...results)
+    nextUrl = Array.isArray(data) ? null : data.next
+    requestConfig = undefined
+  }
+
+  return allResults
+}
+
 export default api

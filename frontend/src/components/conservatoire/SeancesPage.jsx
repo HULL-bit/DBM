@@ -9,7 +9,7 @@ import {
   ArrowBack, Add, Edit, Delete, Event, HowToReg, GetApp, AccessTime,
   LocationOn, MusicNote, Group, Visibility, Image as ImageIcon, CalendarMonth,
 } from '@mui/icons-material'
-import api from '../../services/api'
+import api, { getAllPages } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import usePagination from '../../hooks/usePagination'
 import TablePaginationFr from '../ui/TablePaginationFr'
@@ -252,7 +252,7 @@ export default function SeancesPage({ onBack }) {
   const [exporting, setExporting] = useState(false)
 
   const load = () => Promise.all([
-    api.get('/conservatoire/seances/').then(({ data }) => setSeances(data.results || data)).catch(() => {}),
+    getAllPages('/conservatoire/seances/').then(setSeances).catch(() => {}),
     api.get('/conservatoire/kourels/').then(({ data }) => setKourels(data.results || data)).catch(() => {}),
     api.get('/auth/users/').then(({ data }) => setAllUsers(data.results || data || [])).catch(() => {}),
   ]).finally(() => setLoading(false))

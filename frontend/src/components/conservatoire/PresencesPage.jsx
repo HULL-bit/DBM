@@ -5,7 +5,7 @@ import {
   Avatar, Paper, InputAdornment, Tabs, Tab,
 } from '@mui/material'
 import { ArrowBack, GetApp, Person, Event, Search, FilterList, CheckCircle, Cancel, Schedule } from '@mui/icons-material'
-import api from '../../services/api'
+import api, { getAllPages } from '../../services/api'
 
 const C = { vert: '#2D5F3F', or: '#C9A961', vertFonce: '#1e4029' }
 // present_hors_kourel = membre DU kourel présent mais qui n'a pas presté (sanction, etc.).
@@ -60,7 +60,7 @@ export default function PresencesPage({ onBack }) {
 
   useEffect(() => {
     Promise.all([
-      api.get('/conservatoire/seances/').then(({ data }) => setSeances(data.results || data)).catch(() => {}),
+      getAllPages('/conservatoire/seances/').then(setSeances).catch(() => {}),
       api.get('/conservatoire/presences/stats_membres/').then(({ data }) => setStatsMembres(Array.isArray(data) ? data : data?.results || [])).catch(() => {}),
       api.get('/conservatoire/kourels/').then(({ data }) => setKourels(data.results || data)).catch(() => {}),
     ]).finally(() => setLoading(false))
